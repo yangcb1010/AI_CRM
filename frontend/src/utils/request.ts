@@ -5,12 +5,21 @@ import router from '@/router'
 
 const TOKEN_KEY = 'Manager-Token'
 
+// 运行时获取 API 基础路径（支持二级目录部署）
+export function getBasePath(): string {
+  return (window as any).__APP_CONFIG__?.basePath || '/'
+}
+
+export function getApiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL || `${getBasePath()}crmapi`
+}
+
 // 防止多个请求同时触发重复跳转
 let isRedirecting = false
 
 // Create axios instance
 const service: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || `${import.meta.env.VITE_BASE_PATH || '/'}crmapi`,
+  baseURL: getApiBaseUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'

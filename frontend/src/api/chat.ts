@@ -1,4 +1,4 @@
-import { post, get, getToken } from '@/utils/request'
+import { post, get, getToken, getApiBaseUrl } from '@/utils/request'
 import type { ChatSession, ChatMessage, ChatAttachmentDTO } from '@/types/common'
 
 /**
@@ -83,7 +83,7 @@ export async function sendMessageStream(
   }
 
   try {
-    const response = await fetch('/crmapi/chat/send', {
+    const response = await fetch(`${getApiBaseUrl()}/chat/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

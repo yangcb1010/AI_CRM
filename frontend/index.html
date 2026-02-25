@@ -5,6 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI CRM System</title>
+    <script>
+      // 运行时配置 — 部署时可替换 basePath 的值来支持二级目录访问
+      // 例如部署到 /test/ 路径：将 '/' 替换为 '/test/'
+      window.__APP_CONFIG__ = { basePath: '/' };
+    </script>
   </head>
   <body>
     <div id="app"></div>
