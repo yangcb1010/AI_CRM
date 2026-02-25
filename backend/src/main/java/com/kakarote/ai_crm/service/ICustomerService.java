@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.entity.BO.CustomerAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
+import com.kakarote.ai_crm.entity.BO.CustomerTransferBO;
 import com.kakarote.ai_crm.entity.BO.CustomerUpdateBO;
 import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
@@ -54,6 +55,11 @@ public interface ICustomerService extends IService<Customer> {
      * 删除客户标签
      */
     void removeTag(Long customerId, Long tagId);
+
+    /**
+     * 变更客户负责人
+     */
+    void transferCustomer(CustomerTransferBO transferBO);
 
     /**
      * 获取客户统计信息

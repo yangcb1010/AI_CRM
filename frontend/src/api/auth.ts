@@ -46,6 +46,13 @@ export function changePassword(oldPassword: string, newPassword: string): Promis
 }
 
 /**
+ * Query user list
+ */
+export function queryUserList(search?: string): Promise<any> {
+  return post('/managerUser/queryPageList', { page: 1, limit: 100, search })
+}
+
+/**
  * Get OIDC session token for MinIO SSO
  */
 export function getOidcSessionToken(): Promise<{ sessionToken: string }> {

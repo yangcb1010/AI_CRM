@@ -65,6 +65,13 @@ export function removeCustomerTag(customerId: string, tagId: string): Promise<vo
 }
 
 /**
+ * Transfer customer to new owner
+ */
+export function transferCustomer(customerIds: string[], newOwnerId: string): Promise<void> {
+  return post('/customer/transfer', { customerIds, newOwnerId })
+}
+
+/**
  * Get customer statistics
  */
 export function getCustomerStatistics(): Promise<any> {

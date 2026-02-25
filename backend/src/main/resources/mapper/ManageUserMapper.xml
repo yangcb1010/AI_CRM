@@ -3,7 +3,7 @@
 <mapper namespace="com.kakarote.ai_crm.mapper.ManageUserMapper">
     <select id="queryPageList" resultType="com.kakarote.ai_crm.entity.PO.ManagerUser">
         SELECT a.user_id, a.username,a.img, a.create_time, a.realname, a.num, a.mobile, a.email, a.sex, a.dept_id, a.post, a.status, a.parent_id
-        FROM manager_user
+        FROM manager_user as a
         <if test="data.roleId != null">
             left join manager_user_role as g on a.user_id = g.user_id
         </if>

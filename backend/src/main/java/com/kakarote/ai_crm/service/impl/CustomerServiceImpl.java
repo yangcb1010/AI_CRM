@@ -11,6 +11,7 @@ import com.kakarote.ai_crm.common.result.SystemCodeEnum;
 import com.kakarote.ai_crm.entity.BO.ContactAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
+import com.kakarote.ai_crm.entity.BO.CustomerTransferBO;
 import com.kakarote.ai_crm.entity.BO.CustomerUpdateBO;
 import com.kakarote.ai_crm.entity.PO.Contact;
 import com.kakarote.ai_crm.entity.PO.Customer;
@@ -239,6 +240,15 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     @Override
     public void removeTag(Long customerId, Long tagId) {
         customerTagMapper.deleteById(tagId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void transferCustomer(CustomerTransferBO transferBO) {
+        lambdaUpdate()
+            .in(Customer::getCustomerId, transferBO.getCustomerIds())
+            .set(Customer::getOwnerId, transferBO.getNewOwnerId())
+            .update();
     }
 
     @Override

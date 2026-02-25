@@ -4,6 +4,7 @@ import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.result.Result;
 import com.kakarote.ai_crm.entity.BO.CustomerAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
+import com.kakarote.ai_crm.entity.BO.CustomerTransferBO;
 import com.kakarote.ai_crm.entity.BO.CustomerUpdateBO;
 import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
 import com.kakarote.ai_crm.entity.VO.CustomerListVO;
@@ -85,6 +86,13 @@ public class CustomerController {
             @Parameter(description = "客户ID") @RequestParam Long customerId,
             @Parameter(description = "标签ID") @RequestParam Long tagId) {
         customerService.removeTag(customerId, tagId);
+        return Result.ok();
+    }
+
+    @PostMapping("/transfer")
+    @Operation(summary = "变更客户负责人")
+    public Result<String> transfer(@Valid @RequestBody CustomerTransferBO transferBO) {
+        customerService.transferCustomer(transferBO);
         return Result.ok();
     }
 

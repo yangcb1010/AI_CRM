@@ -182,10 +182,35 @@
             <div class="mt-3 flex items-center justify-between">
               <div class="flex items-center text-sm text-gray-500">
                 <span>负责人:</span>
-                <el-avatar :size="24" class="mx-2 bg-primary-100 text-primary-600">
-                  {{ customer.ownerName?.charAt(0) || '?' }}
-                </el-avatar>
-                <span class="text-gray-700">{{ customer.ownerName }}</span>
+                <el-popover trigger="click" :width="220" @show="loadUserList">
+                  <template #reference>
+                    <div class="flex items-center cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1 transition-colors" @click.stop>
+                      <el-avatar :size="24" class="mx-2 bg-primary-100 text-primary-600">
+                        {{ customer.ownerName?.charAt(0) || '?' }}
+                      </el-avatar>
+                      <span class="text-gray-700 hover:text-primary-600">{{ customer.ownerName }}</span>
+                    </div>
+                  </template>
+                  <div>
+                    <el-input v-model="ownerSearch" placeholder="搜索用户" size="small" clearable class="mb-2" :prefix-icon="Search" />
+                    <div class="max-h-48 overflow-auto">
+                      <div
+                        v-for="u in filteredUserList"
+                        :key="u.userId"
+                        class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                        :class="{ 'bg-primary-50': String(u.userId) === String(customer.ownerId) }"
+                        @click="handleTransfer(customer, u)"
+                      >
+                        <el-avatar :size="24" class="bg-primary-100 text-primary-600 flex-shrink-0">{{ u.realname?.charAt(0) || '?' }}</el-avatar>
+                        <span class="text-sm truncate">{{ u.realname }}</span>
+                        <el-icon v-if="String(u.userId) === String(customer.ownerId)" class="ml-auto text-primary-500"><Select /></el-icon>
+                      </div>
+                      <div v-if="filteredUserList.length === 0" class="text-center text-sm text-gray-400 py-3">
+                        无匹配用户
+                      </div>
+                    </div>
+                  </div>
+                </el-popover>
               </div>
               <div class="text-right text-sm space-y-1">
                 <div v-if="customer.quotation" class="text-gray-500">
@@ -409,11 +434,14 @@ import {
   MagicStick,
   Document,
   Delete,
-  Loading
+  Loading,
+  Select
 } from '@element-plus/icons-vue'
 import type { CustomerListVO, CustomerAddBO, CustomerStage } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { getEnabledFieldsByEntity } from '@/api/customField'
+import { transferCustomer } from '@/api/customer'
+import { queryUserList } from '@/api/auth'
 import DynamicFieldForm from '@/components/DynamicFieldForm.vue'
 
 const router = useRouter()
@@ -433,6 +461,19 @@ const statistics = ref<any>(null)
 const loadMoreTrigger = ref<HTMLElement>()
 const scrollContainer = ref<HTMLElement>()
 let observer: IntersectionObserver | null = null
+
+// Owner transfer
+const userList = ref<any[]>([])
+const ownerSearch = ref('')
+const userListLoaded = ref(false)
+
+const filteredUserList = computed(() => {
+  if (!ownerSearch.value) return userList.value
+  const keyword = ownerSearch.value.toLowerCase()
+  return userList.value.filter((u: any) =>
+    u.realname?.toLowerCase().includes(keyword) || u.username?.toLowerCase().includes(keyword)
+  )
+})
 
 const formData = reactive<CustomerAddBO>({
   companyName: '',
@@ -739,6 +780,33 @@ function formatMoney(value: number | undefined): string {
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+async function loadUserList() {
+  if (userListLoaded.value) return
+  try {
+    const res = await queryUserList()
+    userList.value = (res.list || []).filter((u: any) => u.status === 1)
+    userListLoaded.value = true
+  } catch {
+    // Error handled by interceptor
+  }
+}
+
+async function handleTransfer(customer: CustomerListVO, user: any) {
+  if (String(user.userId) === String(customer.ownerId)) return
+  try {
+    await ElMessageBox.confirm(
+      `确定将客户「${customer.companyName}」的负责人变更为「${user.realname}」吗？`,
+      '变更负责人',
+      { type: 'warning' }
+    )
+    await transferCustomer([customer.customerId], String(user.userId))
+    ElMessage.success('负责人变更成功')
+    await customerStore.fetchCustomerList(true)
+  } catch {
+    // Cancelled or error handled
+  }
 }
 
 function formatRelativeTime(dateStr: string | undefined): string {
