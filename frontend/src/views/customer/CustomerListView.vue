@@ -154,17 +154,7 @@
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-                <el-popconfirm
-                  :title="`确定要删除客户「${customer.companyName}」吗？`"
-                  confirm-button-text="删除"
-                  cancel-button-text="取消"
-                  confirm-button-type="danger"
-                  @confirm="handleDelete(customer)"
-                >
-                  <template #reference>
-                    <el-button type="danger" text size="small" :icon="Delete" class="hidden md:inline-flex">删除</el-button>
-                  </template>
-                </el-popconfirm>
+                <el-button type="primary" text size="small" :icon="Edit" class="hidden md:inline-flex" @click="handleEdit(customer)">编辑</el-button>
                 <el-icon class="text-gray-400"><ArrowRight /></el-icon>
               </div>
             </div>
@@ -463,7 +453,7 @@ import {
   Bell,
   MagicStick,
   Document,
-  Delete,
+  Edit,
   Loading,
   Select
 } from '@element-plus/icons-vue'
@@ -707,16 +697,19 @@ function handleRowClick(row: CustomerListVO) {
   router.push(`/customer/${row.customerId}`)
 }
 
-async function handleDelete(row: CustomerListVO) {
-  try {
-    await ElMessageBox.confirm(`确定要删除客户「${row.companyName}」吗？`, '提示', {
-      type: 'warning'
-    })
-    await customerStore.removeCustomer(row.customerId)
-    ElMessage.success('删除成功')
-  } catch {
-    // Cancelled
-  }
+function handleEdit(row: CustomerListVO) {
+  editingCustomer.value = row
+  Object.assign(formData, {
+    companyName: row.companyName,
+    industry: row.industry || '',
+    level: row.level || 'B',
+    stage: row.stage || 'lead',
+    contactName: row.primaryContactName || '',
+    contactPhone: row.primaryContactPhone || '',
+    contactEmail: ''
+  })
+  customFieldValues.value = row.customFields ? { ...row.customFields } : {}
+  showAddDialog.value = true
 }
 
 async function handleSubmit() {
