@@ -3,9 +3,12 @@ package com.kakarote.ai_crm.service;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.kakarote.ai_crm.common.BasePage;
+import com.kakarote.ai_crm.entity.BO.RolePermissionSaveBO;
 import com.kakarote.ai_crm.entity.BO.RoleQueryBO;
 import com.kakarote.ai_crm.entity.BO.SetRoleBO;
 import com.kakarote.ai_crm.entity.PO.ManagerRole;
+import com.kakarote.ai_crm.entity.VO.RolePermissionVO;
+import com.kakarote.ai_crm.entity.VO.RoleVO;
 
 import java.io.Serializable;
 import java.util.List;
@@ -90,4 +93,24 @@ public interface IManagerRoleService extends IService<ManagerRole> {
      * @return list 菜单ID列表
      */
     List<Long> queryMenuIdList(Long id);
+
+    /**
+     * 查询角色列表（含用户数量）
+     * @param search 搜索条件
+     * @return 角色列表
+     */
+    List<RoleVO> queryRoleListWithUserCount(String search);
+
+    /**
+     * 查询角色权限配置
+     * @param roleId 角色ID
+     * @return 权限配置列表
+     */
+    List<RolePermissionVO> queryRolePermissions(Long roleId);
+
+    /**
+     * 保存角色权限配置
+     * @param bo 权限保存BO
+     */
+    void saveRolePermissions(RolePermissionSaveBO bo);
 }

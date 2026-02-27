@@ -12,12 +12,15 @@ import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.Const;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.redis.Redis;
+import com.kakarote.ai_crm.entity.BO.RolePermissionSaveBO;
 import com.kakarote.ai_crm.entity.BO.RoleQueryBO;
 import com.kakarote.ai_crm.entity.BO.SetRoleBO;
 import com.kakarote.ai_crm.entity.PO.ManagerMenu;
 import com.kakarote.ai_crm.entity.PO.ManagerRole;
 import com.kakarote.ai_crm.entity.PO.ManagerRoleMenu;
 import com.kakarote.ai_crm.entity.PO.ManagerUserRole;
+import com.kakarote.ai_crm.entity.VO.RolePermissionVO;
+import com.kakarote.ai_crm.entity.VO.RoleVO;
 import com.kakarote.ai_crm.mapper.ManagerRoleMapper;
 import com.kakarote.ai_crm.service.IManagerMenuService;
 import com.kakarote.ai_crm.service.IManagerRoleMenuService;
@@ -231,6 +234,90 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
     @Override
     public List<Long> queryMenuIdList(Long id) {
         return roleMenuService.queryMenuIdListByRoleId(id);
+    }
+
+    @Override
+    public List<RoleVO> queryRoleListWithUserCount(String search) {
+        return baseMapper.queryRoleListWithUserCount(search);
+    }
+
+    @Override
+    public List<RolePermissionVO> queryRolePermissions(Long roleId) {
+        // 1. 获取所有菜单
+        List<ManagerMenu> allMenus = menuService.list();
+        // 2. 过滤模块菜单(type=3, parentId=0) 和操作菜单(type=5)
+        List<ManagerMenu> moduleMenus = allMenus.stream()
+                .filter(m -> Objects.equals(3, m.getType()) && Objects.equals(0L, m.getParentId()))
+                .collect(Collectors.toList());
+        Map<Long, List<ManagerMenu>> actionMenusByParent = allMenus.stream()
+                .filter(m -> Objects.equals(5, m.getType()))
+                .collect(Collectors.groupingBy(ManagerMenu::getParentId));
+        // 3. 获取该角色已关联菜单及 data_scope
+        List<ManagerRoleMenu> roleMenus = roleMenuService.queryRoleMenuWithScopeByRoleId(roleId);
+        Map<Long, ManagerRoleMenu> roleMenuMap = roleMenus.stream()
+                .collect(Collectors.toMap(ManagerRoleMenu::getMenuId, rm -> rm, (a, b) -> a));
+        // 4. 组装返回
+        List<RolePermissionVO> result = new ArrayList<>();
+        for (ManagerMenu module : moduleMenus) {
+            RolePermissionVO vo = new RolePermissionVO();
+            vo.setModule(module.getRealm());
+            vo.setModuleName(module.getRealmName());
+            List<ManagerMenu> actions = actionMenusByParent.getOrDefault(module.getMenuId(), Collections.emptyList());
+            List<RolePermissionVO.ActionPerm> actionPerms = new ArrayList<>();
+            for (ManagerMenu action : actions) {
+                RolePermissionVO.ActionPerm ap = new RolePermissionVO.ActionPerm();
+                ap.setMenuId(String.valueOf(action.getMenuId()));
+                String realm = action.getRealm();
+                String actionName = realm.contains(":") ? realm.substring(realm.lastIndexOf(':') + 1) : realm;
+                ap.setAction(actionName);
+                ap.setActionName(action.getRealmName());
+                Set<String> dataScopeModules = Set.of("customer", "contact", "task", "followup", "knowledge");
+                ap.setHasScopeOption(dataScopeModules.contains(module.getRealm()) && !realm.endsWith(":create"));
+                ManagerRoleMenu rm = roleMenuMap.get(action.getMenuId());
+                if (rm != null) {
+                    ap.setEnabled(true);
+                    ap.setDataScope(rm.getDataScope());
+                } else {
+                    ap.setEnabled(false);
+                    ap.setDataScope(1);
+                }
+                actionPerms.add(ap);
+            }
+            vo.setActions(actionPerms);
+            result.add(vo);
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveRolePermissions(RolePermissionSaveBO bo) {
+        Long roleId = bo.getRoleId();
+        // 1. 获取所有 type=3/5 的菜单 ID
+        List<ManagerMenu> allMenus = menuService.list();
+        Set<Long> permMenuIds = allMenus.stream()
+                .filter(m -> Objects.equals(3, m.getType()) || Objects.equals(5, m.getType()))
+                .map(ManagerMenu::getMenuId)
+                .collect(Collectors.toSet());
+        // 2. 删除该角色下属于这些菜单的 role_menu 记录
+        List<ManagerRoleMenu> existingRoleMenus = roleMenuService.queryRoleMenuWithScopeByRoleId(roleId);
+        List<Long> toDelete = existingRoleMenus.stream()
+                .filter(rm -> permMenuIds.contains(rm.getMenuId()))
+                .map(ManagerRoleMenu::getId)
+                .collect(Collectors.toList());
+        if (CollUtil.isNotEmpty(toDelete)) {
+            roleMenuService.removeByIds(toDelete);
+        }
+        // 3. 批量插入新的
+        if (CollUtil.isNotEmpty(bo.getPermissions())) {
+            roleMenuService.saveRoleMenuWithScope(roleId, bo.getPermissions());
+        }
+        // 4. 清除该角色所有用户的 Redis 权限缓存
+        List<ManagerUserRole> userRoles = userRoleService.lambdaQuery()
+                .eq(ManagerUserRole::getRoleId, roleId).list();
+        for (ManagerUserRole ur : userRoles) {
+            redis.del(Const.USER_AUTH_CACHE_KET + ur.getUserId());
+        }
     }
 
     public static JSONObject createMenu(Set<ManagerMenu> adminMenuList, Long parentId) {

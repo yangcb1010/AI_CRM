@@ -11,7 +11,7 @@
         WHERE menu_id IN
               (
                   SELECT menu_id FROM manager_role_menu AS a INNER JOIN manager_user_role as b ON a.role_id = b.role_id
-                  WHERE a.del_flag=0 and b.del_flag=0 and b.user_id = #{userId} group by a.menu_id
+                  WHERE b.user_id = #{userId} group by a.menu_id
               )
     </select>
 </mapper>

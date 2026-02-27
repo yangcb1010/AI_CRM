@@ -60,5 +60,7 @@ public class ManagerRoleMenu implements Serializable {
     @TableField(fill = FieldFill.UPDATE)
     private LocalDateTime updateTime;
 
+    @Schema(description = "数据范围: 1-本人 2-本人及下属 3-本部门 4-本部门及下属部门 5-全部")
+    private Integer dataScope;
 
 }

@@ -2,6 +2,10 @@ package com.kakarote.ai_crm.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.kakarote.ai_crm.entity.PO.ManagerRole;
+import com.kakarote.ai_crm.entity.VO.RoleVO;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -14,4 +18,5 @@ import com.kakarote.ai_crm.entity.PO.ManagerRole;
 
 public interface ManagerRoleMapper extends BaseMapper<ManagerRole> {
 
+    List<RoleVO> queryRoleListWithUserCount(@Param("search") String search);
 }

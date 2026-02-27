@@ -38,7 +38,7 @@ public interface ManageUserService extends IService<ManagerUser> {
      * @param userQueryBO queryBo
      * @return userList 员工列表
      */
-    BasePage<ManagerUser> queryPageList(UserQueryBO userQueryBO);
+    BasePage<ManageUserVO> queryPageList(UserQueryBO userQueryBO);
 
     /**
      * 修改用户

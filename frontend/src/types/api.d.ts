@@ -38,5 +38,6 @@ export interface UserInfo {
   email?: string
   post?: string
   deptId?: number
+  deptName?: string
   sex?: number
 }

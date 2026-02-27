@@ -2,6 +2,7 @@ package com.kakarote.ai_crm.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kakarote.ai_crm.common.Const;
+import com.kakarote.ai_crm.entity.BO.RolePermissionSaveBO;
 import com.kakarote.ai_crm.entity.PO.ManagerRoleMenu;
 import com.kakarote.ai_crm.mapper.ManagerRoleMenuMapper;
 import com.kakarote.ai_crm.service.IManagerRoleMenuService;
@@ -66,6 +67,27 @@ public class ManagerRoleMenuServiceImpl extends ServiceImpl<ManagerRoleMenuMappe
     @Override
     public List<Long> queryMenuIdListByRoleId(Long id) {
         return baseMapper.queryMenuIdListByRoleId(id);
+    }
+
+    @Override
+    public List<ManagerRoleMenu> queryRoleMenuWithScopeByRoleId(Long roleId) {
+        return baseMapper.queryRoleMenuWithScopeByRoleId(roleId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveRoleMenuWithScope(Long roleId, List<RolePermissionSaveBO.PermItem> items) {
+        List<ManagerRoleMenu> roleMenuList = new ArrayList<>();
+        items.forEach(item -> {
+            ManagerRoleMenu roleMenu = new ManagerRoleMenu();
+            roleMenu.setMenuId(item.getMenuId());
+            roleMenu.setRoleId(roleId);
+            roleMenu.setDataScope(item.getDataScope());
+            roleMenu.setCreateUserId(UserUtil.getUserId());
+            roleMenu.setCreateTime(LocalDateTime.now());
+            roleMenuList.add(roleMenu);
+        });
+        saveBatch(roleMenuList, Const.BATCH_SAVE_SIZE);
     }
 
 }

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 @Data
 @Schema(description = "用户信息")
@@ -37,7 +38,7 @@ public class ManageUserVO {
     private Integer sex;
 
     @Schema(description = "部门")
-    private Integer deptId;
+    private Long deptId;
 
     @Schema(description = "岗位")
     private String post;
@@ -53,4 +54,10 @@ public class ManageUserVO {
 
     @Schema(description = "部门名称")
     private String deptName;
+
+    @Schema(description = "角色ID列表")
+    private List<Long> roleIds;
+
+    @Schema(description = "角色名称列表")
+    private List<String> roleNames;
 }

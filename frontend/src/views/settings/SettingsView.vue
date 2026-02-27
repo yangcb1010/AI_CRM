@@ -171,7 +171,7 @@
                   </el-col>
                   <el-col :xs="24" :sm="12">
                     <el-form-item label="部门">
-                      <el-input v-model="profileForm.department" placeholder="请输入部门" />
+                      <el-input v-model="profileForm.department" disabled />
                     </el-form-item>
                   </el-col>
                 </el-row>
@@ -338,6 +338,9 @@
                             <el-icon :size="12"><UserFilled /></el-icon>
                             {{ member.post }}
                           </span>
+                        </div>
+                        <div v-if="member.roleNames && member.roleNames.length" class="flex flex-wrap gap-1 mt-1">
+                          <el-tag v-for="rn in member.roleNames" :key="rn" size="small" type="warning">{{ rn }}</el-tag>
                         </div>
                       </div>
                     </div>
@@ -1089,6 +1092,11 @@
         <el-form-item label="岗位">
           <el-input v-model="memberForm.post" placeholder="请输入岗位" />
         </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="memberForm.roleIds" multiple placeholder="请选择角色" style="width: 100%">
+            <el-option v-for="r in allRoleOptions" :key="r.roleId" :label="r.roleName" :value="r.roleId" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showAddMemberDialog = false">取消</el-button>
@@ -1207,7 +1215,7 @@
                 <el-switch v-model="action.enabled" />
                 <div>
                   <span class="font-medium text-sm">{{ action.actionName }}</span>
-                  <p class="text-xs text-gray-400 mt-0.5">允许{{ action.actionName }}{{ moduleGroup.moduleName === '商机模块' ? '商机' : '联系人' }}{{ action.action === 'change_stage' ? '' : '记录' }}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">允许{{ action.actionName }}{{ moduleGroup.moduleName.replace('管理', '') }}</p>
                 </div>
               </div>
               <el-select
@@ -1492,8 +1500,10 @@ const memberForm = reactive({
   mobile: '',
   email: '',
   post: '',
-  deptId: null as number | string | null
+  deptId: null as number | string | null,
+  roleIds: [] as string[]
 })
+const allRoleOptions = ref<RoleVO[]>([])
 
 // Role management state
 const roleList = ref<RoleVO[]>([])
@@ -1607,6 +1617,7 @@ onMounted(async () => {
     profileForm.realname = detail.realname || ''
     profileForm.email = detail.email || ''
     profileForm.phone = detail.mobile || ''
+    profileForm.department = detail.deptName || ''
     profileForm.position = detail.post || ''
   } catch {
     // Fallback to store data
@@ -1936,7 +1947,8 @@ function handleEditMember(member: any) {
     mobile: member.mobile || '',
     email: member.email || '',
     post: member.post || '',
-    deptId: member.deptId || null
+    deptId: member.deptId || null,
+    roleIds: (member.roleIds || []).map(String)
   })
   showAddMemberDialog.value = true
 }
@@ -1968,7 +1980,8 @@ async function handleSaveMember() {
         mobile: memberForm.mobile || undefined,
         email: memberForm.email || undefined,
         post: memberForm.post || undefined,
-        deptId: memberForm.deptId || undefined
+        deptId: memberForm.deptId || undefined,
+        roleIds: memberForm.roleIds
       })
       ElMessage.success('成员更新成功')
       showAddMemberDialog.value = false
@@ -1996,6 +2009,18 @@ async function handleSaveMember() {
         deptId: memberForm.deptId || (selectedDept.value ? selectedDept.value.deptId : undefined),
         post: memberForm.post || undefined
       })
+      // 如果选了角色，查找新创建的用户并关联角色
+      if (memberForm.roleIds.length > 0) {
+        const res = await queryUserList({ search: memberForm.username, limit: 1 })
+        const newUser = res?.list?.[0] || res?.records?.[0]
+        if (newUser) {
+          await addUsersToRole([String(newUser.userId)], memberForm.roleIds[0])
+          // 如果有多个角色，逐个关联
+          for (let i = 1; i < memberForm.roleIds.length; i++) {
+            await addUsersToRole([String(newUser.userId)], memberForm.roleIds[i])
+          }
+        }
+      }
       ElMessage.success('成员添加成功')
       showAddMemberDialog.value = false
       resetMemberForm()
@@ -2011,7 +2036,7 @@ async function handleSaveMember() {
 
 function resetMemberForm() {
   editingMember.value = null
-  Object.assign(memberForm, { username: '', realname: '', password: '', mobile: '', email: '', post: '', deptId: selectedDept.value ? selectedDept.value.deptId : null })
+  Object.assign(memberForm, { username: '', realname: '', password: '', mobile: '', email: '', post: '', deptId: selectedDept.value ? selectedDept.value.deptId : null, roleIds: [] })
 }
 
 // Agent methods
@@ -2173,6 +2198,10 @@ function formatTime(time: string | undefined): string {
 watch(activeTab, async (newTab) => {
   if (newTab === 'team') {
     await loadDeptTree()
+    // 预加载角色列表，供编辑成员时选择
+    if (allRoleOptions.value.length === 0) {
+      try { allRoleOptions.value = await queryRoleList() } catch { /* ignore */ }
+    }
   }
   if (newTab === 'role') {
     await loadRoleList()

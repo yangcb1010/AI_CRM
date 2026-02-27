@@ -48,23 +48,5 @@ public class ManagerMenu implements Serializable {
     @Schema(description = "类型 1 数据 2api 3 菜单 4 按钮 5 功能")
     private Integer type;
 
-    @Schema(description = "创建人")
-    @TableField(fill = FieldFill.INSERT)
-    @JsonSerialize(using = ToStringSerializer.class)
-    private Long createUserId;
-
-    @Schema(description = "修改人")
-    @TableField(fill = FieldFill.UPDATE)
-    @JsonSerialize(using = ToStringSerializer.class)
-    private Long updateUserId;
-
-    @Schema(description = "创建时间")
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    @Schema(description = "修改时间")
-    @TableField(fill = FieldFill.UPDATE)
-    private LocalDateTime updateTime;
-
 
 }

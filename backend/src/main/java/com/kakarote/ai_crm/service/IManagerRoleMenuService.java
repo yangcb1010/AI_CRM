@@ -1,6 +1,7 @@
 package com.kakarote.ai_crm.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.kakarote.ai_crm.entity.BO.RolePermissionSaveBO;
 import com.kakarote.ai_crm.entity.PO.ManagerRoleMenu;
 
 import java.util.List;
@@ -37,4 +38,18 @@ public interface IManagerRoleMenuService extends IService<ManagerRoleMenu> {
      * @return
      */
     List<Long> queryMenuIdListByRoleId(Long id);
+
+    /**
+     * 查询角色菜单关联（含数据范围）
+     * @param roleId 角色ID
+     * @return 角色菜单列表
+     */
+    List<ManagerRoleMenu> queryRoleMenuWithScopeByRoleId(Long roleId);
+
+    /**
+     * 保存角色菜单关联（含数据范围）
+     * @param roleId 角色ID
+     * @param items 权限项列表
+     */
+    void saveRoleMenuWithScope(Long roleId, List<RolePermissionSaveBO.PermItem> items);
 }

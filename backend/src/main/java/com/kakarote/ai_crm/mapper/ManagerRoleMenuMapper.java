@@ -23,7 +23,7 @@ public interface ManagerRoleMenuMapper extends BaseMapper<ManagerRoleMenu> {
      * @param roleId 角色ID
      * @return
      */
-    @Select("SELECT * FROM manager_role_menu  where del_flag=0 and role_id=#{roleId}")
+    @Select("SELECT * FROM manager_role_menu  where role_id=#{roleId}")
     List<ManagerRoleMenu> queryRoleMenuByRoleId(@Param("roleId") Long roleId);
 
     /**
@@ -31,6 +31,9 @@ public interface ManagerRoleMenuMapper extends BaseMapper<ManagerRoleMenu> {
      * @param
      * @return 菜单ID列表
      */
-    @Select("SELECT menu_id FROM manager_role_menu  where del_flag=0 and role_id=#{roleId}")
+    @Select("SELECT menu_id FROM manager_role_menu  where role_id=#{roleId}")
     List<Long> queryMenuIdListByRoleId(@Param("roleId") Long roleId);
+
+    @Select("SELECT id, menu_id, role_id, data_scope FROM manager_role_menu WHERE role_id=#{roleId}")
+    List<ManagerRoleMenu> queryRoleMenuWithScopeByRoleId(@Param("roleId") Long roleId);
 }

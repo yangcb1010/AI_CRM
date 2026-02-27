@@ -80,6 +80,7 @@ export function updateUserInfo(data: {
   sex?: number
   status?: number
   password?: string
+  roleIds?: (number | string)[]
 }): Promise<void> {
   return post('/managerUser/updateUser', data)
 }

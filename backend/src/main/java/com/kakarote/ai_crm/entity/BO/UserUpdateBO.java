@@ -3,6 +3,8 @@ package com.kakarote.ai_crm.entity.BO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 用户更新BO
  *
@@ -38,4 +40,7 @@ public class UserUpdateBO {
 
     @Schema(description = "状态,0禁用,1正常,2未激活")
     private Integer status;
+
+    @Schema(description = "角色ID列表")
+    private List<Long> roleIds;
 }

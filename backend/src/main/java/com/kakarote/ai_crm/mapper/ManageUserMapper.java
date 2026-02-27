@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.entity.BO.UserQueryBO;
 import com.kakarote.ai_crm.entity.PO.ManagerUser;
+import com.kakarote.ai_crm.entity.VO.ManageUserVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -21,7 +22,7 @@ public interface ManageUserMapper extends BaseMapper<ManagerUser> {
      * @param userQueryBO queryBo
      * @return userList 员工列表
      */
-    BasePage<ManagerUser> queryPageList(BasePage<ManagerUser> parse, @Param("data") UserQueryBO userQueryBO);
+    BasePage<ManageUserVO> queryPageList(BasePage<ManageUserVO> parse, @Param("data") UserQueryBO userQueryBO);
 
     /**
      * 通过用户ID查询员工

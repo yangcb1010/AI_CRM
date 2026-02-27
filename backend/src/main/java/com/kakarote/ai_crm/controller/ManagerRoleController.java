@@ -5,9 +5,12 @@ import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.result.Result;
 import com.kakarote.ai_crm.entity.BO.RelatedMenuBO;
 import com.kakarote.ai_crm.entity.BO.RoleBO;
+import com.kakarote.ai_crm.entity.BO.RolePermissionSaveBO;
 import com.kakarote.ai_crm.entity.BO.RoleQueryBO;
 import com.kakarote.ai_crm.entity.BO.SetRoleBO;
 import com.kakarote.ai_crm.entity.PO.ManagerRole;
+import com.kakarote.ai_crm.entity.VO.RolePermissionVO;
+import com.kakarote.ai_crm.entity.VO.RoleVO;
 import com.kakarote.ai_crm.service.IManagerRoleService;
 import com.kakarote.ai_crm.utils.UserUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -99,6 +102,33 @@ public class ManagerRoleController {
     @Operation(summary = "通过角色ID查询菜单")
     public Result<List<Long>> queryMenuIdList(@PathVariable("id") @Parameter(name = "id", description = "id") Long id){
         return Result.ok(managerRoleService.queryMenuIdList(id));
+    }
+
+    @PostMapping("/delete")
+    @Operation(summary = "删除角色")
+    public Result delete(@RequestBody List<Long> ids) {
+        managerRoleService.deleteByIds(ids.stream().map(id -> (Serializable) id).collect(java.util.stream.Collectors.toList()));
+        return Result.ok();
+    }
+
+    @PostMapping("/queryRoleListWithUserCount")
+    @Operation(summary = "查询角色列表（含用户数量）")
+    public Result<List<RoleVO>> queryRoleListWithUserCount(@RequestBody(required = false) RoleQueryBO query) {
+        String search = query != null ? query.getSearch() : null;
+        return Result.ok(managerRoleService.queryRoleListWithUserCount(search));
+    }
+
+    @PostMapping("/queryPermissions/{roleId}")
+    @Operation(summary = "查询角色权限配置")
+    public Result<List<RolePermissionVO>> queryPermissions(@PathVariable("roleId") Long roleId) {
+        return Result.ok(managerRoleService.queryRolePermissions(roleId));
+    }
+
+    @PostMapping("/savePermissions")
+    @Operation(summary = "保存角色权限配置")
+    public Result savePermissions(@RequestBody RolePermissionSaveBO bo) {
+        managerRoleService.saveRolePermissions(bo);
+        return Result.ok();
     }
 
 }

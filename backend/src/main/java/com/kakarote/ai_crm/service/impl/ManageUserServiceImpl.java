@@ -25,10 +25,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import com.kakarote.ai_crm.common.Const;
+import com.kakarote.ai_crm.entity.PO.ManagerDept;
+import com.kakarote.ai_crm.entity.PO.ManagerRole;
+import com.kakarote.ai_crm.mapper.ManagerDeptMapper;
+import com.kakarote.ai_crm.service.IManagerRoleService;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 /**
@@ -41,6 +46,12 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
 
     @Autowired
     private IManagerUserRoleService userRoleService;
+
+    @Autowired
+    private ManagerDeptMapper deptMapper;
+
+    @Autowired
+    private IManagerRoleService roleService;
 
 
     @Override
@@ -88,8 +99,35 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
      * @return userList 员工列表
      */
     @Override
-    public BasePage<ManagerUser> queryPageList(UserQueryBO userQueryBO) {
-      return baseMapper.queryPageList(userQueryBO.parse(),userQueryBO);
+    public BasePage<ManageUserVO> queryPageList(UserQueryBO userQueryBO) {
+        BasePage<ManageUserVO> page = baseMapper.queryPageList(userQueryBO.parse(), userQueryBO);
+        fillRoleInfo(page.getRecords());
+        return page;
+    }
+
+    private void fillRoleInfo(List<ManageUserVO> users) {
+        if (CollUtil.isEmpty(users)) return;
+        List<Long> userIds = users.stream().map(ManageUserVO::getUserId).collect(Collectors.toList());
+        // 查询所有用户的角色关联
+        List<ManagerUserRole> userRoles = userRoleService.lambdaQuery()
+                .in(ManagerUserRole::getUserId, userIds).list();
+        if (CollUtil.isEmpty(userRoles)) {
+            users.forEach(u -> { u.setRoleIds(Collections.emptyList()); u.setRoleNames(Collections.emptyList()); });
+            return;
+        }
+        // 查询涉及的角色名称
+        Set<Long> roleIdSet = userRoles.stream().map(ManagerUserRole::getRoleId).collect(Collectors.toSet());
+        Map<Long, String> roleNameMap = roleService.lambdaQuery()
+                .in(ManagerRole::getRoleId, roleIdSet).list().stream()
+                .collect(Collectors.toMap(ManagerRole::getRoleId, ManagerRole::getRoleName, (a, b) -> a));
+        // 按用户分组
+        Map<Long, List<ManagerUserRole>> userRoleMap = userRoles.stream()
+                .collect(Collectors.groupingBy(ManagerUserRole::getUserId));
+        for (ManageUserVO user : users) {
+            List<ManagerUserRole> urs = userRoleMap.getOrDefault(user.getUserId(), Collections.emptyList());
+            user.setRoleIds(urs.stream().map(ManagerUserRole::getRoleId).collect(Collectors.toList()));
+            user.setRoleNames(urs.stream().map(ur -> roleNameMap.getOrDefault(ur.getRoleId(), "")).filter(StrUtil::isNotEmpty).collect(Collectors.toList()));
+        }
     }
 
     /**
@@ -98,6 +136,7 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
      * @param updateBO data
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUser(UserUpdateBO updateBO) {
         ManagerUser userEntity = baseMapper.getUserId(updateBO.getUserId());
         if (ObjectUtil.isNotNull(userEntity)){
@@ -128,6 +167,23 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
                 userEntity.setStatus(updateBO.getStatus());
             }
             updateById(userEntity);
+            // 同步角色
+            if (updateBO.getRoleIds() != null) {
+                // 删除旧角色
+                userRoleService.lambdaUpdate().eq(ManagerUserRole::getUserId, updateBO.getUserId()).remove();
+                // 插入新角色
+                if (CollUtil.isNotEmpty(updateBO.getRoleIds())) {
+                    List<ManagerUserRole> newRoles = updateBO.getRoleIds().stream().map(roleId -> {
+                        ManagerUserRole ur = new ManagerUserRole();
+                        ur.setUserId(updateBO.getUserId());
+                        ur.setRoleId(roleId);
+                        ur.setCreateUserId(UserUtil.getUserId());
+                        ur.setCreateTime(LocalDateTime.now());
+                        return ur;
+                    }).collect(Collectors.toList());
+                    userRoleService.saveBatch(newRoles, Const.BATCH_SAVE_SIZE);
+                }
+            }
         }
     }
 
@@ -151,7 +207,17 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
     public ManageUserVO queryLoginUser() {
         ManagerUser userEntity = baseMapper.getUserId(UserUtil.getUserId());
         if (ObjectUtil.isNotNull(userEntity)) {
-            return BeanUtil.copyProperties(userEntity, ManageUserVO.class);
+            ManageUserVO vo = BeanUtil.copyProperties(userEntity, ManageUserVO.class);
+            // 填充部门名称
+            if (ObjectUtil.isNotNull(userEntity.getDeptId())) {
+                ManagerDept dept = deptMapper.selectById(userEntity.getDeptId());
+                if (dept != null) {
+                    vo.setDeptName(dept.getDeptName());
+                }
+            }
+            // 填充角色信息
+            fillRoleInfo(Collections.singletonList(vo));
+            return vo;
         }
         return null;
     }

@@ -38,7 +38,7 @@ public class ManagerUserController {
 
     @PostMapping("/queryPageList")
     @Operation(summary = "查询列表页数据")
-    public Result<BasePage<ManagerUser>> queryPageList(@RequestBody UserQueryBO userQueryBO) {
+    public Result<BasePage<ManageUserVO>> queryPageList(@RequestBody UserQueryBO userQueryBO) {
         return Result.ok(manageUserService.queryPageList(userQueryBO));
     }
 
