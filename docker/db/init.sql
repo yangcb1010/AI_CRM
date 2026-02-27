@@ -600,31 +600,6 @@ INSERT INTO "public"."manager_menu" VALUES (18, 5, 'read', '查看角色详情',
 INSERT INTO "public"."manager_menu" VALUES (19, 5, 'all', '全局角色查询', 4);
 INSERT INTO "public"."manager_menu" VALUES (24, 5, 'auth', '角色权限', 4);
 INSERT INTO "public"."manager_menu" VALUES (25, 6, 'list', '查询菜单列表', 4);
-INSERT INTO "public"."manager_menu" VALUES (26, 2, 'list', '链实例', 3);
-INSERT INTO "public"."manager_menu" VALUES (27, 2, 'wallet', '钱包管理', 3);
-INSERT INTO "public"."manager_menu" VALUES (28, 26, 'list', '查询链列表', 4);
-INSERT INTO "public"."manager_menu" VALUES (29, 26, 'add', '新建链实例', 4);
-INSERT INTO "public"."manager_menu" VALUES (30, 26, 'update', '修改链信息', 4);
-INSERT INTO "public"."manager_menu" VALUES (31, 26, 'delete', '删除链实例', 4);
-INSERT INTO "public"."manager_menu" VALUES (32, 26, 'read', '查看链详情', 4);
-INSERT INTO "public"."manager_menu" VALUES (33, 26, 'status', '设置链状态', 4);
-INSERT INTO "public"."manager_menu" VALUES (34, 27, 'list', '查询钱包列表', 4);
-INSERT INTO "public"."manager_menu" VALUES (35, 27, 'add', '新建钱包', 4);
-INSERT INTO "public"."manager_menu" VALUES (36, 27, 'update', '修改钱包信息', 4);
-INSERT INTO "public"."manager_menu" VALUES (37, 27, 'delete', '删除钱包', 4);
-INSERT INTO "public"."manager_menu" VALUES (38, 27, 'read', '查看钱包详情', 4);
-INSERT INTO "public"."manager_menu" VALUES (39, 3, 'list', '企业信息', 3);
-INSERT INTO "public"."manager_menu" VALUES (40, 39, 'list', '查询企业列表', 4);
-INSERT INTO "public"."manager_menu" VALUES (41, 39, 'add', '新建企业', 4);
-INSERT INTO "public"."manager_menu" VALUES (42, 39, 'update', '修改企业信息', 4);
-INSERT INTO "public"."manager_menu" VALUES (43, 39, 'delete', '删除企业', 4);
-INSERT INTO "public"."manager_menu" VALUES (44, 39, 'read', '查看企业详情', 4);
-INSERT INTO "public"."manager_menu" VALUES (45, 39, 'status', '设置企业状态', 4);
-INSERT INTO "public"."manager_menu" VALUES (46, 3, 'access_control', '访问控制', 4);
-INSERT INTO "public"."manager_menu" VALUES (47, 0, 'monitoring', '监控告警', 4);
-INSERT INTO "public"."manager_menu" VALUES (48, 0, 'security', '安全与审计', 3);
-INSERT INTO "public"."manager_menu" VALUES (49, 48, 'log', '审计日志', 4);
-INSERT INTO "public"."manager_menu" VALUES (50, 48, 'content_audit', '内容安全管理', 4);
 
 -- ----------------------------
 -- Table structure for manager_role
