@@ -13,7 +13,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/login/RegisterView.vue'),
+    component: () => import('@/views/login/LoginView.vue'),
     meta: { requiresAuth: false }
   },
   {
