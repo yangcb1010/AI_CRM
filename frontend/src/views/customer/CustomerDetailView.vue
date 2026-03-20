@@ -63,8 +63,8 @@
               </div>
             </div>
             <div class="flex gap-2 shrink-0">
-              <button class="h-8 px-4 inline-flex items-center border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors" @click="handleEdit">编辑资料</button>
-              <button class="h-8 px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-1.5 hover:bg-primary/20 transition-colors" @click="handleAiFollowUp">
+              <button v-if="canEditCustomer" class="h-8 px-4 inline-flex items-center border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors" @click="handleEdit">编辑资料</button>
+              <button v-if="canCreateFollowUps" class="h-8 px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-1.5 hover:bg-primary/20 transition-colors" @click="handleAiFollowUp">
                 <WkIcon name="ai" class="text-sm" />
                 AI 跟进
               </button>
@@ -73,6 +73,7 @@
                 生成 AI 分析报告
               </button>
               <button
+                v-if="canDeleteCustomer"
                 class="size-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                 title="删除客户"
                 type="button"
@@ -234,7 +235,7 @@
                     @click="handleRemoveTag(tag)"
                   >close</span>
                 </span>
-                <button class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-primary border border-dashed border-primary/30 hover:bg-primary/5 transition-colors" @click="showAddTagDialog = true">
+                <button v-if="canEditCustomerTags" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-primary border border-dashed border-primary/30 hover:bg-primary/5 transition-colors" @click="showAddTagDialog = true">
                   <span class="wk-plus-button-mark" aria-hidden="true">+</span>
                   <span>添加标签</span>
                 </button>
@@ -259,7 +260,7 @@
           </div>
 
           <!-- Center Column: Follow-ups Timeline (col-span-6) -->
-          <div class="lg:col-span-6 space-y-6">
+          <div v-if="canViewFollowUps" class="lg:col-span-6 space-y-6">
             <div class="flex items-center justify-between">
               <h3 class="flex items-center gap-2 text-lg font-bold text-slate-900">
                 <span :class="sectionIconBoxClass" :style="getSectionIconStyle('recentActivity')">
@@ -307,7 +308,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                       <span class="text-xs text-slate-400 uppercase font-bold">{{ formatDateTime(item.followTime || item.createTime) }}</span>
-                      <el-popconfirm title="确定删除这条跟进记录吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteFollowUp(item.followUpId)">
+                      <el-popconfirm v-if="canDeleteFollowUps" title="确定删除这条跟进记录吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteFollowUp(item.followUpId)">
                         <template #reference>
                           <button class="text-slate-300 hover:text-red-500 transition-colors">
                             <span class="material-symbols-outlined text-sm">delete</span>
@@ -350,7 +351,7 @@
             </div>
 
             <!-- Contacts Module -->
-            <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6" v-loading="contactLoading">
+            <section v-if="canViewContacts" class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6" v-loading="contactLoading">
               <div class="mb-6 flex items-center justify-between">
                 <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <span :class="sectionIconBoxClass" :style="getSectionIconStyle('relatedContacts')">
@@ -359,7 +360,7 @@
                   关联联系人
                   <span class="text-slate-400 font-normal">({{ contactTotal }})</span>
                 </h4>
-                <button class="size-6 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all" @click="handleAddContact">
+                <button v-if="canCreateContacts" class="size-6 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all" @click="handleAddContact">
                   <span class="material-symbols-outlined wk-plus-button-icon wk-plus-button-icon--compact">person_add</span>
                 </button>
               </div>
@@ -396,11 +397,11 @@
                     </div>
                   </div>
                   <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-50" @click.stop>
-                    <button class="text-xs font-bold text-primary hover:underline" @click="handleEditContact(contact)">编辑</button>
-                    <span class="text-slate-200">|</span>
-                    <button v-if="!contact.isPrimary" class="text-xs font-bold text-slate-400 hover:text-primary" @click="handleSetPrimary(contact.contactId)">设为主要</button>
-                    <span v-if="!contact.isPrimary" class="text-slate-200">|</span>
-                    <el-popconfirm title="确定删除该联系人吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteContact(contact.contactId)">
+                    <button v-if="canEditContacts" class="text-xs font-bold text-primary hover:underline" @click="handleEditContact(contact)">编辑</button>
+                    <span v-if="canEditContacts && (!contact.isPrimary || canDeleteContacts)" class="text-slate-200">|</span>
+                    <button v-if="!contact.isPrimary && canSetPrimaryContacts" class="text-xs font-bold text-slate-400 hover:text-primary" @click="handleSetPrimary(contact.contactId)">设为主要</button>
+                    <span v-if="!contact.isPrimary && canSetPrimaryContacts && canDeleteContacts" class="text-slate-200">|</span>
+                    <el-popconfirm v-if="canDeleteContacts" title="确定删除该联系人吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteContact(contact.contactId)">
                       <template #reference>
                         <button class="text-xs font-bold text-red-400 hover:text-red-500">删除</button>
                       </template>
@@ -447,7 +448,7 @@
             </section> -->
 
             <!-- Tasks Module -->
-            <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <section v-if="canViewTasks" class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
               <div class="mb-6 flex items-center justify-between">
                 <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <span :class="sectionIconBoxClass" :style="getSectionIconStyle('todoTasks')">
@@ -455,7 +456,7 @@
                   </span>
                   待办任务
                 </h4>
-                <button class="size-6 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all" @click="handleAddTask">
+                <button v-if="canCreateTasks" class="size-6 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all" @click="handleAddTask">
                   <span class="material-symbols-outlined wk-plus-button-icon wk-plus-button-icon--compact">add</span>
                 </button>
               </div>
@@ -481,7 +482,7 @@
             </section>
 
             <!-- Documents Module -->
-            <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+            <section v-if="canViewKnowledge" class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
               <div class="mb-6 flex items-center justify-between">
                 <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <span :class="sectionIconBoxClass" :style="getSectionIconStyle('documentCenter')">
@@ -599,9 +600,9 @@
             </div>
           </div>
           <div class="mt-6 flex gap-2">
-            <button class="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-all" @click="handleEditContact(currentContact); showContactDetail = false">编辑</button>
-            <button v-if="!currentContact.isPrimary" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all" @click="handleSetPrimary(currentContact.contactId); showContactDetail = false">设为主联系人</button>
-            <el-popconfirm title="确定删除该联系人吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteContact(currentContact!.contactId); showContactDetail = false">
+            <button v-if="canEditContacts" class="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-all" @click="handleEditContact(currentContact); showContactDetail = false">编辑</button>
+            <button v-if="!currentContact.isPrimary && canSetPrimaryContacts" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all" @click="handleSetPrimary(currentContact.contactId); showContactDetail = false">设为主联系人</button>
+            <el-popconfirm v-if="canDeleteContacts" title="确定删除该联系人吗？" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDeleteContact(currentContact!.contactId); showContactDetail = false">
               <template #reference>
                 <button class="px-4 py-2 bg-white border border-red-200 rounded-xl text-xs font-bold text-red-500 hover:bg-red-50 transition-all">删除</button>
               </template>
@@ -632,6 +633,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
+import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
 import { addCustomerTag, removeCustomerTag, updateCustomerStage } from '@/api/customer'
 import { addFollowUp, deleteFollowUp, queryFollowUpPageList } from '@/api/followup'
@@ -646,6 +648,7 @@ import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDial
 const route = useRoute()
 const router = useRouter()
 const customerStore = useCustomerStore()
+const userStore = useUserStore()
 const { isMobile } = useResponsive()
 
 const loading = ref(false)
@@ -720,10 +723,11 @@ function syncCurrentContact(customerId: string) {
 }
 
 async function refreshCustomerContext(customerId: string, options: { resetContacts?: boolean } = {}) {
-  await Promise.all([
-    customerStore.fetchCustomerDetail(customerId),
-    fetchContacts(customerId, options.resetContacts)
-  ])
+  const tasks: Promise<any>[] = [customerStore.fetchCustomerDetail(customerId)]
+  if (canViewContacts.value) {
+    tasks.push(fetchContacts(customerId, options.resetContacts))
+  }
+  await Promise.all(tasks)
 }
 
 function applyPrimaryContactLocally(contactId: string) {
@@ -773,6 +777,21 @@ const contactForm = reactive({
 })
 
 const customer = computed(() => customerStore.currentCustomer)
+const canEditCustomer = computed(() => userStore.hasPermission('customer:edit'))
+const canDeleteCustomer = computed(() => userStore.hasPermission('customer:delete'))
+const canChangeStage = computed(() => userStore.hasPermission('customer:change_stage'))
+const canEditCustomerTags = computed(() => userStore.hasPermission('customer:edit'))
+const canViewContacts = computed(() => userStore.hasPermission('contact:view'))
+const canCreateContacts = computed(() => userStore.hasPermission('contact:create'))
+const canEditContacts = computed(() => userStore.hasPermission('contact:edit'))
+const canDeleteContacts = computed(() => userStore.hasPermission('contact:delete'))
+const canSetPrimaryContacts = computed(() => userStore.hasPermission('contact:set_primary'))
+const canViewFollowUps = computed(() => userStore.hasPermission('followup:view'))
+const canCreateFollowUps = computed(() => userStore.hasPermission('followup:create'))
+const canDeleteFollowUps = computed(() => userStore.hasPermission('followup:delete'))
+const canViewTasks = computed(() => userStore.hasPermission('task:view'))
+const canCreateTasks = computed(() => userStore.hasPermission('task:create'))
+const canViewKnowledge = computed(() => userStore.hasPermission('knowledge:view'))
 
 onMounted(async () => {
   const customerId = route.params.id as string
@@ -781,12 +800,10 @@ onMounted(async () => {
     followUpForm.customerId = customerId
     contactForm.customerId = customerId
 
-    const fetchTasks = [
+    const fetchTasks: Promise<any>[] = [
       customerStore.fetchCustomerDetail(customerId).catch(err => {
         console.error('Failed to fetch customer detail:', err)
       }),
-      fetchFollowUps(customerId),
-      fetchContacts(customerId),
       getEnabledFieldsByEntity('customer').then(data => {
         customFields.value = data
       }).catch(err => {
@@ -795,12 +812,31 @@ onMounted(async () => {
       })
     ]
 
+    if (canViewFollowUps.value) {
+      fetchTasks.push(fetchFollowUps(customerId))
+    } else {
+      followUps.value = []
+      followUpTotal.value = 0
+    }
+
+    if (canViewContacts.value) {
+      fetchTasks.push(fetchContacts(customerId))
+    } else {
+      contacts.value = []
+      contactTotal.value = 0
+    }
+
     await Promise.all(fetchTasks)
     loading.value = false
   }
 })
 
 async function fetchFollowUps(customerId: string, reset = false) {
+  if (!canViewFollowUps.value) {
+    followUps.value = []
+    followUpTotal.value = 0
+    return
+  }
   if (reset) followUpPage.value = 1
   followUpLoading.value = true
   try {
@@ -822,6 +858,11 @@ function handleFollowUpPageChange(page: number) {
 }
 
 async function fetchContacts(customerId: string, reset = false) {
+  if (!canViewContacts.value) {
+    contacts.value = []
+    contactTotal.value = 0
+    return
+  }
   if (reset) contactPage.value = 1
   contactLoading.value = true
   try {
@@ -844,6 +885,7 @@ function handleContactPageChange(page: number) {
 }
 
 function handleEdit() {
+  if (!canEditCustomer.value) return
   showEditDialog.value = true
 }
 
@@ -855,6 +897,7 @@ async function handleEditSuccess(payload: { mode: 'create' | 'edit'; customerId?
 }
 
 async function handleDeleteCustomer() {
+  if (!canDeleteCustomer.value) return
   if (!customer.value) return
   try {
     await customerStore.removeCustomer(customer.value.customerId)
@@ -885,11 +928,12 @@ async function handleDeleteCustomerConfirm() {
 }
 
 function handleAiFollowUp() {
+  if (!canCreateFollowUps.value) return
   showAiFollowUpDrawer.value = true
 }
 
 function handleAiFollowUpSaved() {
-  if (customer.value) fetchFollowUps(customer.value.customerId, true)
+  if (customer.value && canViewFollowUps.value) fetchFollowUps(customer.value.customerId, true)
 }
 
 function handleGenerateReport() {
@@ -907,6 +951,7 @@ function resetContactForm() {
 }
 
 function handleAddContact() {
+  if (!canCreateContacts.value) return
   if (customer.value) {
     editingContact.value = null
     contactForm.customerId = customer.value.customerId
@@ -916,11 +961,13 @@ function handleAddContact() {
 }
 
 function handleViewContact(contact: Contact) {
+  if (!canViewContacts.value) return
   currentContact.value = contact
   showContactDetail.value = true
 }
 
 function handleEditContact(contact: Contact) {
+  if (!canEditContacts.value) return
   editingContact.value = contact
   contactForm.customerId = contact.customerId
   contactForm.name = contact.name || ''
@@ -934,6 +981,7 @@ function handleEditContact(contact: Contact) {
 }
 
 async function handleDeleteContact(contactId: string) {
+  if (!canDeleteContacts.value) return
   if (!customer.value) return
   try {
     await deleteContact(contactId)
@@ -943,6 +991,7 @@ async function handleDeleteContact(contactId: string) {
 }
 
 async function handleSetPrimary(contactId: string) {
+  if (!canSetPrimaryContacts.value) return
   if (!customer.value) return
   const customerId = customer.value.customerId
   const previousContacts = contacts.value.map(contact => ({ ...contact }))
@@ -960,15 +1009,18 @@ async function handleSetPrimary(contactId: string) {
 }
 
 function handleAddTask() {
+  if (!canCreateTasks.value) return
   router.push('/task')
 }
 
 function handleOpenFollowUpDialog() {
+  if (!canCreateFollowUps.value) return
   followUpForm.followTime = formatDateForApi()
   showAddFollowUpDialog.value = true
 }
 
 async function handleAddTag() {
+  if (!canEditCustomerTags.value) return
   if (!newTagName.value.trim() || !customer.value) return
   submitting.value = true
   try {
@@ -983,6 +1035,7 @@ async function handleAddTag() {
 }
 
 async function handleRemoveTag(tag: CustomerTag) {
+  if (!canEditCustomerTags.value) return
   if (!customer.value) return
   try {
     await removeCustomerTag(customer.value.customerId, tag.tagId)
@@ -992,6 +1045,7 @@ async function handleRemoveTag(tag: CustomerTag) {
 }
 
 async function handleSubmitFollowUp() {
+  if (!canCreateFollowUps.value) return
   if (!followUpForm.content.trim()) {
     ElMessage.warning('请输入跟进内容')
     return
@@ -1014,6 +1068,7 @@ async function handleSubmitFollowUp() {
 }
 
 async function handleDeleteFollowUp(followUpId: string) {
+  if (!canDeleteFollowUps.value) return
   try {
     await deleteFollowUp(followUpId)
     if (customer.value) await fetchFollowUps(customer.value.customerId)
@@ -1022,6 +1077,8 @@ async function handleDeleteFollowUp(followUpId: string) {
 }
 
 async function handleSubmitContact() {
+  if (!canCreateContacts.value && !editingContact.value) return
+  if (!canEditContacts.value && editingContact.value) return
   if (!contactForm.name.trim()) {
     ElMessage.warning('请输入联系人姓名')
     return
@@ -1187,6 +1244,7 @@ function getStepperVisualState(stage: string, idx: number): 'completed' | 'curre
 }
 
 async function handleStageChange(newStage: string) {
+  if (!canChangeStage.value) return
   if (!customer.value || customer.value.stage === newStage) return
   try {
     await updateCustomerStage(customer.value.customerId, newStage)
