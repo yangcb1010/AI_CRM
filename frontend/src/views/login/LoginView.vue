@@ -78,220 +78,234 @@
                 <span class="text-lg font-bold text-slate-900">悟空AI CRM</span>
               </div>
 
-              <div class="mb-10">
-                <h2 class="mb-2 text-2xl font-bold text-slate-900">
-                  {{ isLogin ? '欢迎回来' : '开启您的智能 CRM 之旅' }}
-                </h2>
-                <p class="text-sm text-slate-500">
-                  {{ isLogin ? '请输入您的账号信息以登录系统' : '填写以下信息完成注册' }}
-                </p>
+              <!-- 双层叠放 + 高度过渡：与 out-in 不同，高度与透明度同时变化 -->
+              <div ref="stageRef" class="auth-form-stage">
+                <div
+                  ref="loginLayerRef"
+                  class="auth-form-layer"
+                  :class="{ 'auth-form-layer--active': isLogin }"
+                  :aria-hidden="!isLogin"
+                >
+                  <div class="mb-10">
+                    <h2 class="mb-2 text-2xl font-bold text-slate-900">欢迎回来</h2>
+                    <p class="text-sm text-slate-500">请输入您的账号信息以登录系统</p>
+                  </div>
+
+                  <el-form
+                    ref="loginFormRef"
+                    :model="loginForm"
+                    :rules="loginRules"
+                    class="auth-form space-y-5"
+                    label-position="top"
+                    hide-required-asterisk
+                    @submit.prevent="handleLogin"
+                  >
+                    <el-form-item prop="username">
+                      <template #label>
+                        <span class="label-upper">用户名</span>
+                      </template>
+                      <el-input
+                        v-model="loginForm.username"
+                        size="large"
+                        placeholder="请输入用户名"
+                        class="auth-el-input"
+                        @keyup.enter="handleLogin"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><User /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="password">
+                      <template #label>
+                        <span class="label-upper">密码</span>
+                      </template>
+                      <el-input
+                        v-model="loginForm.password"
+                        type="password"
+                        size="large"
+                        placeholder="••••••••"
+                        show-password
+                        class="auth-el-input"
+                        @keyup.enter="handleLogin"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><Lock /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item class="!mb-0">
+                      <button
+                        type="button"
+                        class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="loading"
+                        @click="handleLogin"
+                      >
+                        <span
+                          v-if="loading"
+                          class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                        />
+                        <template v-else>
+                          立即登录
+                          <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
+                        </template>
+                      </button>
+                    </el-form-item>
+                  </el-form>
+                </div>
+
+                <div
+                  ref="registerLayerRef"
+                  class="auth-form-layer"
+                  :class="{ 'auth-form-layer--active': !isLogin }"
+                  :aria-hidden="isLogin"
+                >
+                  <div class="mb-10">
+                    <h2 class="mb-2 text-2xl font-bold text-slate-900">开启您的智能 CRM 之旅</h2>
+                    <p class="text-sm text-slate-500">填写以下信息完成注册</p>
+                  </div>
+
+                  <el-form
+                    ref="registerFormRef"
+                    :model="registerForm"
+                    :rules="registerRules"
+                    class="auth-form space-y-5"
+                    label-position="top"
+                    hide-required-asterisk
+                    @submit.prevent="handleRegister"
+                  >
+                    <el-form-item prop="companyName">
+                      <template #label>
+                        <span class="label-upper">公司名称</span>
+                      </template>
+                      <el-input
+                        v-model="registerForm.companyName"
+                        size="large"
+                        placeholder="请输入公司名称"
+                        class="auth-el-input"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><OfficeBuilding /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="realname">
+                      <template #label>
+                        <span class="label-upper">联系人姓名</span>
+                      </template>
+                      <el-input
+                        v-model="registerForm.realname"
+                        size="large"
+                        placeholder="选填"
+                        class="auth-el-input"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><User /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="email">
+                      <template #label>
+                        <span class="label-upper">邮箱</span>
+                      </template>
+                      <el-input
+                        v-model="registerForm.email"
+                        size="large"
+                        placeholder="用作登录账号"
+                        class="auth-el-input"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><Message /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="password">
+                      <template #label>
+                        <span class="label-upper">密码</span>
+                      </template>
+                      <el-input
+                        v-model="registerForm.password"
+                        type="password"
+                        size="large"
+                        placeholder="6-20 位"
+                        show-password
+                        class="auth-el-input"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><Lock /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="confirmPassword">
+                      <template #label>
+                        <span class="label-upper">确认密码</span>
+                      </template>
+                      <el-input
+                        v-model="registerForm.confirmPassword"
+                        type="password"
+                        size="large"
+                        placeholder="请再次输入密码"
+                        show-password
+                        class="auth-el-input"
+                        @keyup.enter="handleRegister"
+                      >
+                        <template #prefix>
+                          <el-icon class="text-slate-400"><Lock /></el-icon>
+                        </template>
+                      </el-input>
+                    </el-form-item>
+
+                    <el-form-item prop="verificationCode">
+                      <template #label>
+                        <span class="label-upper">验证码</span>
+                      </template>
+                      <div class="flex w-full gap-3">
+                        <el-input
+                          v-model="registerForm.verificationCode"
+                          size="large"
+                          placeholder="请输入验证码"
+                          class="auth-el-input flex-1"
+                          @keyup.enter="handleRegister"
+                        />
+                        <button
+                          type="button"
+                          class="auth-send-code-btn shrink-0 px-4 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                          :disabled="sendingCode || countdown > 0"
+                          @click="handleSendCode"
+                        >
+                          {{ sendCodeText }}
+                        </button>
+                      </div>
+                    </el-form-item>
+
+                    <el-form-item class="!mb-0">
+                      <button
+                        type="button"
+                        class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="registerLoading"
+                        @click="handleRegister"
+                      >
+                        <span
+                          v-if="registerLoading"
+                          class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                        />
+                        <template v-else>
+                          免费注册
+                          <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
+                        </template>
+                      </button>
+                    </el-form-item>
+                  </el-form>
+                </div>
               </div>
 
-              <!-- Login -->
-              <el-form
-                v-show="isLogin"
-                ref="loginFormRef"
-                :model="loginForm"
-                :rules="loginRules"
-                class="auth-form space-y-5"
-                label-position="top"
-                hide-required-asterisk
-                @submit.prevent="handleLogin"
-              >
-                <el-form-item prop="username">
-                  <template #label>
-                    <span class="label-upper">用户名</span>
-                  </template>
-                  <el-input
-                    v-model="loginForm.username"
-                    size="large"
-                    placeholder="请输入用户名"
-                    class="auth-el-input"
-                    @keyup.enter="handleLogin"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><User /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="password">
-                  <template #label>
-                    <span class="label-upper">密码</span>
-                  </template>
-                  <el-input
-                    v-model="loginForm.password"
-                    type="password"
-                    size="large"
-                    placeholder="••••••••"
-                    show-password
-                    class="auth-el-input"
-                    @keyup.enter="handleLogin"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><Lock /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item class="!mb-0">
-                  <button
-                    type="button"
-                    class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="loading"
-                    @click="handleLogin"
-                  >
-                    <span
-                      v-if="loading"
-                      class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                    />
-                    <template v-else>
-                      立即登录
-                      <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
-                    </template>
-                  </button>
-                </el-form-item>
-              </el-form>
-
-              <!-- Register -->
-              <el-form
-                v-show="!isLogin"
-                ref="registerFormRef"
-                :model="registerForm"
-                :rules="registerRules"
-                class="auth-form space-y-5"
-                label-position="top"
-                hide-required-asterisk
-                @submit.prevent="handleRegister"
-              >
-                <el-form-item prop="companyName">
-                  <template #label>
-                    <span class="label-upper">公司名称</span>
-                  </template>
-                  <el-input
-                    v-model="registerForm.companyName"
-                    size="large"
-                    placeholder="请输入公司名称"
-                    class="auth-el-input"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><OfficeBuilding /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="realname">
-                  <template #label>
-                    <span class="label-upper">联系人姓名</span>
-                  </template>
-                  <el-input
-                    v-model="registerForm.realname"
-                    size="large"
-                    placeholder="选填"
-                    class="auth-el-input"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><User /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="email">
-                  <template #label>
-                    <span class="label-upper">邮箱</span>
-                  </template>
-                  <el-input
-                    v-model="registerForm.email"
-                    size="large"
-                    placeholder="用作登录账号"
-                    class="auth-el-input"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><Message /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="password">
-                  <template #label>
-                    <span class="label-upper">密码</span>
-                  </template>
-                  <el-input
-                    v-model="registerForm.password"
-                    type="password"
-                    size="large"
-                    placeholder="6-20 位"
-                    show-password
-                    class="auth-el-input"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><Lock /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="confirmPassword">
-                  <template #label>
-                    <span class="label-upper">确认密码</span>
-                  </template>
-                  <el-input
-                    v-model="registerForm.confirmPassword"
-                    type="password"
-                    size="large"
-                    placeholder="请再次输入密码"
-                    show-password
-                    class="auth-el-input"
-                    @keyup.enter="handleRegister"
-                  >
-                    <template #prefix>
-                      <el-icon class="text-slate-400"><Lock /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-
-                <el-form-item prop="verificationCode">
-                  <template #label>
-                    <span class="label-upper">验证码</span>
-                  </template>
-                  <div class="flex w-full gap-3">
-                    <el-input
-                      v-model="registerForm.verificationCode"
-                      size="large"
-                      placeholder="请输入验证码"
-                      class="auth-el-input flex-1"
-                      @keyup.enter="handleRegister"
-                    />
-                    <button
-                      type="button"
-                      class="shrink-0 rounded-2xl border border-slate-200 px-4 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-                      :disabled="sendingCode || countdown > 0"
-                      @click="handleSendCode"
-                    >
-                      {{ sendCodeText }}
-                    </button>
-                  </div>
-                </el-form-item>
-
-                <el-form-item class="!mb-0">
-                  <button
-                    type="button"
-                    class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="registerLoading"
-                    @click="handleRegister"
-                  >
-                    <span
-                      v-if="registerLoading"
-                      class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                    />
-                    <template v-else>
-                      免费注册
-                      <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
-                    </template>
-                  </button>
-                </el-form-item>
-              </el-form>
-
-              <div class="mt-8 text-center">
+              <div class="mt-6 text-center">
                 <p class="text-sm text-slate-500">
                   {{ isLogin ? '还没有账号？' : '已经有账号了？' }}
                   <button
@@ -315,7 +329,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   CircleCheck,
@@ -344,8 +358,52 @@ const registerLoading = ref(false)
 const sendingCode = ref(false)
 const showCaptchaDialog = ref(false)
 const formScrollRef = ref<HTMLElement>()
+const stageRef = ref<HTMLElement>()
+const loginLayerRef = ref<HTMLElement>()
+const registerLayerRef = ref<HTMLElement>()
 const countdown = ref(0)
 let countdownTimer: number | undefined
+
+const reduceMotion =
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+function measureActiveLayerHeight(): number {
+  const el = isLogin.value ? loginLayerRef.value : registerLayerRef.value
+  if (!el) return 0
+  return Math.ceil(el.scrollHeight)
+}
+
+async function syncStageHeight(animate: boolean) {
+  await nextTick()
+  await nextTick()
+  const stage = stageRef.value
+  if (!stage) return
+  const next = measureActiveLayerHeight()
+  if (next <= 0) return
+
+  if (!animate || reduceMotion) {
+    stage.style.height = `${next}px`
+    return
+  }
+
+  const current = stage.getBoundingClientRect().height
+  const from = current > 0 ? current : next
+  stage.style.height = `${from}px`
+  void stage.offsetHeight
+  stage.style.height = `${next}px`
+}
+
+function snapStageHeightForResize() {
+  const stage = stageRef.value
+  if (!stage) return
+  const h = measureActiveLayerHeight()
+  if (h <= 0) return
+  const prevTransition = stage.style.transition
+  stage.style.transition = 'none'
+  stage.style.height = `${h}px`
+  void stage.offsetHeight
+  stage.style.transition = prevTransition
+}
 
 const loginForm = reactive({
   username: '',
@@ -409,7 +467,7 @@ watch(
 )
 
 watch(isLogin, async () => {
-  await nextTick()
+  await syncStageHeight(true)
   formScrollRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
 })
 
@@ -538,7 +596,13 @@ function startCountdown() {
   }, 1000)
 }
 
+onMounted(async () => {
+  await syncStageHeight(false)
+  window.addEventListener('resize', snapStageHeightForResize)
+})
+
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', snapStageHeightForResize)
   if (countdownTimer) {
     window.clearInterval(countdownTimer)
   }
@@ -617,10 +681,53 @@ onBeforeUnmount(() => {
   width: min(100%, 456px);
   margin: 0 auto;
   padding: 2rem 1.5rem;
+  /* 与主题变量对齐，深层样式仍用 box-shadow 覆盖 EP 默认 inset 边框 */
+  --el-input-border-radius: 16px;
+}
+
+.auth-form-stage {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  overflow: hidden;
+  transition: height 0.52s cubic-bezier(0.25, 0.46, 0.45, 1);
+}
+
+.auth-form-layer {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.38s cubic-bezier(0.25, 0.46, 0.45, 1),
+    transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 1);
+  transform: translateY(6px);
+}
+
+.auth-form-layer--active {
+  z-index: 1;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-stage {
+    transition: none;
+  }
+
+  .auth-form-layer {
+    transition: none;
+    transform: none;
+  }
 }
 
 .label-upper {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -632,28 +739,58 @@ onBeforeUnmount(() => {
 }
 
 .auth-form :deep(.el-form-item__label) {
-  padding-bottom: 6px;
+  margin-bottom: 4px;
   line-height: 1.2;
 }
 
-.auth-el-input :deep(.el-input__wrapper) {
-  border-radius: 1rem;
-  background-color: rgb(248 250 252);
-  border: 1px solid rgb(226 232 240);
-  box-shadow: none;
-  padding-left: 12px;
+/*
+ * Element Plus 输入框用 inset box-shadow 模拟 1px 边框，普通 border 会叠两层或无效。
+ * 这里统一改为：细 inset 描边 + 大圆角 + focus 外环（与设计稿 rounded-2xl + ring-primary/5 一致）
+ */
+.auth-form :deep(.el-input.auth-el-input .el-input__wrapper) {
+  min-height: 46px;
+  border-radius: 1rem !important;
+  background-color: #f8fafc !important;
+  border: none !important;
+  box-shadow: 0 0 0 1px #e2e8f0 inset !important;
+  padding-left: 12px !important;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.2s ease,
+    background-color 0.2s ease !important;
 }
 
-.auth-el-input :deep(.el-input__wrapper:hover) {
-  border-color: rgb(203 213 225);
+.auth-form :deep(.el-input.auth-el-input .el-input__wrapper:hover) {
+  background-color: #f1f5f9 !important;
+  box-shadow: 0 0 0 1px #cbd5e1 inset !important;
 }
 
-.auth-el-input :deep(.el-input__wrapper.is-focus) {
-  border-color: #137fec;
-  box-shadow: 0 0 0 4px rgba(19, 127, 236, 0.06);
+.auth-form :deep(.el-input.auth-el-input .el-input__wrapper.is-focus) {
+  background-color: #fff !important;
+  box-shadow:
+    0 0 0 4px rgba(19, 127, 236, 0.06),
+    0 0 0 1px #137fec inset !important;
+}
+
+.auth-send-code-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  align-self: stretch;
+  padding-inline: 1rem;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  box-shadow: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.auth-send-code-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
 }
 
 .auth-form-scroll::-webkit-scrollbar {
