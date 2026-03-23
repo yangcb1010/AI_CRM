@@ -5,7 +5,7 @@
     :show-close="false"
     destroy-on-close
     top="6vh"
-    class="schedule-dialog !rounded-2xl !p-0 overflow-hidden"
+    class="schedule-dialog !rounded-2xl !p-0 overflow-hidden wk-crm-el-field-scope"
   >
     <template #header>
       <div class="flex items-center justify-between">
@@ -31,93 +31,92 @@
       <div class="space-y-5">
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1.5 block">日程标题 <span class="text-red-500">*</span></label>
-          <input
+          <el-input
             v-model="scheduleForm.title"
-            type="text"
             placeholder="请输入日程标题"
-            class="w-full text-sm text-slate-900 bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white rounded-lg px-3 py-2 outline-none transition-all"
+            size="large"
+            class="w-full wk-crm-el-field-input"
           />
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">开始日期 <span class="text-red-500">*</span></label>
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 focus-within:border-primary focus-within:bg-white rounded-lg px-3 py-2 transition-all">
-              <span class="material-symbols-outlined text-slate-400 text-sm">calendar_today</span>
-              <input
-                v-model="scheduleForm.startDate"
-                type="date"
-                class="w-full text-sm text-slate-900 bg-transparent outline-none"
-              />
-            </div>
+            <el-date-picker
+              v-model="scheduleForm.startDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择开始日期"
+              size="large"
+              class="w-full wk-crm-el-field-date"
+            />
           </div>
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">开始时间 <span class="text-red-500">*</span></label>
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 focus-within:border-primary focus-within:bg-white rounded-lg px-3 py-2 transition-all">
-              <span class="material-symbols-outlined text-slate-400 text-sm">schedule</span>
-              <input
-                v-model="scheduleForm.startTime"
-                type="time"
-                class="w-full text-sm text-slate-900 bg-transparent outline-none"
-              />
-            </div>
+            <el-time-picker
+              v-model="scheduleForm.startTime"
+              value-format="HH:mm"
+              format="HH:mm"
+              placeholder="选择开始时间"
+              size="large"
+              class="w-full wk-crm-el-field-date"
+            />
           </div>
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">结束日期</label>
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 focus-within:border-primary focus-within:bg-white rounded-lg px-3 py-2 transition-all">
-              <span class="material-symbols-outlined text-slate-400 text-sm">event</span>
-              <input
-                v-model="scheduleForm.endDate"
-                type="date"
-                class="w-full text-sm text-slate-900 bg-transparent outline-none"
-              />
-            </div>
+            <el-date-picker
+              v-model="scheduleForm.endDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择结束日期"
+              clearable
+              size="large"
+              class="w-full wk-crm-el-field-date"
+            />
           </div>
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">结束时间</label>
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 focus-within:border-primary focus-within:bg-white rounded-lg px-3 py-2 transition-all">
-              <span class="material-symbols-outlined text-slate-400 text-sm">update</span>
-              <input
-                v-model="scheduleForm.endTime"
-                type="time"
-                class="w-full text-sm text-slate-900 bg-transparent outline-none"
-              />
-            </div>
+            <el-time-picker
+              v-model="scheduleForm.endTime"
+              value-format="HH:mm"
+              format="HH:mm"
+              placeholder="选择结束时间"
+              clearable
+              size="large"
+              class="w-full wk-crm-el-field-date"
+            />
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">类型</label>
-            <select
-              v-model="scheduleForm.type"
-              class="w-full text-sm text-slate-900 bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white rounded-lg px-3 py-2 outline-none transition-all"
-            >
-              <option value="meeting">会议</option>
-              <option value="call">电话</option>
-              <option value="visit">拜访</option>
-            </select>
+            <el-select v-model="scheduleForm.type" class="w-full wk-crm-el-field-select" size="large">
+              <el-option label="会议" value="meeting" />
+              <el-option label="电话" value="call" />
+              <el-option label="拜访" value="visit" />
+            </el-select>
           </div>
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">地点</label>
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 focus-within:border-primary focus-within:bg-white rounded-lg px-3 py-2 transition-all">
-              <span class="material-symbols-outlined text-slate-400 text-sm">location_on</span>
-              <input
-                v-model="scheduleForm.location"
-                type="text"
-                placeholder="请输入地点"
-                class="w-full text-sm text-slate-900 bg-transparent outline-none"
-              />
-            </div>
+            <el-input
+              v-model="scheduleForm.location"
+              placeholder="请输入地点"
+              size="large"
+              class="w-full wk-crm-el-field-input"
+            />
           </div>
         </div>
 
         <div>
           <label class="text-xs font-bold text-slate-500 mb-1.5 block">描述备注</label>
-          <textarea
+          <el-input
             v-model="scheduleForm.description"
+            type="textarea"
+            :rows="4"
+            resize="none"
             placeholder="请输入日程备注信息..."
-            class="w-full text-sm text-slate-900 bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white rounded-lg px-3 py-2 outline-none transition-all resize-none h-20"
+            class="w-full wk-crm-el-field-input"
           />
         </div>
       </div>
@@ -247,5 +246,9 @@ async function handleSaveSchedule() {
 
 .schedule-dialog .el-dialog__footer {
   padding: 14px 24px 22px !important;
+}
+
+.el-overlay:has(.schedule-dialog) {
+  overflow: hidden;
 }
 </style>
