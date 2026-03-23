@@ -1,5 +1,5 @@
 <template>
-  <div ref="pageRootRef" class="flex flex-col gap-6 px-6 py-6">
+  <div ref="pageRootRef" data-customer-page-root class="flex flex-col gap-6 px-6 py-6">
     <!-- Header -->
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -42,9 +42,9 @@
     </div>
 
     <!-- Main Content: Table + AI Sidebar -->
-    <div class="flex flex-col xl:flex-row gap-6 items-start relative">
+    <div class="flex flex-col xl:flex-row gap-6 items-start relative overflow-x-hidden">
       <!-- Table Area -->
-      <div class="flex-1 min-w-0 w-full space-y-6">
+      <div class="flex-1 min-w-0 space-y-6">
         <div
           ref="tableCardRef"
           class="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden"
@@ -243,105 +243,13 @@
         </div>
       </div>
 
-      <!-- AI Insight Sidebar -->
-      <div
+      <CustomerInsightSidebar
         v-if="!isMobile"
-        :class="[
-          'w-full xl:shrink-0 overflow-hidden transition-[width] duration-300 ease-out',
-          isAiSidebarExpanded ? 'xl:w-80' : 'xl:w-12'
-        ]"
-      >
-        <div
-          :class="[
-            'w-full xl:w-auto rounded-2xl xl:rounded-none p-1 xl:p-0 border border-transparent xl:border-none',
-            isAiSidebarExpanded ? 'bg-slate-50/50 xl:bg-transparent' : 'bg-transparent'
-          ]"
-        >
-          <div class="flex items-center justify-between px-1 mb-2">
-            <div class="flex items-center gap-2 min-w-0">
-              <h3 v-if="isAiSidebarExpanded" class="text-xs font-bold text-slate-400 uppercase tracking-widest truncate">
-                AI 智能洞察预警
-              </h3>
-              <span v-if="isAiSidebarExpanded" class="size-2 rounded-full bg-primary animate-pulse"></span>
-            </div>
-
-            <button
-              type="button"
-              class="size-8 flex items-center justify-center rounded-lg hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 transition-colors"
-              :title="isAiSidebarExpanded ? '收起面板' : '展开面板'"
-              @click="isAiSidebarExpanded = !isAiSidebarExpanded"
-            >
-              <span class="material-symbols-outlined text-xl">
-                {{ isAiSidebarExpanded ? 'last_page' : 'first_page' }}
-              </span>
-            </button>
-          </div>
-
-          <Transition
-            enter-active-class="transition-all duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-1"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-1"
-          >
-            <div v-if="isAiSidebarExpanded" class="space-y-4">
-              <!-- High Potential Warning -->
-              <div class="bg-white border border-slate-200 rounded-xl p-4 relative overflow-hidden group cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
-                <div class="flex items-center gap-2 mb-2">
-                  <WkIcon name="ai" class="text-primary text-xl" />
-                  <h3 class="text-sm font-bold text-slate-900">高潜力客户预警</h3>
-                </div>
-                <p class="text-xs text-slate-500 leading-relaxed">发现 {{ negotiationCount }} 位客户近期成交概率显著提升，建议优先跟进。</p>
-                <div class="mt-3 flex items-center justify-between">
-                  <span class="text-xs font-bold text-primary bg-primary/5 px-2 py-0.5 rounded">{{ negotiationCount }} 位待处理</span>
-                  <span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors text-sm">arrow_forward</span>
-                </div>
-              </div>
-
-              <!-- Auto Follow-up -->
-              <div class="bg-white border border-slate-200 rounded-xl p-4 relative overflow-hidden group cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="material-symbols-outlined text-indigo-600 text-xl">mark_email_unread</span>
-                  <h3 class="text-sm font-bold text-slate-900">自动化跟进生成</h3>
-                </div>
-                <p class="text-xs text-slate-500 leading-relaxed">有 {{ overdueCount }} 个客户超过7天未跟进，建议尽快安排跟进计划。</p>
-                <div class="mt-3 flex items-center justify-between">
-                  <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{{ overdueCount }} 个待跟进</span>
-                  <span class="material-symbols-outlined text-slate-300 group-hover:text-indigo-600 transition-colors text-sm">arrow_forward</span>
-                </div>
-              </div>
-
-              <!-- Forecast Update -->
-              <div class="bg-white border border-slate-200 rounded-xl p-4 relative overflow-hidden group cursor-pointer hover:border-emerald-400 hover:shadow-md transition-all">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="material-symbols-outlined text-emerald-600 text-xl">insights</span>
-                  <h3 class="text-sm font-bold text-slate-900">成交预测更新</h3>
-                </div>
-                <p class="text-xs text-slate-500 leading-relaxed">当前成交转化率 {{ conversionRate }}%，共 {{ closedCount }} 个客户已成交。</p>
-                <div class="mt-3 flex items-center justify-between">
-                  <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{{ conversionRate }}% 转化率</span>
-                  <span class="material-symbols-outlined text-slate-300 group-hover:text-emerald-600 transition-colors text-sm">arrow_forward</span>
-                </div>
-              </div>
-
-              <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
-                <p class="text-xs text-slate-400 leading-relaxed text-center italic">
-                  AI 助手正在实时分析您的客户数据，预警信息将在此处即时更新。
-                </p>
-              </div>
-            </div>
-          </Transition>
-
-          <div v-if="!isAiSidebarExpanded" class="hidden xl:flex flex-col items-center gap-6 pt-4">
-            <WkIcon name="ai" class="text-primary/40 text-xl animate-pulse" />
-            <div class="h-20 w-px bg-slate-200"></div>
-            <span class="[writing-mode:vertical-rl] text-xs font-bold text-slate-400 tracking-widest">
-              <span class="[text-combine-upright:all]">AI</span> 智能洞察
-            </span>
-          </div>
-        </div>
-      </div>
+        :negotiation-count="negotiationCount"
+        :overdue-count="overdueCount"
+        :closed-count="closedCount"
+        :conversion-rate="conversionRate"
+      />
     </div>
 
     <!-- Add/Edit Dialog -->
@@ -352,6 +260,7 @@
       @success="handleUpsertSuccess"
     />
 
+    <!-- Import Dialog -->
     <CustomerImportDialog
       v-model="showImportDialog"
       @success="handleImportSuccess"
@@ -379,6 +288,7 @@ import { transferCustomer, exportCustomers } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import CustomerImportDialog from '@/views/customer/components/CustomerImportDialog.vue'
+import CustomerInsightSidebar from '@/views/customer/components/CustomerInsightSidebar.vue'
 import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDialog.vue'
 import { appEvents, APP_EVENT } from '@/utils/events'
 
@@ -392,28 +302,6 @@ const paginationBarRef = ref<HTMLElement | null>(null)
 const tableHeight = ref<number | undefined>(undefined)
 let layoutObserver: ResizeObserver | null = null
 let tableHeightRaf = 0
-
-// UI only: AI sidebar expand/collapse (persisted)
-const AI_SIDEBAR_STORAGE_KEY = 'wk_ai_crm:customer_ai_sidebar_expanded:v1'
-function getInitialAiSidebarExpanded() {
-  try {
-    const raw = localStorage.getItem(AI_SIDEBAR_STORAGE_KEY)
-    if (raw === null) return true
-    return raw === '1'
-  } catch {
-    return true
-  }
-}
-
-const isAiSidebarExpanded = ref(getInitialAiSidebarExpanded())
-
-watch(isAiSidebarExpanded, (val) => {
-  try {
-    localStorage.setItem(AI_SIDEBAR_STORAGE_KEY, val ? '1' : '0')
-  } catch {
-    // ignore
-  }
-})
 
 const showAddDialog = ref(false)
 const editingCustomer = ref<CustomerListVO | null>(null)
