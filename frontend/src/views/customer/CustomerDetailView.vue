@@ -350,39 +350,58 @@
               <p class="text-xs text-slate-300 mt-1">点击上方按钮添加第一条跟进记录</p>
             </div>
 
-            <div v-else class="space-y-4" v-loading="followUpLoading">
-              <div v-for="item in followUps" :key="item.followUpId" class="relative pl-8 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-px before:bg-slate-200">
-                <div class="absolute left-0 top-1 -translate-x-1/2 size-4 rounded-full bg-white border-2 border-primary"></div>
-                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-3">
-                      <div class="size-8 rounded-lg flex items-center justify-center text-white shadow-sm bg-primary">
-                        <span class="material-symbols-outlined text-sm">{{ getFollowUpIcon(item.type) }}</span>
-                      </div>
-                      <div>
-                        <div class="flex items-center gap-2">
-                          <h4 class="font-bold text-slate-900 text-sm leading-none">{{ getFollowUpTypeLabel(item.type) }}</h4>
-                          <span class="text-xs font-bold px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-100">{{ item.createUserName }}</span>
+            <div v-else class="pl-2 sm:pl-3" v-loading="followUpLoading">
+              <div
+                v-for="(item, followUpIndex) in followUps"
+                :key="item.followUpId"
+                class="flex items-stretch gap-3"
+              >
+                <!-- Timeline rail: line + dot centered on same axis; segment avoids gap between items -->
+                <div class="relative flex w-7 shrink-0 flex-col items-center pt-1.5">
+                  <div
+                    v-if="followUps.length > 1"
+                    class="absolute left-1/2 z-0 w-px -translate-x-1/2 bg-slate-200"
+                    :class="followUpTimelineRailClass(followUpIndex)"
+                  />
+                  <div
+                    class="relative z-10 size-3.5 shrink-0 rounded-full border-2 border-primary bg-white shadow-sm ring-2 ring-slate-50"
+                    aria-hidden="true"
+                  />
+                </div>
+                <!-- flex-col + 固定高度占位：16px 间距在同行 flex 高度内，避免子项 margin 不撑开行高导致卡片贴在一起；左侧轨道 stretch 后竖线仍连续 -->
+                <div class="flex min-w-0 flex-1 flex-col">
+                  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <div class="size-8 rounded-lg flex items-center justify-center text-white shadow-sm bg-primary">
+                          <span class="material-symbols-outlined text-sm">{{ getFollowUpIcon(item.type) }}</span>
+                        </div>
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-slate-900 text-sm leading-none">{{ getFollowUpTypeLabel(item.type) }}</h4>
+                            <span class="text-xs font-bold px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-100">{{ item.createUserName }}</span>
+                          </div>
                         </div>
                       </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-400 uppercase font-bold">{{ formatDateTime(item.followTime || item.createTime) }}</span>
+                        <button
+                          v-if="canDeleteFollowUps"
+                          type="button"
+                          class="text-slate-300 hover:text-red-500 transition-colors"
+                          @click="confirmDeleteFollowUp(item.followUpId)"
+                        >
+                          <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                      <span class="text-xs text-slate-400 uppercase font-bold">{{ formatDateTime(item.followTime || item.createTime) }}</span>
-                      <button
-                        v-if="canDeleteFollowUps"
-                        type="button"
-                        class="text-slate-300 hover:text-red-500 transition-colors"
-                        @click="confirmDeleteFollowUp(item.followUpId)"
-                      >
-                        <span class="material-symbols-outlined text-sm">delete</span>
-                      </button>
+                    <div v-if="item.nextFollowTime" class="flex items-center gap-2 mb-3 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg w-fit">
+                      <span class="material-symbols-outlined text-xs">event_repeat</span>
+                      下次联系: {{ formatDateTime(item.nextFollowTime) }}
                     </div>
+                    <p class="text-sm text-slate-600 leading-relaxed">{{ item.content }}</p>
                   </div>
-                  <div v-if="item.nextFollowTime" class="flex items-center gap-2 mb-3 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg w-fit">
-                    <span class="material-symbols-outlined text-xs">event_repeat</span>
-                    下次联系: {{ formatDateTime(item.nextFollowTime) }}
-                  </div>
-                  <p class="text-sm text-slate-600 leading-relaxed">{{ item.content }}</p>
+                  <div v-if="followUpIndex < followUps.length - 1" class="h-4 shrink-0" aria-hidden="true" />
                 </div>
               </div>
             </div>
@@ -698,6 +717,17 @@ type SectionIconKey = keyof typeof sectionIconBgColors
 
 function getSectionIconStyle(key: SectionIconKey): { backgroundColor: string } {
   return { backgroundColor: sectionIconBgColors[key] }
+}
+
+/** Vertical rail segment: line starts at first dot center, ends at last dot center; full height between. */
+function followUpTimelineRailClass(index: number): string {
+  const n = followUps.value.length
+  if (n <= 1) return ''
+  const first = index === 0
+  const last = index === n - 1
+  if (first && !last) return 'top-[calc(0.375rem+0.4375rem)] bottom-0'
+  if (!first && last) return 'top-0 h-[calc(0.375rem+0.4375rem)]'
+  return 'top-0 bottom-0'
 }
 
 function isPrimaryContact(contact?: Pick<Contact, 'isPrimary'> | null): boolean {
