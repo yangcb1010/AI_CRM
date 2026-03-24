@@ -46,18 +46,10 @@ export async function sendMessageStream(
   attachments?: ChatAttachmentDTO[]
 ): Promise<void> {
   const token = getToken()
-  const abortController = new AbortController()
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
-  let idleTimeoutId: ReturnType<typeof setTimeout> | null = null
-  let isCompleted = false
-  const IDLE_TIMEOUT_MS = 3000 // 3 seconds idle = stream ended
 
   // Cleanup function
   const cleanup = () => {
-    if (idleTimeoutId) {
-      clearTimeout(idleTimeoutId)
-      idleTimeoutId = null
-    }
     if (reader) {
       try {
         reader.releaseLock()
@@ -68,29 +60,15 @@ export async function sendMessageStream(
     }
   }
 
-  // Reset idle timeout when data is received
-  const resetIdleTimeout = () => {
-    if (idleTimeoutId) {
-      clearTimeout(idleTimeoutId)
-    }
-    idleTimeoutId = setTimeout(() => {
-      // No data for IDLE_TIMEOUT_MS, consider stream complete
-      if (!isCompleted) {
-        isCompleted = true
-        abortController.abort()
-      }
-    }, IDLE_TIMEOUT_MS)
-  }
-
   try {
     const response = await fetch(`${getApiBaseUrl()}/chat/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
         ...(token ? { 'Manager-Token': token } : {})
       },
-      body: JSON.stringify({ sessionId, content, attachments: attachments || undefined }),
-      signal: abortController.signal
+      body: JSON.stringify({ sessionId, content, attachments: attachments || undefined })
     })
 
     if (!response.ok) {
@@ -105,22 +83,8 @@ export async function sendMessageStream(
     const decoder = new TextDecoder()
     let buffer = ''
 
-    // Start idle timeout
-    resetIdleTimeout()
-
     while (true) {
-      let readResult: ReadableStreamReadResult<Uint8Array>
-
-      try {
-        readResult = await reader.read()
-      } catch (e) {
-        // If aborted due to idle timeout, treat as complete
-        if (abortController.signal.aborted) {
-          break
-        }
-        throw e
-      }
-
+      const readResult = await reader.read()
       const { done, value } = readResult
 
       if (done) {
@@ -133,9 +97,6 @@ export async function sendMessageStream(
         }
         break
       }
-
-      // Reset idle timeout since we received data
-      resetIdleTimeout()
 
       // Decode the chunk and add to buffer
       buffer += decoder.decode(value, { stream: true })
@@ -154,14 +115,8 @@ export async function sendMessageStream(
     }
 
     // Stream completed successfully
-    isCompleted = true
     onComplete?.()
   } catch (error) {
-    // Don't report error if it was caused by our abort (idle timeout)
-    if (abortController.signal.aborted && isCompleted) {
-      onComplete?.()
-      return
-    }
     onError?.(error as Error)
     throw error
   } finally {

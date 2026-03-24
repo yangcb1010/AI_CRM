@@ -74,7 +74,7 @@
                   </span>
                 </button>
                 <p class="mt-2 px-2 text-[11px] text-slate-400">
-                  保存后将默认使用通义千问 `qwen-max`
+                  保存后将默认使用通义千问 `qwen3.5-plus`
                 </p>
               </div>
 

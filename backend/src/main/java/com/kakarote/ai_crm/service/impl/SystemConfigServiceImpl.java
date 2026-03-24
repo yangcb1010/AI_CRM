@@ -2,7 +2,14 @@ package com.kakarote.ai_crm.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kakarote.ai_crm.ai.DynamicChatClientProvider;
+import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
+import com.kakarote.ai_crm.ai.provider.AiProviderDescriptor;
+import com.kakarote.ai_crm.ai.provider.AiProviderRegistry;
+import com.kakarote.ai_crm.common.exception.BusinessException;
+import com.kakarote.ai_crm.common.result.SystemCodeEnum;
 import com.kakarote.ai_crm.config.tenant.TenantContextHolder;
 import com.kakarote.ai_crm.entity.BO.AiConfigUpdateBO;
 import com.kakarote.ai_crm.entity.BO.EnterpriseConfigUpdateBO;
@@ -21,6 +28,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * 系统配置服务实现
+ * 系统配置服务实现。
  */
 @Slf4j
 @Service
@@ -41,16 +49,7 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     private static final String ENTERPRISE_CONFIG_TYPE = "enterprise";
     private static final long CACHE_EXPIRE_MINUTES = 30;
 
-    /**
-     * 构建租户级缓存 key: system:config:{tenantId}:{configKey}
-     */
-    private String buildCacheKey(String configKey) {
-        Long tenantId = TenantContextHolder.getTenantId();
-        if (tenantId != null) {
-            return CACHE_KEY_PREFIX + tenantId + ":" + configKey;
-        }
-        return CACHE_KEY_PREFIX + configKey;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -61,14 +60,13 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     @Autowired
     private FileStorageService fileStorageService;
 
-    // 从 application.yml 读取默认值，确保与 DynamicChatClientProvider 一致
-    @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode}")
     private String defaultApiUrl;
 
     @Value("${spring.ai.openai.api-key:${DASHSCOPE_API_KEY:${OPENAI_API_KEY:}}}")
     private String defaultApiKey;
 
-    @Value("${spring.ai.openai.chat.options.model:qwen-max}")
+    @Value("${spring.ai.openai.chat.options.model:qwen3.5-plus}")
     private String defaultModel;
 
     @Value("${spring.ai.openai.chat.options.temperature:0.7}")
@@ -77,6 +75,14 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     @Value("${spring.ai.openai.chat.options.max-tokens:2048}")
     private Integer defaultMaxTokens;
 
+    private String buildCacheKey(String configKey) {
+        Long tenantId = TenantContextHolder.getTenantId();
+        if (tenantId != null) {
+            return CACHE_KEY_PREFIX + tenantId + ":" + configKey;
+        }
+        return CACHE_KEY_PREFIX + configKey;
+    }
+
     @Override
     public String getConfigValue(String configKey) {
         return getConfigValue(configKey, null);
@@ -84,20 +90,17 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
 
     @Override
     public String getConfigValue(String configKey, String defaultValue) {
-        // 1. 先从 Redis 缓存查询（租户隔离）
         String cacheKey = buildCacheKey(configKey);
         String cachedValue = redisTemplate.opsForValue().get(cacheKey);
         if (cachedValue != null) {
             return cachedValue;
         }
 
-        // 2. 从数据库查询
         SystemConfig config = lambdaQuery()
                 .eq(SystemConfig::getConfigKey, configKey)
                 .one();
 
         if (config != null && StrUtil.isNotBlank(config.getConfigValue())) {
-            // 缓存到 Redis
             redisTemplate.opsForValue().set(cacheKey, config.getConfigValue(),
                     CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
             return config.getConfigValue();
@@ -128,19 +131,16 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 .one();
 
         if (config == null) {
-            // 新增配置
             config = new SystemConfig();
             config.setConfigKey(configKey);
             config.setConfigValue(configValue);
             config.setConfigType(AI_CONFIG_TYPE);
             save(config);
         } else {
-            // 更新配置
             config.setConfigValue(configValue);
             updateById(config);
         }
 
-        // 清除缓存（租户隔离）
         redisTemplate.delete(buildCacheKey(configKey));
     }
 
@@ -152,101 +152,76 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
 
     @Override
     public AiConfigVO getAiConfig() {
-        Map<String, String> configs = getConfigsByType(AI_CONFIG_TYPE);
+        return buildAiConfig(false);
+    }
 
-        AiConfigVO vo = new AiConfigVO();
-
-        // 如果 ai_provider 存在，说明用户已通过设置页面保存过配置，使用 DB 值
-        // 如果不存在，说明从未通过设置页面配置，全部使用 application.yml 默认值
-        boolean hasExplicitConfig = configs.containsKey("ai_provider");
-
-        if (hasExplicitConfig) {
-            vo.setProvider(configs.get("ai_provider"));
-            vo.setApiUrl(configs.getOrDefault("ai_api_url", defaultApiUrl));
-            vo.setApiKey(maskApiKey(configs.get("ai_api_key")));
-            vo.setModel(configs.getOrDefault("ai_model", defaultModel));
-            vo.setTemperature(parseDouble(configs.get("ai_temperature"), defaultTemperature));
-            vo.setMaxTokens(parseInt(configs.get("ai_max_tokens"), defaultMaxTokens));
-        } else {
-            // 未通过设置页面配置过，返回 application.yml 默认值（通义千问）
-            vo.setProvider("dashscope");
-            vo.setApiUrl(defaultApiUrl);
-            vo.setApiKey(maskApiKey(defaultApiKey));
-            vo.setModel(defaultModel);
-            vo.setTemperature(defaultTemperature);
-            vo.setMaxTokens(defaultMaxTokens);
-        }
-
-        // 获取最后更新时间
-        SystemConfig anyConfig = lambdaQuery()
-                .eq(SystemConfig::getConfigType, AI_CONFIG_TYPE)
-                .orderByDesc(SystemConfig::getUpdateTime)
-                .last("LIMIT 1")
-                .one();
-        if (anyConfig != null) {
-            vo.setUpdateTime(anyConfig.getUpdateTime());
-        }
-
-        return vo;
+    @Override
+    public AiConfigVO getAiConfigDetail() {
+        return buildAiConfig(true);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateAiConfig(AiConfigUpdateBO updateBO) {
-        Map<String, String> configs = new HashMap<>();
+        String normalizedApiUrl = DynamicChatClientProvider.normalizeCompatibleBaseUrl(updateBO.getApiUrl());
+        AiProviderDescriptor descriptor = AiProviderRegistry.resolve(updateBO.getProvider(), normalizedApiUrl);
+        AiModelCapabilities capabilities = validateAiConfig(descriptor, updateBO);
 
-        if (StrUtil.isNotBlank(updateBO.getProvider())) {
-            configs.put("ai_provider", updateBO.getProvider());
-        }
-        if (StrUtil.isNotBlank(updateBO.getApiUrl())) {
-            configs.put("ai_api_url", updateBO.getApiUrl());
-        }
-        if (StrUtil.isNotBlank(updateBO.getApiKey())) {
-            configs.put("ai_api_key", updateBO.getApiKey());
-        }
-        if (StrUtil.isNotBlank(updateBO.getModel())) {
-            configs.put("ai_model", updateBO.getModel());
-        }
+        Map<String, String> configs = new HashMap<>();
+        configs.put("ai_provider", descriptor.getCode());
+        configs.put("ai_api_url", normalizedApiUrl);
+        configs.put("ai_api_key", updateBO.getApiKey().trim());
+        configs.put("ai_model", updateBO.getModel().trim());
+
         if (updateBO.getTemperature() != null) {
             configs.put("ai_temperature", String.valueOf(updateBO.getTemperature()));
         }
         if (updateBO.getMaxTokens() != null) {
             configs.put("ai_max_tokens", String.valueOf(updateBO.getMaxTokens()));
         }
+        if (updateBO.getExtraHeadersJson() != null) {
+            configs.put("ai_extra_headers", updateBO.getExtraHeadersJson().trim());
+        }
 
         updateConfigs(configs);
-
-        // 重要：通知 DynamicChatClientProvider 刷新 ChatClient
         chatClientProvider.refreshChatClient();
 
-        log.info("AI 配置已更新，ChatClient 已刷新");
+        log.info("AI 配置已更新: provider={}, model={}, supportsToolCall={}, supportsVision={}",
+                descriptor.getCode(), updateBO.getModel(), capabilities.isSupportsToolCall(), capabilities.isSupportsVision());
     }
 
     @Override
     public AiConnectionTestVO testAiConnection(AiConfigUpdateBO configBO) {
         AiConnectionTestVO result = new AiConnectionTestVO();
         long startTime = System.currentTimeMillis();
+        String normalizedApiUrl = DynamicChatClientProvider.normalizeCompatibleBaseUrl(configBO.getApiUrl());
+        AiProviderDescriptor descriptor = AiProviderRegistry.resolve(configBO.getProvider(), normalizedApiUrl);
+        result.setProvider(descriptor.getCode());
 
         try {
-            // 创建临时 ChatClient 进行测试
+            AiModelCapabilities capabilities = validateAiConfig(descriptor, configBO);
+
             ChatClient testClient = chatClientProvider.createTestChatClient(
-                    configBO.getApiUrl(),
-                    configBO.getApiKey(),
-                    configBO.getModel(),
+                    normalizedApiUrl,
+                    configBO.getApiKey().trim(),
+                    configBO.getModel().trim(),
                     configBO.getTemperature(),
-                    configBO.getMaxTokens()
+                    configBO.getMaxTokens(),
+                    configBO.getExtraHeadersJson(),
+                    capabilities
             );
 
-            // 发送简单测试消息
             String response = testClient.prompt()
-                    .user("请回复 OK")
+                    .user("请只回复 OK")
                     .call()
                     .content();
 
             result.setSuccess(true);
             result.setMessage(response);
             result.setModel(configBO.getModel());
-
+        } catch (BusinessException e) {
+            result.setSuccess(false);
+            result.setMessage(e.getMsg());
         } catch (Exception e) {
             log.error("AI 连接测试失败: {}", e.getMessage(), e);
             result.setSuccess(false);
@@ -266,9 +241,6 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
-    /**
-     * 更新配置并指定配置类型
-     */
     @Transactional(rollbackFor = Exception.class)
     public void updateConfigsWithType(Map<String, String> configs, String configType) {
         for (Map.Entry<String, String> entry : configs.entrySet()) {
@@ -290,14 +262,195 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 updateById(config);
             }
 
-            // 清除缓存（租户隔离）
             redisTemplate.delete(buildCacheKey(configKey));
         }
     }
 
-    /**
-     * API Key 脱敏处理
-     */
+    @Override
+    public EnterpriseConfigVO getEnterpriseConfig() {
+        Map<String, String> configs = getConfigsByType(ENTERPRISE_CONFIG_TYPE);
+
+        EnterpriseConfigVO vo = new EnterpriseConfigVO();
+        vo.setName(configs.getOrDefault("enterprise_name", null));
+        vo.setDescription(configs.getOrDefault("enterprise_description", null));
+
+        String logo = configs.getOrDefault("enterprise_logo", null);
+        vo.setLogo(logo);
+        if (StrUtil.isNotBlank(logo)) {
+            vo.setLogoUrl(fileStorageService.getUrl(logo));
+        }
+
+        SystemConfig latestConfig = lambdaQuery()
+                .eq(SystemConfig::getConfigType, ENTERPRISE_CONFIG_TYPE)
+                .orderByDesc(SystemConfig::getUpdateTime)
+                .last("LIMIT 1")
+                .one();
+        if (latestConfig != null) {
+            vo.setUpdateTime(latestConfig.getUpdateTime());
+        }
+
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateEnterpriseConfig(EnterpriseConfigUpdateBO updateBO) {
+        Map<String, String> configs = new HashMap<>();
+
+        if (updateBO.getName() != null) {
+            configs.put("enterprise_name", updateBO.getName());
+        }
+        if (updateBO.getLogo() != null) {
+            configs.put("enterprise_logo", updateBO.getLogo());
+        }
+        if (updateBO.getDescription() != null) {
+            configs.put("enterprise_description", updateBO.getDescription());
+        }
+
+        if (!configs.isEmpty()) {
+            updateConfigsWithType(configs, ENTERPRISE_CONFIG_TYPE);
+            log.info("企业信息配置已更新");
+        }
+    }
+
+    private AiConfigVO buildAiConfig(boolean includeSensitiveExtraHeaders) {
+        Map<String, String> configs = getConfigsByType(AI_CONFIG_TYPE);
+        boolean hasExplicitConfig = hasExplicitAiConfig(configs);
+
+        String rawApiUrl = DynamicChatClientProvider.normalizeCompatibleBaseUrl(
+                hasExplicitConfig && StrUtil.isNotBlank(configs.get("ai_api_url"))
+                        ? configs.get("ai_api_url")
+                        : defaultApiUrl
+        );
+        AiProviderDescriptor descriptor = AiProviderRegistry.resolve(configs.get("ai_provider"), rawApiUrl);
+        String providerCode = descriptor.getCode();
+        String apiKey = hasExplicitConfig && StrUtil.isNotBlank(configs.get("ai_api_key"))
+                ? configs.get("ai_api_key")
+                : defaultApiKey;
+        String model = hasExplicitConfig && StrUtil.isNotBlank(configs.get("ai_model"))
+                ? configs.get("ai_model")
+                : defaultModel;
+        String extraHeadersJson = configs.get("ai_extra_headers");
+        AiModelCapabilities capabilities = descriptor.resolveCapabilities(model);
+
+        AiConfigVO vo = new AiConfigVO();
+        vo.setProvider(providerCode);
+        vo.setProviderLabel(descriptor.getDisplayName());
+        vo.setApiUrl(rawApiUrl);
+        vo.setApiKey(maskApiKey(apiKey));
+        vo.setModel(model);
+        vo.setTemperature(hasExplicitConfig
+                ? parseDouble(configs.get("ai_temperature"), defaultTemperature)
+                : defaultTemperature);
+        vo.setMaxTokens(hasExplicitConfig
+                ? parseInt(configs.get("ai_max_tokens"), defaultMaxTokens)
+                : defaultMaxTokens);
+        vo.setExtraHeadersConfigured(StrUtil.isNotBlank(extraHeadersJson));
+        vo.setExtraHeadersJson(includeSensitiveExtraHeaders ? StrUtil.blankToDefault(extraHeadersJson, "") : null);
+        vo.setCapabilities(toCapabilitiesVO(capabilities));
+        vo.setModelHint(descriptor.getModelHint());
+        vo.setExtraHeadersHint(descriptor.getExtraHeadersHint());
+        vo.setAvailableProviders(buildProviderOptions());
+
+        SystemConfig anyConfig = lambdaQuery()
+                .eq(SystemConfig::getConfigType, AI_CONFIG_TYPE)
+                .orderByDesc(SystemConfig::getUpdateTime)
+                .last("LIMIT 1")
+                .one();
+        if (anyConfig != null) {
+            vo.setUpdateTime(anyConfig.getUpdateTime());
+        }
+
+        return vo;
+    }
+
+    private List<AiConfigVO.ProviderOptionVO> buildProviderOptions() {
+        return AiProviderRegistry.list().stream()
+                .map(descriptor -> {
+                    AiConfigVO.ProviderOptionVO option = new AiConfigVO.ProviderOptionVO();
+                    option.setValue(descriptor.getCode());
+                    option.setLabel(descriptor.getDisplayName());
+                    option.setDescription(descriptor.getDescription());
+                    option.setBaseUrl(descriptor.getBaseUrl());
+                    option.setModels(descriptor.getRecommendedModels());
+                    option.setModelHint(descriptor.getModelHint());
+                    option.setExtraHeadersHint(descriptor.getExtraHeadersHint());
+                    AiModelCapabilities capabilities = descriptor.getDefaultCapabilities();
+                    option.setSupportsStream(capabilities.isSupportsStream());
+                    option.setSupportsToolCall(capabilities.isSupportsToolCall());
+                    option.setSupportsVision(capabilities.isSupportsVision());
+                    return option;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private AiConfigVO.CapabilitiesVO toCapabilitiesVO(AiModelCapabilities capabilities) {
+        AiConfigVO.CapabilitiesVO vo = new AiConfigVO.CapabilitiesVO();
+        vo.setSupportsStream(capabilities.isSupportsStream());
+        vo.setSupportsToolCall(capabilities.isSupportsToolCall());
+        vo.setSupportsVision(capabilities.isSupportsVision());
+        return vo;
+    }
+
+    private AiModelCapabilities validateAiConfig(AiProviderDescriptor descriptor, AiConfigUpdateBO updateBO) {
+        if (StrUtil.isBlank(updateBO.getApiUrl())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "API 地址不能为空");
+        }
+        if (StrUtil.isBlank(updateBO.getApiKey())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "API Key 不能为空");
+        }
+        if (StrUtil.isBlank(updateBO.getModel())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "模型名称不能为空");
+        }
+
+        validateExtraHeadersJson(updateBO.getExtraHeadersJson());
+
+        AiModelCapabilities capabilities = descriptor.resolveCapabilities(updateBO.getModel());
+        if (!capabilities.isSupportsToolCall()) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID,
+                    "当前模型不支持工具调用，不适合作为 CRM 主对话模型，请改用支持 Tool Calling 的模型");
+        }
+        return capabilities;
+    }
+
+    private void validateExtraHeadersJson(String extraHeadersJson) {
+        if (StrUtil.isBlank(extraHeadersJson)) {
+            return;
+        }
+
+        try {
+            Map<String, Object> headerMap = objectMapper.readValue(
+                    extraHeadersJson,
+                    new TypeReference<Map<String, Object>>() {
+                    }
+            );
+            headerMap.forEach((key, value) -> {
+                if (StrUtil.isBlank(key)) {
+                    throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "额外请求头 JSON 中存在空键名");
+                }
+                if (value == null) {
+                    throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID,
+                            String.format("额外请求头 %s 的值不能为空", key));
+                }
+            });
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID,
+                    "额外请求头 JSON 格式不正确，请传入对象格式，例如 {\"appid\":\"your-app-id\"}");
+        }
+    }
+
+    private boolean hasExplicitAiConfig(Map<String, String> configs) {
+        return configs.containsKey("ai_provider")
+                || configs.containsKey("ai_api_url")
+                || configs.containsKey("ai_api_key")
+                || configs.containsKey("ai_model")
+                || configs.containsKey("ai_temperature")
+                || configs.containsKey("ai_max_tokens")
+                || configs.containsKey("ai_extra_headers");
+    }
+
     private String maskApiKey(String apiKey) {
         if (StrUtil.isBlank(apiKey)) {
             return "";
@@ -330,31 +483,11 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
-    /**
-     * 根据 API URL 推断服务提供商
-     */
-    private String detectProvider(String apiUrl) {
-        if (StrUtil.isBlank(apiUrl)) {
-            return "dashscope";
-        }
-        if (apiUrl.contains("dashscope.aliyuncs.com")) {
-            return "dashscope";
-        }
-        if (apiUrl.contains("api.openai.com")) {
-            return "openai";
-        }
-        return "custom";
-    }
-
-    /**
-     * 提取异常中的关键错误信息
-     */
     private String extractErrorMessage(Exception e) {
         String message = e.getMessage();
         if (message == null) {
             return "未知错误";
         }
-        // 处理常见错误
         if (message.contains("401")) {
             return "API Key 无效或已过期";
         }
@@ -365,63 +498,14 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
             return "请求频率超限，请稍后重试";
         }
         if (message.contains("Connection refused") || message.contains("UnknownHost")) {
-            return "无法连接到 API 服务器，请检查地址";
+            return "无法连接到 API 服务，请检查地址";
         }
         if (message.contains("timeout")) {
             return "连接超时";
         }
-        // 截取关键信息
         if (message.length() > 100) {
             return message.substring(0, 100) + "...";
         }
         return message;
-    }
-
-    @Override
-    public EnterpriseConfigVO getEnterpriseConfig() {
-        Map<String, String> configs = getConfigsByType(ENTERPRISE_CONFIG_TYPE);
-
-        EnterpriseConfigVO vo = new EnterpriseConfigVO();
-        vo.setName(configs.getOrDefault("enterprise_name", null));
-        vo.setDescription(configs.getOrDefault("enterprise_description", null));
-
-        String logo = configs.getOrDefault("enterprise_logo", null);
-        vo.setLogo(logo);
-        if (StrUtil.isNotBlank(logo)) {
-            vo.setLogoUrl(fileStorageService.getUrl(logo));
-        }
-
-        // 获取最近更新时间
-        SystemConfig latestConfig = lambdaQuery()
-                .eq(SystemConfig::getConfigType, ENTERPRISE_CONFIG_TYPE)
-                .orderByDesc(SystemConfig::getUpdateTime)
-                .last("LIMIT 1")
-                .one();
-        if (latestConfig != null) {
-            vo.setUpdateTime(latestConfig.getUpdateTime());
-        }
-
-        return vo;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updateEnterpriseConfig(EnterpriseConfigUpdateBO updateBO) {
-        Map<String, String> configs = new HashMap<>();
-
-        if (updateBO.getName() != null) {
-            configs.put("enterprise_name", updateBO.getName());
-        }
-        if (updateBO.getLogo() != null) {
-            configs.put("enterprise_logo", updateBO.getLogo());
-        }
-        if (updateBO.getDescription() != null) {
-            configs.put("enterprise_description", updateBO.getDescription());
-        }
-
-        if (!configs.isEmpty()) {
-            updateConfigsWithType(configs, ENTERPRISE_CONFIG_TYPE);
-            log.info("企业信息配置已更新");
-        }
     }
 }

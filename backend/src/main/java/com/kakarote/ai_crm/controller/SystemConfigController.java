@@ -47,6 +47,13 @@ public class SystemConfigController {
         return Result.ok(systemConfigService.getAiConfig());
     }
 
+    @GetMapping("/ai/detail")
+    @Operation(summary = "Get AI config detail")
+    @RequirePermission("config:ai")
+    public Result<AiConfigVO> getAiConfigDetail() {
+        return Result.ok(systemConfigService.getAiConfigDetail());
+    }
+
     @PostMapping("/ai/update")
     @Operation(summary = "Update AI config")
     @RequirePermission("config:ai")

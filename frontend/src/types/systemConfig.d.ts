@@ -1,24 +1,49 @@
-/**
- * AI 服务提供商类型
- */
-export type AiProvider = 'openai' | 'dashscope' | 'custom'
+export type AiProvider =
+  | 'openai'
+  | 'dashscope'
+  | 'moonshot'
+  | 'ark'
+  | 'hunyuan'
+  | 'minimax'
+  | 'zhipu'
+  | 'custom'
 
-/**
- * AI 配置信息（从后端获取，API Key 脱敏）
- */
+export interface AiModelCapabilities {
+  supportsStream: boolean
+  supportsToolCall: boolean
+  supportsVision: boolean
+}
+
+export interface AiProviderPreset {
+  label: string
+  value: AiProvider
+  description?: string
+  baseUrl: string
+  models: string[]
+  modelHint?: string
+  extraHeadersHint?: string
+  supportsStream: boolean
+  supportsToolCall: boolean
+  supportsVision: boolean
+}
+
 export interface AiConfig {
   provider: AiProvider
+  providerLabel?: string
   apiUrl: string
   apiKey: string
   model: string
   temperature: number
   maxTokens: number
+  extraHeadersConfigured?: boolean
+  extraHeadersJson?: string | null
+  capabilities?: AiModelCapabilities
+  modelHint?: string
+  extraHeadersHint?: string
+  availableProviders?: AiProviderPreset[]
   updateTime?: string
 }
 
-/**
- * AI 配置更新参数
- */
 export interface AiConfigUpdateBO {
   provider?: AiProvider
   apiUrl: string
@@ -26,39 +51,22 @@ export interface AiConfigUpdateBO {
   model: string
   temperature?: number
   maxTokens?: number
+  extraHeadersJson?: string
 }
 
-/**
- * AI 连接测试结果
- */
 export interface AiConnectionTestResult {
   success: boolean
   responseTime: number
   message: string
   model?: string
+  provider?: AiProvider
 }
 
-/**
- * 预设的 AI 服务提供商配置
- */
-export interface AiProviderPreset {
-  label: string
-  value: AiProvider
-  baseUrl: string
-  models: string[]
-}
-
-/**
- * MinIO 控制台配置
- */
 export interface MinioConsoleConfig {
   enabled: boolean
   consoleUrl: string
 }
 
-/**
- * 企业信息配置
- */
 export interface EnterpriseConfig {
   name: string | null
   logo: string | null
@@ -67,9 +75,6 @@ export interface EnterpriseConfig {
   updateTime?: string
 }
 
-/**
- * 企业信息配置更新参数
- */
 export interface EnterpriseConfigUpdateBO {
   name?: string
   logo?: string

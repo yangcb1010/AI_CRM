@@ -6,6 +6,7 @@ import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kakarote.ai_crm.ai.DynamicChatClientProvider;
+import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.state.PendingCustomerCreationStore;
 import com.kakarote.ai_crm.common.exception.BusinessException;
@@ -311,7 +312,12 @@ public class ChatServiceImpl implements IChatService {
             enhancedContent = content + "\n\n" + attachmentContext;
         }
 
-        List<Media> mediaList = buildMediaList(attachments);
+        AiModelCapabilities capabilities = chatClientProvider.getCurrentCapabilities();
+        if (containsImageAttachment(attachments) && !capabilities.isSupportsVision()) {
+            enhancedContent = enhancedContent + "\n\n[系统提示] 当前配置的模型不支持图片直传，请仅基于可提取文本回答；如需图片理解，请切换到支持视觉的模型。";
+        }
+
+        List<Media> mediaList = buildMediaList(attachments, capabilities);
         StringBuilder fullResponse = new StringBuilder();
         AtomicReference<Integer> promptTokensRef = new AtomicReference<>(0);
         AtomicReference<Integer> completionTokensRef = new AtomicReference<>(0);
@@ -420,7 +426,12 @@ public class ChatServiceImpl implements IChatService {
             enhancedContent = content + "\n\n" + attachmentContext;
         }
 
-        List<Media> mediaList = buildMediaList(attachments);
+        AiModelCapabilities capabilities = chatClientProvider.getCurrentCapabilities();
+        if (containsImageAttachment(attachments) && !capabilities.isSupportsVision()) {
+            enhancedContent = enhancedContent + "\n\n[系统提示] 当前配置的模型不支持图片直传，请仅基于可提取文本回答；如需图片理解，请切换到支持视觉的模型。";
+        }
+
+        List<Media> mediaList = buildMediaList(attachments, capabilities);
 
         try {
             ChatClient chatClient = chatClientProvider.getChatClient();
@@ -506,8 +517,8 @@ public class ChatServiceImpl implements IChatService {
     /**
      * 构建图片 Media 列表（用于多模态模型）
      */
-    private List<Media> buildMediaList(List<ChatSendBO.AttachmentDTO> attachments) {
-        if (CollUtil.isEmpty(attachments)) {
+    private List<Media> buildMediaList(List<ChatSendBO.AttachmentDTO> attachments, AiModelCapabilities capabilities) {
+        if (CollUtil.isEmpty(attachments) || capabilities == null || !capabilities.isSupportsVision()) {
             return Collections.emptyList();
         }
 
@@ -529,6 +540,13 @@ public class ChatServiceImpl implements IChatService {
             }
         }
         return mediaList;
+    }
+
+    private boolean containsImageAttachment(List<ChatSendBO.AttachmentDTO> attachments) {
+        if (CollUtil.isEmpty(attachments)) {
+            return false;
+        }
+        return attachments.stream().anyMatch(att -> att.getMimeType() != null && att.getMimeType().startsWith("image/"));
     }
 
     private boolean isTextFile(String mimeType, String fileName) {

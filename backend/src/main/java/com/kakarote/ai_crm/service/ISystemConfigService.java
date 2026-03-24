@@ -63,6 +63,13 @@ public interface ISystemConfigService extends IService<SystemConfig> {
     AiConfigVO getAiConfig();
 
     /**
+     * 获取 AI 配置详情（管理端）。
+     *
+     * @return AI 配置信息
+     */
+    AiConfigVO getAiConfigDetail();
+
+    /**
      * 更新 AI 配置
      *
      * @param updateBO 更新参数

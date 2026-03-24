@@ -510,9 +510,9 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 const MAX_FILE_COUNT = 5
 const DEFAULT_CHAT_AI_CONFIG: AiConfigUpdateBO = {
   provider: 'dashscope',
-  apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/',
+  apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode',
   apiKey: '',
-  model: 'qwen-max',
+  model: 'qwen3.5-plus',
   temperature: 0.7,
   maxTokens: 4096
 }

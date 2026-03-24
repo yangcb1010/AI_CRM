@@ -2,6 +2,11 @@ package com.kakarote.ai_crm.ai;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
+import com.kakarote.ai_crm.ai.provider.AiProviderDescriptor;
+import com.kakarote.ai_crm.ai.provider.AiProviderRegistry;
 import com.kakarote.ai_crm.ai.tools.ContactTools;
 import com.kakarote.ai_crm.ai.tools.CustomerTools;
 import com.kakarote.ai_crm.ai.tools.FollowupTools;
@@ -23,6 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.util.List;
 import java.util.Map;
@@ -30,19 +37,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 动态 ChatClient 提供者
- * 支持运行时热更新 AI 配置
+ * 动态 ChatClient 提供器。
  */
 @Slf4j
 @Component
 public class DynamicChatClientProvider {
 
-    /**
-     * 每租户一个 ChatClient，按 tenantId 隔离
-     * tenantId=0 表示默认/全局 ChatClient（用于启动初始化）
-     */
     private final ConcurrentHashMap<Long, ChatClient> tenantChatClients = new ConcurrentHashMap<>();
     private final Object lock = new Object();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private SystemConfigMapper systemConfigMapper;
@@ -71,14 +74,13 @@ public class DynamicChatClientProvider {
     @Autowired(required = false)
     private ObservationRegistry observationRegistry;
 
-    // 默认配置（从 application.yml 读取，作为后备）
-    @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode}")
     private String defaultBaseUrl;
 
     @Value("${spring.ai.openai.api-key:${DASHSCOPE_API_KEY:${OPENAI_API_KEY:}}}")
     private String defaultApiKey;
 
-    @Value("${spring.ai.openai.chat.options.model:qwen-max}")
+    @Value("${spring.ai.openai.chat.options.model:qwen3.5-plus}")
     private String defaultModel;
 
     @Value("${spring.ai.openai.chat.options.temperature:0.7}")
@@ -87,10 +89,6 @@ public class DynamicChatClientProvider {
     @Value("${spring.ai.openai.chat.options.max-tokens:2048}")
     private Integer defaultMaxTokens;
 
-    /**
-     * 获取当前生效的 ChatClient
-     * 如果还没初始化，会自动从数据库加载配置创建
-     */
     public ChatClient getChatClient() {
         Long tenantId = TenantContextHolder.getTenantId();
         long key = tenantId != null ? tenantId : 0L;
@@ -107,133 +105,152 @@ public class DynamicChatClientProvider {
         return client;
     }
 
-    /**
-     * 刷新 ChatClient（配置变更后调用）
-     */
     public void refreshChatClient() {
         synchronized (lock) {
             Long tenantId = TenantContextHolder.getTenantId();
             long key = tenantId != null ? tenantId : 0L;
-            log.info("开始刷新 ChatClient, tenantId={}...", key);
+            AiRuntimeConfig runtimeConfig = resolveRuntimeConfig(loadAiConfigsFromDB());
 
-            // 从数据库加载 AI 配置（TenantLineInnerInterceptor 会自动按租户过滤）
-            Map<String, String> configs = loadAiConfigsFromDB();
-
-            boolean hasExplicitConfig = configs.containsKey("ai_provider");
-
-            String apiUrl = hasExplicitConfig
-                    ? configs.getOrDefault("ai_api_url", defaultBaseUrl)
-                    : defaultBaseUrl;
-            String apiKey = hasExplicitConfig
-                    ? configs.getOrDefault("ai_api_key", defaultApiKey)
-                    : defaultApiKey;
-            String model = hasExplicitConfig
-                    ? configs.getOrDefault("ai_model", defaultModel)
-                    : defaultModel;
-            double temperature = hasExplicitConfig
-                    ? parseDouble(configs.get("ai_temperature"), defaultTemperature)
-                    : defaultTemperature;
-            int maxTokens = hasExplicitConfig
-                    ? parseInt(configs.get("ai_max_tokens"), defaultMaxTokens)
-                    : defaultMaxTokens;
-
-            if (StrUtil.isBlank(apiKey)) {
-                log.warn("AI API Key 未配置，ChatClient 将使用默认配置, tenantId={}", key);
-                apiKey = defaultApiKey;
+            if (StrUtil.isBlank(runtimeConfig.apiKey())) {
+                log.warn("AI API Key 未配置，tenantId={}, provider={}", key, runtimeConfig.providerCode());
             }
 
-            if (StrUtil.isBlank(apiKey)) {
-                log.error("AI API Key 未配置且无默认值，ChatClient 将无法正常工作, tenantId={}", key);
-            }
-
-            ChatClient client = createChatClient(apiUrl, apiKey, model, temperature, maxTokens);
+            ChatClient client = createChatClient(runtimeConfig);
             tenantChatClients.put(key, client);
 
-            log.info("ChatClient 刷新完成: tenantId={}, baseUrl={}, model={}", key, apiUrl, model);
+            log.info("ChatClient 刷新完成: tenantId={}, provider={}, baseUrl={}, model={}",
+                    key, runtimeConfig.providerCode(), runtimeConfig.apiUrl(), runtimeConfig.model());
         }
     }
 
-    /**
-     * 检查当前租户的 API Key 是否已配置
-     */
     public boolean isApiKeyConfigured() {
-        Map<String, String> configs = loadAiConfigsFromDB();
-        boolean hasExplicitConfig = configs.containsKey("ai_provider");
-        String apiKey = hasExplicitConfig
-                ? configs.getOrDefault("ai_api_key", defaultApiKey)
-                : defaultApiKey;
-        return StrUtil.isNotBlank(apiKey);
+        return StrUtil.isNotBlank(resolveRuntimeConfig(loadAiConfigsFromDB()).apiKey());
     }
 
-    /**
-     * 移除指定租户的 ChatClient 缓存（配置变更后调用）
-     */
+    public AiModelCapabilities getCurrentCapabilities() {
+        return resolveRuntimeConfig(loadAiConfigsFromDB()).capabilities();
+    }
+
     public void evictTenantChatClient(Long tenantId) {
         if (tenantId != null) {
             tenantChatClients.remove(tenantId);
         }
     }
 
-    /**
-     * 创建 ChatClient 实例
-     * 用于正式使用和测试连接
-     */
     public ChatClient createChatClient(String baseUrl, String apiKey, String model,
-                                        Double temperature, Integer maxTokens) {
-        // 创建 OpenAiApi
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .build();
+                                       Double temperature, Integer maxTokens) {
+        return createChatClient(baseUrl, apiKey, model, temperature, maxTokens, null, defaultCapabilities(), true);
+    }
 
-        // 创建 ChatModel 配置
+    public ChatClient createChatClient(String baseUrl, String apiKey, String model,
+                                       Double temperature, Integer maxTokens,
+                                       String extraHeadersJson, AiModelCapabilities capabilities,
+                                       boolean registerTools) {
+        OpenAiApi openAiApi = buildOpenAiApi(baseUrl, apiKey, extraHeadersJson);
+
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(model)
                 .temperature(temperature)
                 .maxTokens(maxTokens)
                 .build();
 
-        // 创建 ChatModel（Spring AI 1.0.0 需要 5 个参数）
         ObservationRegistry obsRegistry = observationRegistry != null
                 ? observationRegistry : ObservationRegistry.NOOP;
         OpenAiChatModel chatModel = new OpenAiChatModel(
                 openAiApi, options, toolCallingManager,
                 RetryTemplate.builder().build(), obsRegistry);
 
-        // 创建 ChatClient 并注册工具
-        return ChatClient.builder(chatModel)
-                .defaultTools(customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools)
-                .build();
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+        if (registerTools && capabilities != null && capabilities.isSupportsToolCall()) {
+            builder.defaultTools(customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools);
+        }
+        return builder.build();
     }
 
-    /**
-     * 创建用于测试连接的简单 ChatClient（不注册工具）
-     */
     public ChatClient createTestChatClient(String baseUrl, String apiKey, String model,
-                                            Double temperature, Integer maxTokens) {
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .build();
-
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-                .model(model)
-                .temperature(temperature != null ? temperature : 0.7)
-                .maxTokens(maxTokens != null ? maxTokens : 100) // 测试用小 token
-                .build();
-
-        ObservationRegistry obsRegistry = observationRegistry != null
-                ? observationRegistry : ObservationRegistry.NOOP;
-        OpenAiChatModel chatModel = new OpenAiChatModel(
-                openAiApi, options, toolCallingManager,
-                RetryTemplate.builder().build(), obsRegistry);
-
-        return ChatClient.builder(chatModel).build();
+                                           Double temperature, Integer maxTokens,
+                                           String extraHeadersJson, AiModelCapabilities capabilities) {
+        return createChatClient(
+                baseUrl,
+                apiKey,
+                model,
+                temperature != null ? temperature : 0.7,
+                maxTokens != null ? maxTokens : 100,
+                extraHeadersJson,
+                capabilities != null ? capabilities : defaultCapabilities(),
+                false
+        );
     }
 
-    /**
-     * 从数据库加载 AI 配置
-     */
+    private ChatClient createChatClient(AiRuntimeConfig runtimeConfig) {
+        return createChatClient(
+                runtimeConfig.apiUrl(),
+                runtimeConfig.apiKey(),
+                runtimeConfig.model(),
+                runtimeConfig.temperature(),
+                runtimeConfig.maxTokens(),
+                runtimeConfig.extraHeadersJson(),
+                runtimeConfig.capabilities(),
+                true
+        );
+    }
+
+    private OpenAiApi buildOpenAiApi(String baseUrl, String apiKey, String extraHeadersJson) {
+        String normalizedBaseUrl = normalizeCompatibleBaseUrl(baseUrl);
+        OpenAiApi.Builder builder = OpenAiApi.builder()
+                .baseUrl(normalizedBaseUrl)
+                .apiKey(apiKey);
+
+        MultiValueMap<String, String> headers = parseExtraHeaders(extraHeadersJson);
+        if (!headers.isEmpty()) {
+            builder.headers(headers);
+        }
+        return builder.build();
+    }
+
+    private MultiValueMap<String, String> parseExtraHeaders(String extraHeadersJson) {
+        LinkedMultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
+        if (StrUtil.isBlank(extraHeadersJson)) {
+            return headers;
+        }
+
+        try {
+            Map<String, Object> values = objectMapper.readValue(
+                    extraHeadersJson,
+                    new TypeReference<Map<String, Object>>() {
+                    }
+            );
+            values.forEach((key, value) -> {
+                if (StrUtil.isNotBlank(key) && value != null) {
+                    headers.add(key.trim(), String.valueOf(value));
+                }
+            });
+        } catch (Exception e) {
+            log.warn("解析额外请求头失败，将忽略该配置: {}", e.getMessage());
+        }
+        return headers;
+    }
+
+    private AiRuntimeConfig resolveRuntimeConfig(Map<String, String> configs) {
+        String configuredApiUrl = configs.get("ai_api_url");
+        String resolvedApiUrl = normalizeCompatibleBaseUrl(
+                StrUtil.isNotBlank(configuredApiUrl) ? configuredApiUrl : defaultBaseUrl
+        );
+        AiProviderDescriptor descriptor = AiProviderRegistry.resolve(configs.get("ai_provider"), resolvedApiUrl);
+        String model = StrUtil.isNotBlank(configs.get("ai_model")) ? configs.get("ai_model") : defaultModel;
+
+        return new AiRuntimeConfig(
+                descriptor.getCode(),
+                resolvedApiUrl,
+                StrUtil.isNotBlank(configs.get("ai_api_key")) ? configs.get("ai_api_key") : defaultApiKey,
+                model,
+                parseDouble(configs.get("ai_temperature"), defaultTemperature),
+                parseInt(configs.get("ai_max_tokens"), defaultMaxTokens),
+                StrUtil.blankToDefault(configs.get("ai_extra_headers"), null),
+                descriptor.resolveCapabilities(model)
+        );
+    }
+
     private Map<String, String> loadAiConfigsFromDB() {
         LambdaQueryWrapper<SystemConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SystemConfig::getConfigType, "ai");
@@ -270,9 +287,34 @@ public class DynamicChatClientProvider {
         }
     }
 
-    /**
-     * 应用启动时初始化
-     */
+    private AiModelCapabilities defaultCapabilities() {
+        return AiModelCapabilities.builder()
+                .supportsStream(true)
+                .supportsToolCall(true)
+                .supportsVision(false)
+                .build();
+    }
+
+    public static String normalizeCompatibleBaseUrl(String baseUrl) {
+        if (StrUtil.isBlank(baseUrl)) {
+            return baseUrl;
+        }
+
+        String normalized = baseUrl.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        if (normalized.matches("(?i).*/v1$")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+        }
+
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
     @PostConstruct
     public void init() {
         try {
@@ -280,5 +322,17 @@ public class DynamicChatClientProvider {
         } catch (Exception e) {
             log.warn("初始化 ChatClient 失败（可能配置尚未设置）: {}", e.getMessage());
         }
+    }
+
+    private record AiRuntimeConfig(
+            String providerCode,
+            String apiUrl,
+            String apiKey,
+            String model,
+            Double temperature,
+            Integer maxTokens,
+            String extraHeadersJson,
+            AiModelCapabilities capabilities
+    ) {
     }
 }
