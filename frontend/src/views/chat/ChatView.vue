@@ -339,7 +339,7 @@
                 <button
                   v-for="action in quickActions"
                   :key="action.label"
-                  class="px-4 py-1.5 bg-white border border-slate-200 rounded-full text-sm font-bold text-slate-500 hover:border-primary hover:text-primary transition-all shadow-sm"
+                  class="px-4 py-1.5 bg-white border border-slate-200 rounded-full text-sm text-slate-500 hover:border-primary hover:text-primary transition-all shadow-sm"
                   @click="sendQuickMessage(action.text)"
                 >
                   {{ action.label }}
@@ -395,7 +395,7 @@
                   <div class="flex items-center gap-2 pr-1">
                     <button
                       type="button"
-                      class="h-10 rounded-full border px-3.5 text-sm font-semibold shadow-sm transition-all"
+                      class="h-10 rounded-full border px-3.5 text-sm shadow-sm transition-all"
                       :class="chatStore.ragEnabled
                         ? 'border-primary/25 bg-primary/10 text-primary shadow-primary/10'
                         : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'"

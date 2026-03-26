@@ -84,25 +84,19 @@
                 </div>
               </div>
             </div>
-            <div class="flex gap-2 shrink-0">
+            <div class="flex gap-2 shrink-0 items-center">
               <el-popover
                 v-if="canTransferCustomer"
                 :visible="showTransferPopover"
-                trigger="click"
+                trigger="manual"
+                virtual-triggering
+                :virtual-ref="headerMoreButtonRef"
                 placement="bottom-end"
                 :width="260"
                 @show="handleTransferPopoverShow"
                 @hide="handleTransferPopoverHide"
                 @update:visible="showTransferPopover = $event"
               >
-                <template #reference>
-                  <button
-                    type="button"
-                    class="h-8 px-4 inline-flex items-center border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-                  >
-                    转移负责人
-                  </button>
-                </template>
                 <div class="space-y-3">
                   <el-input
                     v-model="ownerSearch"
@@ -146,15 +140,36 @@
                 <WkIcon name="ai" class="text-sm" />
                 生成 AI 分析报告
               </button>
-              <button
-                v-if="canDeleteCustomer"
-                class="size-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                title="删除客户"
-                type="button"
-                @click="handleDeleteCustomerConfirm"
+              <el-dropdown
+                v-if="canTransferCustomer || canDeleteCustomer"
+                trigger="click"
+                @visible-change="onHeaderMoreDropdownVisible"
               >
-                <span class="material-symbols-outlined text-base">delete</span>
-              </button>
+                <button
+                  ref="headerMoreButtonRef"
+                  type="button"
+                  class="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-solid border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
+                  title="更多操作"
+                >
+                  <span class="material-symbols-outlined text-lg">more_horiz</span>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="canTransferCustomer" @click="openTransferPopoverFromMenu">
+                      <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                        转移负责人
+                      </span>
+                    </el-dropdown-item>
+                    <el-dropdown-item v-if="canDeleteCustomer" :divided="!!canTransferCustomer" @click="handleDeleteCustomerConfirm">
+                      <span class="flex items-center gap-2 text-red-500">
+                        <span class="material-symbols-outlined text-sm">delete</span>
+                        删除
+                      </span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </div>
 
@@ -714,7 +729,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
 import { useUserStore } from '@/stores/user'
@@ -751,6 +766,7 @@ const showEditDialog = ref(false)
 const showAiFollowUpDrawer = ref(false)
 const showTerminalStageMenu = ref(false)
 const showTransferPopover = ref(false)
+const headerMoreButtonRef = ref<HTMLElement | null>(null)
 const newTagName = ref('')
 const followUps = ref<FollowUp[]>([])
 const followUpTotal = ref(0)
@@ -1027,6 +1043,18 @@ function handleTransferPopoverShow() {
 
 function handleTransferPopoverHide() {
   ownerSearch.value = ''
+}
+
+function onHeaderMoreDropdownVisible(visible: boolean) {
+  if (visible) {
+    showTransferPopover.value = false
+  }
+}
+
+function openTransferPopoverFromMenu() {
+  nextTick(() => {
+    showTransferPopover.value = true
+  })
 }
 
 async function handleTransferOwner(user: TransferUserOption) {
