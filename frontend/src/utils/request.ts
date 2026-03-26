@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Result } from '@/types/api'
 import router from '@/router'
-import { markRequestErrorHandled } from '@/utils/requestError'
+import { isRequestErrorHandled, markRequestErrorHandled } from '@/utils/requestError'
 
 const TOKEN_KEY = 'Manager-Token'
 
@@ -17,6 +17,10 @@ export function getApiBaseUrl(): string {
 
 let isRedirecting = false
 let isPermissionAlertVisible = false
+let errorMessageTimer: ReturnType<typeof setTimeout> | null = null
+let pendingErrorMessage = ''
+
+const ERROR_MESSAGE_DEBOUNCE_MS = 120
 
 const service: AxiosInstance = axios.create({
   baseURL: getApiBaseUrl(),
@@ -26,10 +30,24 @@ const service: AxiosInstance = axios.create({
   }
 })
 
+// 某些接口会在极短时间内连续抛出同一类错误，这里做一次短时间防重，避免重复 toast 干扰操作。
+function showErrorMessage(message?: string): void {
+  pendingErrorMessage = typeof message === 'string' && message.trim() ? message.trim() : '请求失败'
+
+  if (errorMessageTimer) {
+    clearTimeout(errorMessageTimer)
+  }
+
+  errorMessageTimer = setTimeout(() => {
+    ElMessage.error(pendingErrorMessage)
+    errorMessageTimer = null
+  }, ERROR_MESSAGE_DEBOUNCE_MS)
+}
+
 function handleNotLogin(message?: string): Promise<never> {
   if (!isRedirecting) {
     isRedirecting = true
-    ElMessage.error(message || '登录已过期，请重新登录')
+    showErrorMessage(message || '登录已过期，请重新登录')
     localStorage.removeItem(TOKEN_KEY)
 
     const currentPath = router.currentRoute.value.fullPath
@@ -89,10 +107,17 @@ service.interceptors.response.use(
       return handleNoPermission(res.msg)
     }
 
-    ElMessage.error(res.msg || '请求失败')
+    // 业务失败通常仍返回 200，这里主动转成 rejected，交给调用方按错误流处理。
+    showErrorMessage(res.msg || '请求失败')
     return Promise.reject(markRequestErrorHandled(new Error(res.msg || '请求失败')))
   },
   (error) => {
+    // response 分支里手动 reject 的错误会继续沿拦截器链向后传递；
+    // 已经弹过提示的错误直接放行，避免再次进入通用错误提示。
+    if (isRequestErrorHandled(error)) {
+      return Promise.reject(error)
+    }
+
     console.error('Response error:', error)
 
     const responseData = error.response?.data
@@ -112,7 +137,7 @@ service.interceptors.response.use(
     }
 
     const message = responseData?.msg || error.message || '网络错误'
-    ElMessage.error(message)
+    showErrorMessage(message)
     markRequestErrorHandled(error)
     return Promise.reject(error)
   }
