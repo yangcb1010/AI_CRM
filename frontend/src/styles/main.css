@@ -268,3 +268,163 @@ html, body, #app {
   background-color: rgba(19, 127, 236, 0.9) !important;
   border-color: rgba(19, 127, 236, 0.9) !important;
 }
+
+.wk-markdown {
+  color: inherit;
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.wk-markdown > *:first-child {
+  margin-top: 0;
+}
+
+.wk-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.wk-markdown h1,
+.wk-markdown h2,
+.wk-markdown h3,
+.wk-markdown h4,
+.wk-markdown h5,
+.wk-markdown h6 {
+  margin: 1em 0 0.5em;
+  font-weight: 700;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.wk-markdown h1 {
+  font-size: 1.5rem;
+}
+
+.wk-markdown h2 {
+  font-size: 1.25rem;
+}
+
+.wk-markdown h3 {
+  font-size: 1.1rem;
+}
+
+.wk-markdown p,
+.wk-markdown ul,
+.wk-markdown ol,
+.wk-markdown blockquote,
+.wk-markdown pre,
+.wk-markdown table,
+.wk-markdown hr {
+  margin: 0.75em 0;
+}
+
+.wk-markdown ul,
+.wk-markdown ol {
+  padding-left: 1.4em;
+}
+
+.wk-markdown ul {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+
+.wk-markdown ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+.wk-markdown ul ul {
+  list-style-type: circle;
+}
+
+.wk-markdown ul ul ul {
+  list-style-type: square;
+}
+
+.wk-markdown ol ol {
+  list-style-type: lower-alpha;
+}
+
+.wk-markdown ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.wk-markdown li + li {
+  margin-top: 0.25em;
+}
+
+.wk-markdown li::marker {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.wk-markdown blockquote {
+  padding: 0.75em 1em;
+  border-left: 3px solid #93c5fd;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: #475569;
+}
+
+.wk-markdown code {
+  padding: 0.12em 0.4em;
+  border-radius: 0.4rem;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 0.92em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.wk-markdown pre {
+  overflow-x: auto;
+  padding: 0.9em 1em;
+  border-radius: 0.9rem;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.wk-markdown pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.wk-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  border: 1px solid #dbe5f0;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.wk-markdown th,
+.wk-markdown td {
+  padding: 0.7em 0.85em;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.wk-markdown th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.wk-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.wk-markdown a {
+  color: #137fec;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.wk-markdown hr {
+  border: none;
+  border-top: 1px solid #dbe5f0;
+}
+
+.wk-markdown strong {
+  font-weight: 700;
+}

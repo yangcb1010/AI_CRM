@@ -239,9 +239,11 @@
                   </div>
                   <div class="flex-1 space-y-3 min-w-0">
                     <div class="bg-slate-50 text-slate-700 rounded-2xl rounded-tl-none p-4 inline-block max-w-full text-sm leading-relaxed border border-slate-100">
-                      <div class="whitespace-pre-wrap" :class="{ 'streaming-cursor': message.isStreaming }">
-                        {{ message.content || '...' }}
-                      </div>
+                      <div
+                        class="wk-markdown"
+                        :class="{ 'streaming-cursor': message.isStreaming }"
+                        v-html="renderAssistantMessage(message.content || '...')"
+                      />
                     </div>
                     <!-- Attachments -->
                     <div v-if="message.attachments && message.attachments.length > 0" class="space-y-2">
@@ -543,6 +545,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
 import { getAiConfig, updateAiConfig } from '@/api/systemConfig'
 import ApiKeySetupModal from '@/components/common/ApiKeySetupModal.vue'
+import { renderMarkdown } from '@/utils/markdown'
 import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO } from '@/types/common'
 import type { AiConfig, AiConfigUpdateBO, AiMode } from '@/types/systemConfig'
 
@@ -910,6 +913,10 @@ async function handleSend() {
 function sendQuickMessage(text: string) {
   inputText.value = text
   handleSend()
+}
+
+function renderAssistantMessage(content: string): string {
+  return renderMarkdown(content)
 }
 
 function handleUpload() {
