@@ -575,7 +575,7 @@
                               </button>
                             </el-tooltip>
                           </div>
-                          <p class="mt-0.5 truncate text-[11px] font-medium text-slate-500">{{ contact.position || '--' }}</p>
+                          <p class="mt-0.5 truncate text-[11px] font-medium text-slate-500">{{ contact.position || '-' }}</p>
                         </div>
                       </div>
                       <span
@@ -594,21 +594,21 @@
                         <span class="material-symbols-outlined shrink-0 text-[18px] leading-none text-slate-400">call</span>
                         <span
                           :class="contact.phone ? 'font-mono text-xs font-medium tracking-tight text-slate-700' : 'text-xs font-medium text-slate-400'"
-                        >{{ contact.phone || '--' }}</span>
+                        >{{ contact.phone || '-' }}</span>
                       </div>
                       <div class="flex min-w-0 items-center gap-3 text-slate-600 transition-colors group-hover:text-slate-700">
                         <span class="material-symbols-outlined shrink-0 text-[18px] leading-none text-slate-400">mail</span>
                         <span
                           class="min-w-0 truncate text-xs font-medium tracking-tight"
                           :class="contact.email ? 'text-slate-700' : 'text-slate-400'"
-                        >{{ contact.email || '--' }}</span>
+                        >{{ contact.email || '-' }}</span>
                       </div>
                       <div class="flex min-w-0 items-center gap-3 text-slate-600 transition-colors group-hover:text-slate-700">
                         <span class="material-symbols-outlined shrink-0 text-[18px] leading-none text-slate-400">chat</span>
                         <span
                           class="min-w-0 truncate text-xs font-medium tracking-tight"
                           :class="contact.wechat ? 'text-slate-700' : 'text-slate-400'"
-                        >{{ contact.wechat ? `WeChat: ${contact.wechat}` : '--' }}</span>
+                        >{{ contact.wechat ? `WeChat: ${contact.wechat}` : '-' }}</span>
                       </div>
                     </div>
                   </div>
