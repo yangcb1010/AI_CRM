@@ -160,6 +160,12 @@
                     />
                   </div>
                 </div>
+                <DynamicFieldForm
+                  ref="dynamicFieldFormRef"
+                  entity-type="contact"
+                  v-model="customFieldValues"
+                  class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mt-4"
+                />
               </section>
             </div>
           </div>
@@ -180,6 +186,7 @@ import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
 import { isRequestErrorHandled } from '@/utils/requestError'
 import type { Contact } from '@/types/customer'
 import AiSmartEntrySection from '@/components/crm/AiSmartEntrySection.vue'
+import DynamicFieldForm from '@/components/DynamicFieldForm.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -219,6 +226,9 @@ const formData = reactive({
   notes: '',
   isPrimary: false
 })
+
+const dynamicFieldFormRef = ref<InstanceType<typeof DynamicFieldForm>>()
+const customFieldValues = ref<Record<string, any>>({})
 
 const aiInputText = ref('')
 const aiParsing = ref(false)
@@ -333,6 +343,7 @@ function resetForm() {
   formData.wechat = ''
   formData.notes = ''
   formData.isPrimary = false
+  customFieldValues.value = {}
   resetAiState()
 }
 
@@ -356,6 +367,9 @@ watch(
       formData.wechat = props.contact.wechat || ''
       formData.notes = props.contact.notes || ''
       formData.isPrimary = Boolean(props.contact.isPrimary)
+      customFieldValues.value = (props.contact as any).customFields
+        ? { ...(props.contact as any).customFields }
+        : {}
       resetAiState()
       return
     }
@@ -381,6 +395,14 @@ async function handleSubmit() {
   if (!formData.name.trim()) {
     ElMessage.warning('请输入联系人姓名')
     return
+  }
+
+  if (dynamicFieldFormRef.value) {
+    const missingFields = dynamicFieldFormRef.value.getRequiredFieldLabels()
+    if (missingFields.length > 0) {
+      ElMessage.warning(`请填写必填字段: ${missingFields.join(', ')}`)
+      return
+    }
   }
 
   if (formData.isPrimary) {
@@ -412,7 +434,8 @@ async function handleSubmit() {
       email: formData.email.trim(),
       wechat: formData.wechat.trim(),
       notes: formData.notes.trim(),
-      isPrimary: formData.isPrimary ? 1 : 0
+      isPrimary: formData.isPrimary ? 1 : 0,
+      customFields: customFieldValues.value
     }
 
     if (props.contact?.contactId) {

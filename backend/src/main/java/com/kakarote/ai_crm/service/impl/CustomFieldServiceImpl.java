@@ -260,12 +260,25 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         Map<String, String> fieldToColumn = fields.stream()
                 .collect(Collectors.toMap(CustomFieldVO::getFieldName, CustomFieldVO::getColumnName));
 
-        // 将字段名转换为列名
+        // 构建fieldName -> fieldType的映射，用于值类型转换
+        Map<String, String> fieldToType = fields.stream()
+                .collect(Collectors.toMap(CustomFieldVO::getFieldName, CustomFieldVO::getFieldType));
+
+        // 将字段名转换为列名，过滤空值，按字段类型做 Java 类型转换
         Map<String, Object> columnValues = new HashMap<>();
         for (Map.Entry<String, Object> entry : values.entrySet()) {
             String columnName = fieldToColumn.get(entry.getKey());
-            if (columnName != null) {
-                columnValues.put(columnName, entry.getValue());
+            if (columnName == null) {
+                continue;
+            }
+            Object val = entry.getValue();
+            if (val == null || "".equals(val)) {
+                continue;
+            }
+            String fieldType = fieldToType.get(entry.getKey());
+            val = convertValueForJdbc(fieldType, val, entry.getKey());
+            if (val != null) {
+                columnValues.put(columnName, val);
             }
         }
 
@@ -328,6 +341,54 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
 
         return result;
+    }
+
+    /**
+     * 按字段类型将前端传入的值转换为 JDBC 兼容的 Java 类型
+     * text/textarea/select → String
+     * number → BigDecimal
+     * date → java.sql.Date
+     * datetime → java.sql.Timestamp
+     * checkbox → Boolean
+     * multiselect (List) → JSON String
+     */
+    private Object convertValueForJdbc(String fieldType, Object val, String fieldName) {
+        if (val == null || fieldType == null) {
+            return val;
+        }
+        try {
+            return switch (fieldType) {
+                case "number" -> {
+                    if (val instanceof Number n) yield new java.math.BigDecimal(n.toString());
+                    yield new java.math.BigDecimal(val.toString());
+                }
+                case "date" -> {
+                    // "2026-03-28" → java.sql.Date
+                    if (val instanceof java.sql.Date) yield val;
+                    if (val instanceof java.util.Date d) yield new java.sql.Date(d.getTime());
+                    yield java.sql.Date.valueOf(val.toString());
+                }
+                case "datetime" -> {
+                    // "2026-03-28 17:00:00" → java.sql.Timestamp
+                    if (val instanceof java.sql.Timestamp) yield val;
+                    if (val instanceof java.util.Date d) yield new java.sql.Timestamp(d.getTime());
+                    yield java.sql.Timestamp.valueOf(val.toString());
+                }
+                case "checkbox" -> {
+                    if (val instanceof Boolean) yield val;
+                    String s = val.toString();
+                    yield "true".equalsIgnoreCase(s) || "1".equals(s);
+                }
+                case "multiselect" -> {
+                    if (val instanceof List) yield JSON.toJSONString(val);
+                    yield val.toString();
+                }
+                default -> val.toString(); // text, textarea, select
+            };
+        } catch (Exception e) {
+            log.warn("自定义字段值转换失败: field={}, type={}, value={}, error={}", fieldName, fieldType, val, e.getMessage());
+            return null;
+        }
     }
 
     /**

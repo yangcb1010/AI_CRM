@@ -61,6 +61,10 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
                 .set(Contact::getIsPrimary, 0)
                 .update();
         }
+        // 保存自定义字段
+        if (contactAddBO.getCustomFields() != null && !contactAddBO.getCustomFields().isEmpty()) {
+            customFieldService.updateCustomFieldValues("contact", contact.getContactId(), contactAddBO.getCustomFields());
+        }
         // 同步客户冗余字段
         customerService.syncContactCache(contact.getCustomerId());
         return contact.getContactId();
@@ -150,6 +154,16 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
     public BasePage<ContactVO> queryPageList(ContactQueryBO queryBO) {
         BasePage<ContactVO> page = queryBO.parse();
         baseMapper.queryPageList(page, queryBO);
+
+        List<ContactVO> records = page.getRecords();
+        if (records != null && !records.isEmpty()) {
+            List<Long> contactIds = records.stream().map(ContactVO::getContactId).toList();
+            Map<Long, Map<String, Object>> cfMap = customFieldService.getBatchCustomFieldValues("contact", contactIds);
+            for (ContactVO vo : records) {
+                vo.setCustomFields(cfMap.getOrDefault(vo.getContactId(), Collections.emptyMap()));
+            }
+        }
+
         return page;
     }
 }

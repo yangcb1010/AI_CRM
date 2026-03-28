@@ -148,18 +148,26 @@ function parseDefaultValue(field: CustomField): any {
 async function loadFields() {
   try {
     fields.value = await getEnabledFieldsByEntity(props.entityType)
-    // Initialize default values
+    // 先从 modelValue 合并已有值（编辑场景），再用默认值填充剩余字段
+    if (props.modelValue) {
+      Object.assign(localValues.value, props.modelValue)
+    }
     fields.value.forEach(field => {
-      if (localValues.value[field.fieldName] === undefined) {
+      if (localValues.value[field.fieldName] === undefined || localValues.value[field.fieldName] === null) {
         if (field.fieldType === 'multiselect') {
-          localValues.value[field.fieldName] = []
+          localValues.value[field.fieldName] = localValues.value[field.fieldName] ?? []
         } else if (field.fieldType === 'checkbox') {
-          const hasDefault = (field as any).defaultValue !== undefined && (field as any).defaultValue !== null && (field as any).defaultValue !== ''
-          localValues.value[field.fieldName] = hasDefault ? parseDefaultValue(field) : false
-        } else if ((field as any).defaultValue !== undefined && (field as any).defaultValue !== null && (field as any).defaultValue !== '') {
-          localValues.value[field.fieldName] = parseDefaultValue(field)
-        } else {
-          localValues.value[field.fieldName] = null
+          const existing = localValues.value[field.fieldName]
+          if (existing === undefined || existing === null) {
+            const hasDefault = (field as any).defaultValue !== undefined && (field as any).defaultValue !== null && (field as any).defaultValue !== ''
+            localValues.value[field.fieldName] = hasDefault ? parseDefaultValue(field) : false
+          }
+        } else if (localValues.value[field.fieldName] === undefined) {
+          if ((field as any).defaultValue !== undefined && (field as any).defaultValue !== null && (field as any).defaultValue !== '') {
+            localValues.value[field.fieldName] = parseDefaultValue(field)
+          } else {
+            localValues.value[field.fieldName] = null
+          }
         }
       }
     })
