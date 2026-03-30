@@ -138,7 +138,7 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                     .content();
 
             log.info("AI 日程解析原始响应: {}", response);
-            return parseScheduleAiResponse(response);
+            return parseScheduleAiResponse(response, parseBO.getContent());
         } catch (Exception e) {
             log.error("AI 日程解析失败，返回默认结果", e);
             return buildFallbackScheduleResult(parseBO.getContent());
@@ -211,13 +211,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         };
     }
 
-    private ScheduleAiParseVO parseScheduleAiResponse(String response) {
+    private ScheduleAiParseVO parseScheduleAiResponse(String response, String originalContent) {
         try {
-            String json = response == null ? "" : response.trim();
-            if (json.startsWith("```")) {
-                json = json.replaceFirst("```(?:json)?\\s*", "");
-                json = json.replaceFirst("\\s*```$", "");
-            }
+            String json = extractJsonObject(response);
 
             JsonNode root = objectMapper.readTree(json);
             ScheduleAiParseVO vo = new ScheduleAiParseVO();
@@ -230,10 +226,14 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
             vo.setLocation(getTextOrDefault(root, "location", ""));
             vo.setDescription(getTextOrDefault(root, "description", ""));
             applyParticipantMatches(vo);
+            if (!hasMeaningfulAiParseResult(vo)) {
+                log.warn("AI 日程解析响应缺少有效字段，使用兜底结果。response={}", response);
+                return buildFallbackScheduleResult(originalContent);
+            }
             return vo;
         } catch (Exception e) {
             log.warn("AI 日程解析响应 JSON 解析失败: {}", e.getMessage());
-            return buildFallbackScheduleResult("");
+            return buildFallbackScheduleResult(originalContent);
         }
     }
 
@@ -244,6 +244,18 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 .toList());
         vo.setParticipantUsers(matchResult.participantUsers());
         vo.setUnmatchedParticipantNames(String.join(", ", matchResult.unmatchedNames()));
+    }
+
+    private boolean hasMeaningfulAiParseResult(ScheduleAiParseVO vo) {
+        return StrUtil.isNotBlank(vo.getTitle())
+                || StrUtil.isNotBlank(vo.getStartTime())
+                || StrUtil.isNotBlank(vo.getEndTime())
+                || StrUtil.isNotBlank(vo.getCustomerName())
+                || StrUtil.isNotBlank(vo.getParticipantNames())
+                || StrUtil.isNotBlank(vo.getLocation())
+                || StrUtil.isNotBlank(vo.getDescription())
+                || (vo.getParticipantUsers() != null && !vo.getParticipantUsers().isEmpty())
+                || StrUtil.isNotBlank(vo.getUnmatchedParticipantNames());
     }
 
     private ParticipantMatchResult resolveParticipantUsersByNames(String participantNames) {
@@ -356,6 +368,26 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 .map(String::valueOf)
                 .distinct()
                 .collect(Collectors.joining(","));
+    }
+
+    private String extractJsonObject(String response) {
+        String normalized = StrUtil.nullToEmpty(response).trim();
+        if (normalized.startsWith("```")) {
+            normalized = normalized.replaceFirst("```(?:json)?\\s*", "");
+            normalized = normalized.replaceFirst("\\s*```$", "");
+        }
+
+        int thinkEnd = normalized.lastIndexOf("</think>");
+        if (thinkEnd >= 0) {
+            normalized = normalized.substring(thinkEnd + "</think>".length()).trim();
+        }
+
+        int start = normalized.indexOf('{');
+        int end = normalized.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return normalized.substring(start, end + 1).trim();
+        }
+        return StrUtil.isBlank(normalized) ? "{}" : normalized;
     }
 
     private String getTextOrDefault(JsonNode root, String field, String defaultValue) {

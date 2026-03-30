@@ -159,16 +159,6 @@
                         class="w-full wk-crm-el-field-input"
                       />
                     </div>
-                    <div class="md:col-span-2 space-y-1.5">
-                      <label class="text-xs font-bold text-slate-500 uppercase ml-1">备注</label>
-                      <el-input
-                        v-model="formData.remark"
-                        type="textarea"
-                        :autosize="{ minRows: 2, maxRows: 5 }"
-                        placeholder="补充说明客户背景、需求、报价说明等"
-                        class="w-full wk-crm-el-field-input"
-                      />
-                    </div>
 
                     <DynamicFieldForm
                       ref="dynamicFieldFormRef"

@@ -142,8 +142,8 @@
           清空
         </button>
       </div>
-      <p v-if="aiSearchState?.explanation" class="mt-2 text-xs text-slate-500 leading-5">
-        {{ aiSearchState.explanation }}
+      <p v-if="aiSearchExplanation" class="mt-2 text-xs text-slate-500 leading-5">
+        {{ aiSearchExplanation }}
       </p>
     </div>
 
@@ -280,6 +280,9 @@
                 :label="field.fieldLabel"
                 min-width="140"
               >
+                <template #header>
+                  <span class="normal-case tracking-normal">{{ field.fieldLabel }}</span>
+                </template>
                 <template #default="{ row }">
                   <template v-if="field.fieldType === 'checkbox'">
                     <span
@@ -412,6 +415,7 @@ import { useCustomerStore } from '@/stores/customer'
 import { useResponsive } from '@/composables/useResponsive'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type {
+  CustomerAiSearchDisplayChip,
   CustomerAiSearchParseVO,
   CustomerAiSearchQuery,
   CustomerExportBO,
@@ -463,10 +467,34 @@ const hasAiSearchState = computed(() => {
   return Boolean(aiSearchState.value?.displayChips.length || aiSearchState.value?.explanation)
 })
 
+function buildAiSearchExplanation(chips: CustomerAiSearchDisplayChip[] = []) {
+  if (!chips.length) return ''
+
+  const filterLabels = chips
+    .filter(chip => chip.key !== 'sort' && chip.label)
+    .map(chip => chip.label.trim())
+  const sortLabel = chips.find(chip => chip.key === 'sort' && chip.label)?.label.trim()
+
+  const parts: string[] = []
+  if (filterLabels.length) {
+    parts.push(`已识别筛选条件：${filterLabels.join('，')}`)
+  }
+  if (sortLabel) {
+    parts.push(`已识别${sortLabel.replace(/^排序[:：]\s*/, '排序规则：')}`)
+  }
+  return parts.join('；')
+}
+
+const aiSearchExplanation = computed(() => {
+  const state = aiSearchState.value
+  if (!state) return ''
+  if (state.fallbackKeywordSearch) return state.explanation || '本次已回退为关键词搜索'
+  return buildAiSearchExplanation(state.displayChips || []) || state.explanation || ''
+})
+
 const aiSearchStatusText = computed(() => {
   if (aiSearchLoading.value) return '正在解析自然语言并生成筛选条件...'
-  if (aiSearchState.value?.fallbackKeywordSearch) return '本次已回退为关键词搜索'
-  if (aiSearchState.value?.explanation) return aiSearchState.value.explanation
+  if (aiSearchExplanation.value) return aiSearchExplanation.value
   return '支持“30天未跟进的制造业客户”这类自然语言描述'
 })
 

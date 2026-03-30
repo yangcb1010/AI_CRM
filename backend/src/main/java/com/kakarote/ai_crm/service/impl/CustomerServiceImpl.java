@@ -557,6 +557,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     private static final Map<String, String> STAGE_LABEL_MAP = new LinkedHashMap<>();
     private static final Map<String, String> LABEL_STAGE_MAP = new LinkedHashMap<>();
     private static final Set<String> VALID_LEVELS = Set.of("A", "B", "C");
+    private static final Map<String, String> SEARCH_EXPLANATION_FIELD_LABEL_MAP = new LinkedHashMap<>();
 
     static {
         STAGE_LABEL_MAP.put("lead", "线索");
@@ -566,6 +567,40 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         STAGE_LABEL_MAP.put("closed", "已成交");
         STAGE_LABEL_MAP.put("lost", "已流失");
         STAGE_LABEL_MAP.forEach((k, v) -> LABEL_STAGE_MAP.put(v, k));
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("includeNoLastContact", "包含未跟进客户");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contractAmountMin", "合同金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contractAmountMax", "合同金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("lastContactStart", "最后跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("lastContactEnd", "最后跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("nextFollowStart", "下次跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("nextFollowEnd", "下次跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("createTimeStart", "创建时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("createTimeEnd", "创建时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contactCountMin", "联系人数量");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contactCountMax", "联系人数量");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("lastContactTime", "最后跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("nextFollowTime", "下次跟进时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("parsedQuery", "筛选条件");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("sortOrder", "排序方向");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("sortBy", "排序规则");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("quotationMin", "报价");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("quotationMax", "报价");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("quotation", "报价");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("createTime", "创建时间");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("revenueMin", "回款金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("revenueMax", "回款金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("revenue", "回款金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contactCount", "联系人数量");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("contractAmount", "合同金额");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("industry", "行业");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("keyword", "关键词");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("stages", "阶段");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("stage", "阶段");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("level", "客户级别");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("source", "来源");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("tag", "标签");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("asc", "升序");
+        SEARCH_EXPLANATION_FIELD_LABEL_MAP.put("desc", "降序");
     }
 
     // ==================== 导出 ====================
@@ -1624,8 +1659,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         vo.setOriginalQuery(originalQuery);
         vo.setNormalizedQuery(originalQuery);
         vo.setParsedQuery(query);
-        vo.setDisplayChips(buildSearchChips(query));
-        vo.setExplanation(explanation);
+        List<CustomerAiSearchDisplayChipVO> displayChips = buildSearchChips(query);
+        vo.setDisplayChips(displayChips);
+        vo.setExplanation(resolveSearchExplanation(originalQuery, displayChips, explanation, fallbackKeywordSearch));
         vo.setConfidence(confidence != null ? confidence : 0.8);
         vo.setFallbackKeywordSearch(fallbackKeywordSearch);
         return vo;
@@ -1854,6 +1890,89 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             default -> "创建时间";
         };
         return "排序: 按" + label + ("asc".equalsIgnoreCase(sortOrder) ? "升序" : "降序");
+    }
+
+    private String resolveSearchExplanation(String originalQuery,
+                                            List<CustomerAiSearchDisplayChipVO> displayChips,
+                                            String rawExplanation,
+                                            boolean fallbackKeywordSearch) {
+        if (fallbackKeywordSearch) {
+            return StrUtil.isBlank(originalQuery) ? "未识别到有效搜索内容" : "未识别出明确的结构化筛选条件，已回退为关键词搜索";
+        }
+
+        String sanitizedExplanation = sanitizeSearchExplanation(rawExplanation);
+        String chipExplanation = buildSearchExplanationFromChips(displayChips);
+
+        if (containsInternalSearchField(rawExplanation) && StrUtil.isNotBlank(chipExplanation)) {
+            return chipExplanation;
+        }
+        if (StrUtil.isNotBlank(sanitizedExplanation)) {
+            return sanitizedExplanation;
+        }
+        if (StrUtil.isNotBlank(chipExplanation)) {
+            return chipExplanation;
+        }
+        return "已将自然语言搜索解析为结构化筛选条件";
+    }
+
+    private String buildSearchExplanationFromChips(List<CustomerAiSearchDisplayChipVO> displayChips) {
+        if (displayChips == null || displayChips.isEmpty()) {
+            return null;
+        }
+
+        List<String> filterLabels = new ArrayList<>();
+        String sortLabel = null;
+        for (CustomerAiSearchDisplayChipVO chip : displayChips) {
+            if (chip == null || StrUtil.isBlank(chip.getLabel())) {
+                continue;
+            }
+            if ("sort".equals(chip.getKey())) {
+                sortLabel = chip.getLabel().trim();
+            } else {
+                filterLabels.add(chip.getLabel().trim());
+            }
+        }
+
+        List<String> parts = new ArrayList<>();
+        if (!filterLabels.isEmpty()) {
+            parts.add("已识别筛选条件：" + String.join("，", filterLabels));
+        }
+        if (StrUtil.isNotBlank(sortLabel)) {
+            parts.add("已识别" + sortLabel.replaceFirst("^排序[:：]\\s*", "排序规则："));
+        }
+        return parts.isEmpty() ? null : String.join("；", parts);
+    }
+
+    private String sanitizeSearchExplanation(String explanation) {
+        String sanitized = StrUtil.trim(explanation);
+        if (StrUtil.isBlank(sanitized)) {
+            return null;
+        }
+
+        sanitized = sanitized.replace("`", "").replace("\"", "");
+        for (Map.Entry<String, String> entry : SEARCH_EXPLANATION_FIELD_LABEL_MAP.entrySet()) {
+            sanitized = sanitized.replace(entry.getKey(), entry.getValue());
+        }
+        sanitized = sanitized.replaceAll("\\s+", " ");
+        return sanitized.trim();
+    }
+
+    private boolean containsInternalSearchField(String explanation) {
+        if (StrUtil.isBlank(explanation)) {
+            return false;
+        }
+
+        String normalized = explanation.toLowerCase(Locale.ROOT);
+        if (normalized.contains("{") || normalized.contains("}") || normalized.contains("parsedquery")) {
+            return true;
+        }
+
+        for (String field : SEARCH_EXPLANATION_FIELD_LABEL_MAP.keySet()) {
+            if (normalized.contains(field.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String formatCompactAmount(BigDecimal amount) {

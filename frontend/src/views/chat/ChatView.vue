@@ -162,7 +162,7 @@
               <span class="text-xs font-medium text-slate-400">/ {{ giftTokenTotalWan }} 万 token</span>
             </div>
             <p v-if="giftTokenRemaining <= 0" class="mb-3 text-xs text-slate-500">
-              赠送额度已用完，可配置 AI Key 后继续使用。
+              赠送额度已用完，可配置 AI 服务后继续使用。
             </p>
             <div class="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
               <div
@@ -185,7 +185,7 @@
               :disabled="!canManageAiConfig"
               @click="openApiKeySetup"
             >
-              配置 AI Key
+              配置 AI 服务
             </button>
           </div>
           <p class="text-xs font-bold text-primary uppercase tracking-wider mb-1">AI 模型状态</p>
@@ -195,7 +195,7 @@
               :class="hasAiApiKeyConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'"
             ></div>
             <span class="text-xs font-medium text-slate-600">
-              {{ hasAiApiKeyConfigured ? 'AI 模型已就绪' : '请先配置千问 API Key' }}
+              {{ hasAiApiKeyConfigured ? 'AI 模型已就绪' : '请先配置 AI 服务' }}
             </span>
           </div>
         </div>
@@ -529,7 +529,8 @@
     <ApiKeySetupModal
       :model-value="isApiKeyModalOpen"
       :loading="savingApiKey"
-      :initial-api-key="apiKeyDraft"
+      :provider-options="apiKeySetupProviderOptions"
+      :initial-config="apiKeySetupInitialConfig"
       @update:model-value="handleApiKeyModalVisibleChange"
       @save="handleSaveApiKey"
     />
@@ -545,12 +546,12 @@ import { useRouter } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
-import { getAiConfig, updateAiConfig } from '@/api/systemConfig'
+import { getAiConfig, getAiConfigDetail, updateAiConfig } from '@/api/systemConfig'
 import ApiKeySetupModal from '@/components/common/ApiKeySetupModal.vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { isRequestErrorHandled } from '@/utils/requestError'
 import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO } from '@/types/common'
-import type { AiConfig, AiConfigUpdateBO, AiMode } from '@/types/systemConfig'
+import type { AiConfig, AiConfigUpdateBO, AiMode, AiProvider, AiProviderPreset } from '@/types/systemConfig'
 
 const chatStore = useChatStore()
 const agentStore = useAgentStore()
@@ -569,7 +570,8 @@ const userAvatarLoadFailed = ref(false)
 const aiConfig = ref<AiConfig | null>(null)
 const aiConfigLoaded = ref(false)
 const isApiKeyModalOpen = ref(false)
-const apiKeyDraft = ref('')
+const apiKeySetupInitialConfig = ref<Partial<AiConfigUpdateBO> | null>(null)
+const apiKeySetupProviderOptions = ref<AiProviderPreset[]>([])
 const savingApiKey = ref(false)
 const resumeSendAfterApiKeySave = ref(false)
 
@@ -733,6 +735,12 @@ function normalizeAiConfig(config?: Partial<AiConfig> | Partial<AiConfigUpdateBO
     model: config?.model || DEFAULT_CHAT_AI_CONFIG.model,
     temperature: config?.temperature ?? DEFAULT_CHAT_AI_CONFIG.temperature ?? 0.7,
     maxTokens: config?.maxTokens ?? DEFAULT_CHAT_AI_CONFIG.maxTokens ?? 4096,
+    extraHeadersConfigured: (config as Partial<AiConfig> | null)?.extraHeadersConfigured ?? false,
+    extraHeadersJson: (config as Partial<AiConfig> | null)?.extraHeadersJson ?? '',
+    capabilities: (config as Partial<AiConfig> | null)?.capabilities,
+    modelHint: (config as Partial<AiConfig> | null)?.modelHint,
+    extraHeadersHint: (config as Partial<AiConfig> | null)?.extraHeadersHint,
+    availableProviders: (config as Partial<AiConfig> | null)?.availableProviders,
     mode: (config as Partial<AiConfig> | null)?.mode || 'gift',
     customConfigSaved: (config as Partial<AiConfig> | null)?.customConfigSaved ?? false,
     ready: (config as Partial<AiConfig> | null)?.ready ?? Boolean(config?.apiKey?.trim()),
@@ -775,7 +783,7 @@ async function ensureAiAvailable(): Promise<boolean> {
 
   if (!canManageAiConfig.value) {
     if (currentAiMode.value === 'gift' && giftTokenRemaining.value <= 0) {
-      ElMessage.warning('赠送 token 已用完，请联系管理员配置 AI Key 或购买套餐。')
+      ElMessage.warning('赠送 token 已用完，请联系管理员配置 AI 服务或购买套餐。')
     } else {
       ElMessage.warning('当前 AI 服务未就绪，请联系管理员处理。')
     }
@@ -783,7 +791,7 @@ async function ensureAiAvailable(): Promise<boolean> {
   }
 
   resumeSendAfterApiKeySave.value = true
-  apiKeyDraft.value = ''
+  await prepareApiKeySetupModal()
   isApiKeyModalOpen.value = true
   return false
 }
@@ -792,31 +800,73 @@ function handleApiKeyModalVisibleChange(visible: boolean) {
   isApiKeyModalOpen.value = visible
 
   if (!visible && !savingApiKey.value) {
-    apiKeyDraft.value = ''
+    apiKeySetupInitialConfig.value = null
     resumeSendAfterApiKeySave.value = false
   }
 }
 
-async function handleSaveApiKey(apiKey: string) {
-  const trimmedApiKey = apiKey.trim()
+async function prepareApiKeySetupModal() {
+  if (!canManageAiConfig.value) return
+
+  try {
+    const detailConfig = await getAiConfigDetail()
+    apiKeySetupProviderOptions.value = detailConfig.availableProviders?.length
+      ? detailConfig.availableProviders
+      : []
+    apiKeySetupInitialConfig.value = {
+      provider: (detailConfig.provider || DEFAULT_CHAT_AI_CONFIG.provider) as AiProvider,
+      apiUrl: detailConfig.apiUrl || DEFAULT_CHAT_AI_CONFIG.apiUrl,
+      apiKey: '',
+      model: detailConfig.model || DEFAULT_CHAT_AI_CONFIG.model,
+      temperature: detailConfig.temperature ?? DEFAULT_CHAT_AI_CONFIG.temperature,
+      maxTokens: detailConfig.maxTokens ?? DEFAULT_CHAT_AI_CONFIG.maxTokens,
+      extraHeadersJson: detailConfig.extraHeadersJson ?? ''
+    }
+  } catch {
+    apiKeySetupProviderOptions.value = []
+    apiKeySetupInitialConfig.value = { ...DEFAULT_CHAT_AI_CONFIG }
+  }
+}
+
+function resolveProviderLabel(provider?: AiProvider): string {
+  return apiKeySetupProviderOptions.value.find((item) => item.value === provider)?.label || 'AI 服务商'
+}
+
+async function handleSaveApiKey(payload: AiConfigUpdateBO) {
+  const trimmedApiKey = payload.apiKey.trim()
+  const trimmedApiUrl = payload.apiUrl.trim()
+  const trimmedModel = payload.model.trim()
+
   if (!trimmedApiKey) {
-    ElMessage.warning('请输入千问 API Key')
+    ElMessage.warning('请输入 API Key')
+    return
+  }
+  if (!trimmedApiUrl) {
+    ElMessage.warning('请输入 API 地址')
+    return
+  }
+  if (!trimmedModel) {
+    ElMessage.warning('请输入模型名称')
     return
   }
 
   savingApiKey.value = true
 
   try {
-    const payload: AiConfigUpdateBO = {
+    const nextPayload: AiConfigUpdateBO = {
       ...DEFAULT_CHAT_AI_CONFIG,
-      apiKey: trimmedApiKey
+      ...payload,
+      apiUrl: trimmedApiUrl,
+      apiKey: trimmedApiKey,
+      model: trimmedModel,
+      extraHeadersJson: payload.extraHeadersJson?.trim() || ''
     }
 
-    await updateAiConfig(payload)
+    await updateAiConfig(nextPayload)
     await loadAiConfig(true)
     isApiKeyModalOpen.value = false
-    apiKeyDraft.value = ''
-    ElMessage.success('千问 API Key 保存成功')
+    apiKeySetupInitialConfig.value = null
+    ElMessage.success(`${resolveProviderLabel(nextPayload.provider)} 配置保存成功`)
 
     const shouldResumeSend = resumeSendAfterApiKeySave.value
     resumeSendAfterApiKeySave.value = false
@@ -842,8 +892,9 @@ function openApiKeySetup() {
     return
   }
   resumeSendAfterApiKeySave.value = false
-  apiKeyDraft.value = ''
-  isApiKeyModalOpen.value = true
+  prepareApiKeySetupModal().then(() => {
+    isApiKeyModalOpen.value = true
+  })
 }
 
 async function handleSend() {

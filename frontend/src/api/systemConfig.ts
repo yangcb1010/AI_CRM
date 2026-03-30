@@ -1,6 +1,7 @@
 import { get, post } from '@/utils/request'
 import type {
   AiConfig,
+  AiProviderActivateBO,
   AiConfigUpdateBO,
   AiConnectionTestResult,
   EnterpriseConfig,
@@ -18,6 +19,10 @@ export function getAiConfigDetail(): Promise<AiConfig> {
 
 export function updateAiConfig(data: AiConfigUpdateBO): Promise<void> {
   return post('/systemConfig/ai/update', data)
+}
+
+export function activateAiProvider(data: AiProviderActivateBO): Promise<void> {
+  return post('/systemConfig/ai/activate', data)
 }
 
 export function useGiftAiConfig(): Promise<void> {

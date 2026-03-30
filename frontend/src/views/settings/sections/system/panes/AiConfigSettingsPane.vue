@@ -48,6 +48,44 @@
         </div>
       </div>
 
+      <div class="mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-400">已保存服务商</p>
+            <p class="mt-2 text-sm text-slate-600">
+              已配置 {{ configuredProviders.length }} / {{ providerOptions.length }} 个服务商，切换编辑时不会互相覆盖。
+            </p>
+          </div>
+          <el-tag type="primary" effect="plain">
+            多服务商配置池
+          </el-tag>
+        </div>
+
+        <div v-if="configuredProviders.length" class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-for="provider in configuredProviders"
+            :key="provider.value"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-all"
+            :class="provider.value === aiConfigForm.provider
+              ? 'border-primary bg-primary/5 text-primary'
+              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/40 hover:text-primary'"
+            @click="handleProviderChange(provider.value)"
+          >
+            <span>{{ provider.label }}</span>
+            <span
+              class="rounded-full px-2 py-0.5 text-[11px]"
+              :class="provider.active ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'"
+            >
+              {{ provider.active ? '当前生效' : '已保存' }}
+            </span>
+          </button>
+        </div>
+        <p v-else class="mt-4 text-sm text-slate-400">
+          还没有已保存的服务商配置，保存后会自动加入配置池。
+        </p>
+      </div>
+
       <el-form :model="aiConfigForm" label-position="top" class="max-w-3xl">
         <el-form-item label="AI 服务商">
           <el-select v-model="aiConfigForm.provider" class="w-full" @change="handleProviderChange">
@@ -58,8 +96,14 @@
               :value="preset.value"
             />
           </el-select>
-          <div class="mt-1 text-xs text-slate-400">
-            {{ currentProviderPreset?.description || '支持 OpenAI 兼容接口的通用模型配置。' }}
+          <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span>{{ currentProviderPreset?.description || '支持 OpenAI 兼容接口的通用模型配置。' }}</span>
+            <el-tag v-if="currentProviderPreset?.configured" size="small" type="success" effect="plain">
+              已保存该服务商配置
+            </el-tag>
+            <el-tag v-if="currentProviderPreset?.active" size="small" type="primary" effect="plain">
+              当前默认生效
+            </el-tag>
           </div>
         </el-form-item>
 
@@ -94,7 +138,12 @@
             </el-button>
           </div>
           <div class="mt-1 text-xs text-slate-400">
-            出于安全原因，系统不会回显已保存的 API Key。保存或测试前需要重新输入。
+            <template v-if="currentProviderPreset?.apiKeyConfigured">
+              当前服务商已保存 API Key，如需覆盖请重新输入后保存。
+            </template>
+            <template v-else>
+              出于安全原因，系统不会回显已保存的 API Key。保存或测试前需要重新输入。
+            </template>
           </div>
           <div v-if="connectionTestResult" class="mt-2">
             <el-alert :type="connectionTestResult.success ? 'success' : 'error'" :closable="false" show-icon>
@@ -157,8 +206,8 @@
           <div class="mt-1 text-xs text-slate-400">
             用于兼容某些服务商的附加请求头。{{ currentExtraHeadersHint || '如无需额外请求头可留空。' }}
           </div>
-          <div v-if="extraHeadersConfigured" class="mt-1 text-xs text-emerald-600">
-            当前租户已配置额外请求头，页面中展示的是管理端可编辑的原始配置。
+          <div v-if="currentProviderPreset?.savedExtraHeadersConfigured" class="mt-1 text-xs text-emerald-600">
+            当前服务商已保存额外请求头，页面中展示的是管理端可编辑的原始配置。
           </div>
         </el-form-item>
 
@@ -193,10 +242,18 @@
           />
         </el-form-item>
 
-        <div class="flex gap-3 border-t border-slate-200 pt-4">
+        <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-4">
           <el-button type="primary" :loading="savingAiConfig" @click="handleSaveAiConfig">
             <el-icon class="mr-1"><Document /></el-icon>
-            保存 AI 配置
+            保存当前服务商配置
+          </el-button>
+          <el-button
+            plain
+            :disabled="!currentProviderPreset?.configured || currentProviderPreset?.active"
+            :loading="activatingProvider"
+            @click="handleActivateProvider"
+          >
+            启用当前服务商
           </el-button>
           <el-button @click="loadAiConfig">重置</el-button>
         </div>
@@ -210,8 +267,8 @@
 
       <div class="space-y-3 text-sm text-slate-600">
         <p>当前 CRM 默认要求主对话模型支持工具调用，否则无法正常驱动客户、任务、跟进等内置工具。</p>
+        <p>现在支持为不同服务商分别保存配置，切换编辑时会自动回填对应服务商的历史参数。</p>
         <p>如果你要接入百度千帆等需要额外头信息的服务，可以在“额外请求头 (JSON)”中补充。</p>
-        <p>豆包、混元、智谱、Kimi 等厂商建议优先使用官方控制台里支持工具调用的模型或接入点。</p>
       </div>
     </el-card>
   </div>
@@ -221,7 +278,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Connection, Document, Hide, View } from '@element-plus/icons-vue'
-import { getAiConfigDetail, testAiConnection, updateAiConfig, useCustomAiConfig, useGiftAiConfig } from '@/api/systemConfig'
+import {
+  activateAiProvider,
+  getAiConfigDetail,
+  testAiConnection,
+  updateAiConfig,
+  useCustomAiConfig,
+  useGiftAiConfig
+} from '@/api/systemConfig'
 import type {
   AiConfig,
   AiConfigUpdateBO,
@@ -232,30 +296,44 @@ import type {
 } from '@/types/systemConfig'
 import { AI_PROVIDER_PRESETS } from '../constants'
 
+type AiConfigFormState = AiConfigUpdateBO & {
+  updateTime?: string
+  configured?: boolean
+  apiKeyConfigured?: boolean
+}
+
+type ProviderDraftMap = Partial<Record<AiProvider, AiConfigFormState>>
+
+const DEFAULT_PROVIDER: AiProvider = 'dashscope'
+
 const showApiKey = ref(false)
 const savingAiConfig = ref(false)
 const testingConnection = ref(false)
 const switchingAiMode = ref(false)
+const activatingProvider = ref(false)
 const connectionTestResult = ref<AiConnectionTestResult | null>(null)
 const providerOptions = ref<AiProviderPreset[]>(AI_PROVIDER_PRESETS)
+const providerDrafts = ref<ProviderDraftMap>({})
 const loadedConfig = ref<AiConfig | null>(null)
-const extraHeadersConfigured = ref(false)
 
-const aiConfigForm = reactive<AiConfigUpdateBO & { updateTime?: string }>({
-  provider: 'dashscope',
+const aiConfigForm = reactive<AiConfigFormState>({
+  provider: DEFAULT_PROVIDER,
   apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode',
   apiKey: '',
   model: 'qwen3.5-plus',
   temperature: 0.7,
   maxTokens: 2048,
   extraHeadersJson: '',
-  updateTime: undefined
+  updateTime: undefined,
+  configured: false,
+  apiKeyConfigured: false
 })
 
 const currentProviderPreset = computed(() => {
   return providerOptions.value.find((item) => item.value === aiConfigForm.provider) || null
 })
 
+const configuredProviders = computed(() => providerOptions.value.filter((item) => item.configured))
 const currentMode = computed(() => loadedConfig.value?.mode || 'gift')
 const giftTokenTotal = computed(() => loadedConfig.value?.giftTokenTotal ?? 0)
 const giftTokenRemaining = computed(() => loadedConfig.value?.giftTokenRemaining ?? 0)
@@ -263,7 +341,6 @@ const giftTokenRemainingWan = computed(() => (giftTokenRemaining.value / 10000).
 const giftTokenTotalWan = computed(() => (giftTokenTotal.value / 10000).toFixed(1))
 const canUseGiftMode = computed(() => currentMode.value !== 'gift' && giftTokenRemaining.value > 0)
 const canUseSavedCustomMode = computed(() => currentMode.value !== 'custom' && Boolean(loadedConfig.value?.customConfigSaved))
-
 const currentProviderModels = computed(() => currentProviderPreset.value?.models || [])
 
 const currentCapabilities = computed<AiModelCapabilities>(() => {
@@ -306,15 +383,67 @@ onMounted(async () => {
   await loadAiConfig()
 })
 
-function handleProviderChange(provider: AiProvider) {
-  const preset = providerOptions.value.find((item) => item.value === provider)
-  if (!preset) return
-
-  aiConfigForm.apiUrl = preset.baseUrl || ''
-  if (preset.models.length > 0) {
-    aiConfigForm.model = preset.models[0]
+function createProviderDraft(preset?: AiProviderPreset | null): AiConfigFormState {
+  const provider = (preset?.value || DEFAULT_PROVIDER) as AiProvider
+  return {
+    provider,
+    apiUrl: preset?.savedApiUrl || preset?.baseUrl || '',
+    apiKey: '',
+    model: preset?.savedModel || preset?.models?.[0] || '',
+    temperature: preset?.savedTemperature ?? 0.7,
+    maxTokens: preset?.savedMaxTokens ?? 2048,
+    extraHeadersJson: preset?.savedExtraHeadersJson ?? '',
+    updateTime: undefined,
+    configured: Boolean(preset?.configured),
+    apiKeyConfigured: Boolean(preset?.apiKeyConfigured)
   }
+}
+
+function getCurrentProvider(): AiProvider {
+  return aiConfigForm.provider ?? DEFAULT_PROVIDER
+}
+
+function syncCurrentFormToDraft() {
+  const provider = getCurrentProvider()
+  providerDrafts.value[provider] = {
+    provider,
+    apiUrl: aiConfigForm.apiUrl,
+    apiKey: aiConfigForm.apiKey,
+    model: aiConfigForm.model,
+    temperature: aiConfigForm.temperature,
+    maxTokens: aiConfigForm.maxTokens,
+    extraHeadersJson: aiConfigForm.extraHeadersJson || '',
+    updateTime: aiConfigForm.updateTime,
+    configured: aiConfigForm.configured,
+    apiKeyConfigured: aiConfigForm.apiKeyConfigured
+  }
+}
+
+function applyProviderDraft(provider: AiProvider) {
+  const preset = providerOptions.value.find((item) => item.value === provider) || null
+  const draft = providerDrafts.value[provider] || createProviderDraft(preset)
+  providerDrafts.value[provider] = draft
+
+  Object.assign(aiConfigForm, {
+    provider,
+    apiUrl: draft.apiUrl,
+    apiKey: draft.apiKey,
+    model: draft.model,
+    temperature: draft.temperature ?? 0.7,
+    maxTokens: draft.maxTokens ?? 2048,
+    extraHeadersJson: draft.extraHeadersJson || '',
+    updateTime: draft.updateTime,
+    configured: draft.configured ?? false,
+    apiKeyConfigured: draft.apiKeyConfigured ?? false
+  })
+
+  showApiKey.value = false
   connectionTestResult.value = null
+}
+
+function handleProviderChange(provider: AiProvider) {
+  syncCurrentFormToDraft()
+  applyProviderDraft(provider)
 }
 
 async function loadAiConfig() {
@@ -322,20 +451,24 @@ async function loadAiConfig() {
     const config = await getAiConfigDetail()
     loadedConfig.value = config
     providerOptions.value = config.availableProviders?.length ? config.availableProviders : AI_PROVIDER_PRESETS
-    extraHeadersConfigured.value = Boolean(config.extraHeadersConfigured)
 
-    Object.assign(aiConfigForm, {
-      provider: (config.provider || 'dashscope') as AiProvider,
-      apiUrl: config.apiUrl || '',
-      apiKey: '',
-      model: config.model || '',
-      temperature: config.temperature ?? 0.7,
-      maxTokens: config.maxTokens ?? 2048,
-      extraHeadersJson: config.extraHeadersJson ?? '',
-      updateTime: config.updateTime
+    const nextDrafts: ProviderDraftMap = {}
+    providerOptions.value.forEach((preset) => {
+      nextDrafts[preset.value] = createProviderDraft(preset)
     })
 
-    connectionTestResult.value = null
+    const currentProvider = (config.provider
+      || providerOptions.value.find((item) => item.active)?.value
+      || providerOptions.value[0]?.value
+      || DEFAULT_PROVIDER) as AiProvider
+
+    const currentDraft = nextDrafts[currentProvider]
+    if (currentDraft) {
+      currentDraft.updateTime = config.updateTime
+    }
+
+    providerDrafts.value = nextDrafts
+    applyProviderDraft(currentProvider)
   } catch {
     // Error handled by interceptor
   }
@@ -367,6 +500,21 @@ async function handleUseSavedCustomMode() {
   }
 }
 
+async function handleActivateProvider() {
+  const provider = getCurrentProvider()
+
+  activatingProvider.value = true
+  try {
+    await activateAiProvider({ provider })
+    ElMessage.success(`已切换到 ${currentProviderPreset.value?.label || provider} 配置`)
+    await loadAiConfig()
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    activatingProvider.value = false
+  }
+}
+
 async function handleTestConnection() {
   if (!aiConfigForm.apiUrl?.trim() || !aiConfigForm.apiKey?.trim()) {
     ElMessage.warning('请先填写 API 地址和 API 密钥')
@@ -382,7 +530,7 @@ async function handleTestConnection() {
 
   try {
     const result = await testAiConnection({
-      provider: aiConfigForm.provider,
+      provider: getCurrentProvider(),
       apiUrl: aiConfigForm.apiUrl.trim(),
       apiKey: aiConfigForm.apiKey.trim(),
       model: aiConfigForm.model.trim(),
@@ -419,7 +567,7 @@ async function handleSaveAiConfig() {
   savingAiConfig.value = true
   try {
     await updateAiConfig({
-      provider: aiConfigForm.provider,
+      provider: getCurrentProvider(),
       apiUrl: aiConfigForm.apiUrl.trim(),
       apiKey: aiConfigForm.apiKey.trim(),
       model: aiConfigForm.model.trim(),
@@ -427,7 +575,7 @@ async function handleSaveAiConfig() {
       maxTokens: aiConfigForm.maxTokens,
       extraHeadersJson: aiConfigForm.extraHeadersJson?.trim() || ''
     })
-    ElMessage.success('AI 配置保存成功，已立即生效')
+    ElMessage.success('当前服务商配置已保存，并已设为默认生效')
     await loadAiConfig()
   } catch {
     // Error handled by interceptor
@@ -459,7 +607,7 @@ function inferCapabilities(provider: AiProvider | undefined, model: string | und
     if (['gpt-5', '4o', '4.1', 'vision', 'omni', '3.5-plus', '1-8', '4.6v', '4.5v', '4v', 'vl'].some((keyword) => normalizedModel.includes(keyword))) {
       supportsVision = true
     }
-    if (normalizedProvider === 'openai' || normalizedProvider === 'dashscope' || normalizedProvider === 'deepseek' || normalizedProvider === 'ark' || normalizedProvider === 'minimax' || normalizedProvider === 'zhipu' || normalizedProvider === 'custom') {
+    if (['openai', 'dashscope', 'deepseek', 'ark', 'minimax', 'zhipu', 'custom'].includes(normalizedProvider)) {
       supportsToolCall = true
     }
   }

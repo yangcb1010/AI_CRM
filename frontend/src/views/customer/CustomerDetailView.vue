@@ -383,12 +383,8 @@
                   <p class="text-sm text-slate-900 font-medium px-2 py-1 -ml-2">{{ formatDate(customer.createTime) }}</p>
                 </div>
                 <div v-for="field in customFields" :key="field.fieldId">
-                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{{ field.fieldLabel }}</p>
+                  <p class="text-xs font-bold text-slate-400 tracking-wider mb-1">{{ field.fieldLabel }}</p>
                   <p class="text-sm text-slate-900 font-medium px-2 py-1 -ml-2">{{ formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName]) }}</p>
-                </div>
-                <div>
-                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客户背景</p>
-                  <p class="text-sm text-slate-600 leading-relaxed px-2 py-1 -ml-2">{{ customer.description || '暂无描述' }}</p>
                 </div>
               </div>
             </section>

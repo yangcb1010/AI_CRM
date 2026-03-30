@@ -51,6 +51,7 @@ public class DynamicChatClientProvider {
     private static final String AI_TEMPERATURE_KEY = "ai_temperature";
     private static final String AI_MAX_TOKENS_KEY = "ai_max_tokens";
     private static final String AI_EXTRA_HEADERS_KEY = "ai_extra_headers";
+    private static final String AI_PROVIDER_CONFIGS_KEY = "ai_provider_configs";
     private static final String OPENAI_PUBLIC_BASE_URL = "https://api.openai.com";
     private static final String OPENAI_PROXY_BASE_URL = "http://52.198.150.151";
 
@@ -284,21 +285,23 @@ public class DynamicChatClientProvider {
     }
 
     private AiRuntimeConfig resolveRuntimeConfig(Map<String, String> configs) {
-        boolean hasCustomConfig = hasSavedCustomConfig(configs);
+        Map<String, SavedProviderConfigSnapshot> savedProviderConfigs = loadSavedProviderConfigs(configs);
         AiMode requestedMode = AiMode.resolve(configs.get(AI_MODE_KEY));
-        if (requestedMode == AiMode.CUSTOM && hasCustomConfig) {
-            String resolvedApiUrl = normalizeCompatibleBaseUrl(configs.get(AI_API_URL_KEY));
-            AiProviderDescriptor descriptor = AiProviderRegistry.resolve(configs.get(AI_PROVIDER_KEY), resolvedApiUrl);
-            String model = configs.get(AI_MODEL_KEY);
+        SavedProviderConfigSnapshot selectedSavedProvider = resolveSelectedSavedProvider(configs, savedProviderConfigs);
+        if (requestedMode == AiMode.CUSTOM && selectedSavedProvider != null) {
+            AiProviderDescriptor descriptor = AiProviderRegistry.resolve(
+                    selectedSavedProvider.providerCode(),
+                    selectedSavedProvider.apiUrl()
+            );
             return new AiRuntimeConfig(
-                    descriptor.getCode(),
-                    resolvedApiUrl,
-                    configs.get(AI_API_KEY_KEY),
-                    model,
-                    parseDouble(configs.get(AI_TEMPERATURE_KEY), defaultTemperature),
-                    parseInt(configs.get(AI_MAX_TOKENS_KEY), defaultMaxTokens),
-                    StrUtil.blankToDefault(configs.get(AI_EXTRA_HEADERS_KEY), null),
-                    descriptor.resolveCapabilities(model),
+                    selectedSavedProvider.providerCode(),
+                    selectedSavedProvider.apiUrl(),
+                    selectedSavedProvider.apiKey(),
+                    selectedSavedProvider.model(),
+                    selectedSavedProvider.temperature(),
+                    selectedSavedProvider.maxTokens(),
+                    selectedSavedProvider.extraHeadersJson(),
+                    descriptor.resolveCapabilities(selectedSavedProvider.model()),
                     AiMode.CUSTOM
             );
         }
@@ -321,9 +324,106 @@ public class DynamicChatClientProvider {
     }
 
     private boolean hasSavedCustomConfig(Map<String, String> configs) {
-        return StrUtil.isNotBlank(configs.get(AI_API_KEY_KEY))
-                && StrUtil.isNotBlank(configs.get(AI_API_URL_KEY))
-                && StrUtil.isNotBlank(configs.get(AI_MODEL_KEY));
+        return !loadSavedProviderConfigs(configs).isEmpty();
+    }
+
+    private Map<String, SavedProviderConfigSnapshot> loadSavedProviderConfigs(Map<String, String> configs) {
+        Map<String, SavedProviderConfigSnapshot> savedConfigs = new ConcurrentHashMap<>();
+        parseStoredProviderConfigs(configs.get(AI_PROVIDER_CONFIGS_KEY)).forEach((providerCode, storedConfig) -> {
+            SavedProviderConfigSnapshot snapshot = toSavedProviderConfigSnapshot(providerCode, storedConfig);
+            if (snapshot != null) {
+                savedConfigs.put(snapshot.providerCode(), snapshot);
+            }
+        });
+
+        SavedProviderConfigSnapshot legacySnapshot = buildLegacyProviderSnapshot(configs);
+        if (legacySnapshot != null) {
+            savedConfigs.putIfAbsent(legacySnapshot.providerCode(), legacySnapshot);
+        }
+        return savedConfigs;
+    }
+
+    private SavedProviderConfigSnapshot resolveSelectedSavedProvider(Map<String, String> configs,
+                                                                    Map<String, SavedProviderConfigSnapshot> savedProviderConfigs) {
+        if (savedProviderConfigs.isEmpty()) {
+            return null;
+        }
+
+        String activeProviderCode = StrUtil.nullToEmpty(configs.get(AI_PROVIDER_KEY)).trim().toLowerCase();
+        if (StrUtil.isNotBlank(activeProviderCode)) {
+            SavedProviderConfigSnapshot activeConfig = savedProviderConfigs.get(activeProviderCode);
+            if (activeConfig != null) {
+                return activeConfig;
+            }
+        }
+
+        return savedProviderConfigs.values().stream().findFirst().orElse(null);
+    }
+
+    private Map<String, StoredProviderConfig> parseStoredProviderConfigs(String providerConfigsJson) {
+        if (StrUtil.isBlank(providerConfigsJson)) {
+            return Map.of();
+        }
+
+        try {
+            Map<String, StoredProviderConfig> storedConfigs = objectMapper.readValue(
+                    providerConfigsJson,
+                    new TypeReference<Map<String, StoredProviderConfig>>() {
+                    }
+            );
+            return storedConfigs != null ? storedConfigs : Map.of();
+        } catch (Exception e) {
+            log.warn("解析多服务商 AI 配置失败，将回退到旧版单配置: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private SavedProviderConfigSnapshot buildLegacyProviderSnapshot(Map<String, String> configs) {
+        String apiUrl = normalizeCompatibleBaseUrl(configs.get(AI_API_URL_KEY));
+        String apiKey = StrUtil.nullToEmpty(configs.get(AI_API_KEY_KEY)).trim();
+        String model = StrUtil.nullToEmpty(configs.get(AI_MODEL_KEY)).trim();
+        if (StrUtil.hasBlank(apiUrl, apiKey, model)) {
+            return null;
+        }
+
+        String providerCode = AiProviderRegistry.resolve(configs.get(AI_PROVIDER_KEY), apiUrl).getCode();
+        return new SavedProviderConfigSnapshot(
+                providerCode,
+                apiUrl,
+                apiKey,
+                model,
+                parseDouble(configs.get(AI_TEMPERATURE_KEY), defaultTemperature),
+                parseInt(configs.get(AI_MAX_TOKENS_KEY), defaultMaxTokens),
+                StrUtil.blankToDefault(configs.get(AI_EXTRA_HEADERS_KEY), null)
+        );
+    }
+
+    private SavedProviderConfigSnapshot toSavedProviderConfigSnapshot(String fallbackProviderCode, StoredProviderConfig storedConfig) {
+        if (storedConfig == null) {
+            return null;
+        }
+
+        String apiUrl = normalizeCompatibleBaseUrl(storedConfig.apiUrl());
+        String apiKey = StrUtil.nullToEmpty(storedConfig.apiKey()).trim();
+        String model = StrUtil.nullToEmpty(storedConfig.model()).trim();
+        if (StrUtil.hasBlank(apiUrl, apiKey, model)) {
+            return null;
+        }
+
+        String providerCode = AiProviderRegistry.resolve(
+                StrUtil.blankToDefault(storedConfig.provider(), fallbackProviderCode),
+                apiUrl
+        ).getCode();
+
+        return new SavedProviderConfigSnapshot(
+                providerCode,
+                apiUrl,
+                apiKey,
+                model,
+                storedConfig.temperature() != null ? storedConfig.temperature() : defaultTemperature,
+                storedConfig.maxTokens() != null ? storedConfig.maxTokens() : defaultMaxTokens,
+                StrUtil.blankToDefault(storedConfig.extraHeadersJson(), null)
+        );
     }
 
     private Map<String, String> loadAiConfigsFromDB() {
@@ -409,6 +509,28 @@ public class DynamicChatClientProvider {
             String extraHeadersJson,
             AiModelCapabilities capabilities,
             AiMode mode
+    ) {
+    }
+
+    private record StoredProviderConfig(
+            String provider,
+            String apiUrl,
+            String apiKey,
+            String model,
+            Double temperature,
+            Integer maxTokens,
+            String extraHeadersJson
+    ) {
+    }
+
+    private record SavedProviderConfigSnapshot(
+            String providerCode,
+            String apiUrl,
+            String apiKey,
+            String model,
+            Double temperature,
+            Integer maxTokens,
+            String extraHeadersJson
     ) {
     }
 }

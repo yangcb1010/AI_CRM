@@ -250,6 +250,7 @@ import {
   addSchedule,
   aiParseSchedule,
   type ScheduleAddBO,
+  type ScheduleAiParseVO,
   type ScheduleParticipantUser
 } from '@/api/schedule'
 import WkIcon from '@/components/common/WkIcon.vue'
@@ -435,12 +436,30 @@ async function searchUsers(query: string) {
   }
 }
 
+function hasMeaningfulAiParseResult(result: ScheduleAiParseVO): boolean {
+  return Boolean(
+    result.title?.trim()
+    || result.startTime?.trim()
+    || result.endTime?.trim()
+    || result.customerName?.trim()
+    || result.location?.trim()
+    || result.description?.trim()
+    || result.participantUsers?.length
+    || result.unmatchedParticipantNames?.trim()
+  )
+}
+
 async function handleAiParse() {
   if (!aiParseInput.value.trim()) return
 
   aiParsing.value = true
   try {
     const result = await aiParseSchedule(aiParseInput.value.trim())
+    if (!hasMeaningfulAiParseResult(result)) {
+      participantAiWarning.value = ''
+      ElMessage.warning('本次智能解析没有提取到可填充的信息，请调整描述后重试')
+      return
+    }
 
     if (result.title) scheduleForm.title = result.title
     if (result.type) scheduleForm.type = normalizeScheduleType(result.type)

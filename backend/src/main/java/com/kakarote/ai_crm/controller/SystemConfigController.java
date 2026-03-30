@@ -3,6 +3,7 @@ package com.kakarote.ai_crm.controller;
 import com.kakarote.ai_crm.common.auth.RequirePermission;
 import com.kakarote.ai_crm.common.result.Result;
 import com.kakarote.ai_crm.config.OidcConfig;
+import com.kakarote.ai_crm.entity.BO.AiProviderActivateBO;
 import com.kakarote.ai_crm.entity.BO.AiConfigUpdateBO;
 import com.kakarote.ai_crm.entity.BO.EnterpriseConfigUpdateBO;
 import com.kakarote.ai_crm.entity.BO.LoginUser;
@@ -59,6 +60,14 @@ public class SystemConfigController {
     @RequirePermission("config:ai")
     public Result<String> updateAiConfig(@Valid @RequestBody AiConfigUpdateBO updateBO) {
         systemConfigService.updateAiConfig(updateBO);
+        return Result.ok();
+    }
+
+    @PostMapping("/ai/activate")
+    @Operation(summary = "Activate saved AI provider")
+    @RequirePermission("config:ai")
+    public Result<String> activateAiProvider(@Valid @RequestBody AiProviderActivateBO activateBO) {
+        systemConfigService.activateAiProvider(activateBO.getProvider());
         return Result.ok();
     }
 

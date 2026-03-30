@@ -122,5 +122,32 @@ public class AiConfigVO implements Serializable {
 
         @Schema(description = "默认是否支持视觉输入")
         private Boolean supportsVision;
+
+        @Schema(description = "当前租户是否已保存该服务商配置")
+        private Boolean configured;
+
+        @Schema(description = "当前租户默认激活的自定义服务商是否为该项")
+        private Boolean active;
+
+        @Schema(description = "当前租户是否已保存该服务商的 API Key")
+        private Boolean apiKeyConfigured;
+
+        @Schema(description = "当前租户已保存的 API URL")
+        private String savedApiUrl;
+
+        @Schema(description = "当前租户已保存的模型名称")
+        private String savedModel;
+
+        @Schema(description = "当前租户已保存的 Temperature")
+        private Double savedTemperature;
+
+        @Schema(description = "当前租户已保存的最大 Token 数")
+        private Integer savedMaxTokens;
+
+        @Schema(description = "当前租户是否已保存额外请求头")
+        private Boolean savedExtraHeadersConfigured;
+
+        @Schema(description = "当前租户已保存的额外请求头 JSON，仅管理接口可见")
+        private String savedExtraHeadersJson;
     }
 }

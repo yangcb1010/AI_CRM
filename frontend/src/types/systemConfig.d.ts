@@ -28,6 +28,15 @@ export interface AiProviderPreset {
   supportsStream: boolean
   supportsToolCall: boolean
   supportsVision: boolean
+  configured?: boolean
+  active?: boolean
+  apiKeyConfigured?: boolean
+  savedApiUrl?: string | null
+  savedModel?: string | null
+  savedTemperature?: number | null
+  savedMaxTokens?: number | null
+  savedExtraHeadersConfigured?: boolean
+  savedExtraHeadersJson?: string | null
 }
 
 export interface AiConfig {
@@ -62,6 +71,10 @@ export interface AiConfigUpdateBO {
   temperature?: number
   maxTokens?: number
   extraHeadersJson?: string
+}
+
+export interface AiProviderActivateBO {
+  provider: AiProvider
 }
 
 export interface AiConnectionTestResult {

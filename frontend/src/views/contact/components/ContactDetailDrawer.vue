@@ -245,7 +245,7 @@
                   :key="field.fieldId"
                   class="rounded-2xl border border-slate-100 bg-slate-50 p-4"
                 >
-                  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-400">
                     {{ field.fieldLabel }}
                   </p>
                   <div class="mt-2">
