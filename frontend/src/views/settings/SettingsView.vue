@@ -2073,9 +2073,12 @@ onMounted(async () => {
   } catch {
     // Fallback to store data
     const info = userStore.userInfo as any
+    profileForm.img = info?.img || ''
+    profileForm.imgUrl = info?.imgUrl || ''
     profileForm.realname = userStore.realname || ''
     profileForm.email = info?.email || ''
     profileForm.phone = info?.mobile || ''
+    profileForm.department = info?.deptName || ''
     profileForm.position = info?.post || ''
   }
 
@@ -2121,7 +2124,7 @@ function resetProfileForm() {
   profileForm.realname = userStore.realname || ''
   profileForm.email = info?.email || ''
   profileForm.phone = info?.mobile || ''
-  profileForm.department = ''
+  profileForm.department = info?.deptName || ''
   profileForm.position = info?.post || ''
 }
 
