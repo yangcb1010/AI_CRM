@@ -22,4 +22,9 @@ public class LoginUserBO {
      */
     @NotEmpty
     private String password;
+
+    /**
+     * 目标企业ID。仅在同一用户名命中多个企业时使用。
+     */
+    private Long tenantId;
 }

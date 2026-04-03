@@ -97,74 +97,135 @@
                   :class="{ 'auth-form-layer--active': isLogin }"
                   :aria-hidden="!isLogin"
                 >
-                  <div class="mb-10">
-                    <h2 class="mb-2 text-2xl font-bold text-slate-900">欢迎回来</h2>
-                    <p class="text-sm text-slate-500">请输入您的账号信息以登录系统</p>
-                  </div>
+                  <template v-if="loginStep === 'credentials'">
+                    <div class="mb-10">
+                      <h2 class="mb-2 text-2xl font-bold text-slate-900">欢迎回来</h2>
+                      <p class="text-sm text-slate-500">请输入您的账号信息以登录系统</p>
+                    </div>
 
-                  <el-form
-                    ref="loginFormRef"
-                    :model="loginForm"
-                    :rules="loginRules"
-                    class="auth-form space-y-5"
-                    label-position="top"
-                    hide-required-asterisk
-                    @submit.prevent="handleLogin"
-                  >
-                    <el-form-item prop="username">
-                      <template #label>
-                        <span class="label-upper">用户名</span>
-                      </template>
-                      <el-input
-                        v-model="loginForm.username"
-                        size="large"
-                        placeholder="请输入用户名"
-                        class="auth-el-input"
-                        @keyup.enter="handleLogin"
-                      >
-                        <template #prefix>
-                          <el-icon class="text-slate-400"><User /></el-icon>
+                    <el-form
+                      ref="loginFormRef"
+                      :model="loginForm"
+                      :rules="loginRules"
+                      class="auth-form space-y-5"
+                      label-position="top"
+                      hide-required-asterisk
+                      @submit.prevent="handleLogin"
+                    >
+                      <el-form-item prop="username">
+                        <template #label>
+                          <span class="label-upper">用户名</span>
                         </template>
-                      </el-input>
-                    </el-form-item>
+                        <el-input
+                          v-model="loginForm.username"
+                          size="large"
+                          placeholder="请输入用户名"
+                          class="auth-el-input"
+                          @keyup.enter="handleLogin"
+                        >
+                          <template #prefix>
+                            <el-icon class="text-slate-400"><User /></el-icon>
+                          </template>
+                        </el-input>
+                      </el-form-item>
 
-                    <el-form-item prop="password">
-                      <template #label>
-                        <span class="label-upper">密码</span>
-                      </template>
-                      <el-input
-                        v-model="loginForm.password"
-                        type="password"
-                        size="large"
-                        placeholder="••••••••"
-                        show-password
-                        class="auth-el-input"
-                        @keyup.enter="handleLogin"
-                      >
-                        <template #prefix>
-                          <el-icon class="text-slate-400"><Lock /></el-icon>
+                      <el-form-item prop="password">
+                        <template #label>
+                          <span class="label-upper">密码</span>
                         </template>
-                      </el-input>
-                    </el-form-item>
+                        <el-input
+                          v-model="loginForm.password"
+                          type="password"
+                          size="large"
+                          placeholder="••••••••"
+                          show-password
+                          class="auth-el-input"
+                          @keyup.enter="handleLogin"
+                        >
+                          <template #prefix>
+                            <el-icon class="text-slate-400"><Lock /></el-icon>
+                          </template>
+                        </el-input>
+                      </el-form-item>
 
-                    <el-form-item class="!mb-0">
+                      <el-form-item class="!mb-0">
+                        <button
+                          type="button"
+                          class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                          :disabled="loading"
+                          @click="handleLogin"
+                        >
+                          <span
+                            v-if="loading"
+                            class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                          />
+                          <template v-else>
+                            立即登录
+                            <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
+                          </template>
+                        </button>
+                      </el-form-item>
+                    </el-form>
+                  </template>
+
+                  <div v-else class="tenant-selection">
+                    <button type="button" class="tenant-selection__back" @click="handleBackToCredentials">
+                      <el-icon :size="16"><ArrowLeft /></el-icon>
+                      返回上一步
+                    </button>
+
+                    <div class="tenant-selection__hero">
+                      <span class="tenant-selection__badge">多企业账号</span>
+                      <div class="space-y-2">
+                        <h2 class="text-2xl font-bold text-slate-900">选择登录企业</h2>
+                        <p class="text-sm leading-6 text-slate-500">
+                          检测到当前账号密码同时匹配多个企业，请选择这次要进入的企业工作台。
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="tenant-selection__summary">
+                      <div class="tenant-selection__summary-icon">
+                        <el-icon :size="20"><User /></el-icon>
+                      </div>
+                      <div class="min-w-0">
+                        <p class="tenant-selection__summary-label">当前登录账号</p>
+                        <p class="tenant-selection__summary-value">{{ loginForm.username }}</p>
+                      </div>
+                    </div>
+
+                    <div class="tenant-option-list">
                       <button
+                        v-for="option in tenantOptions"
+                        :key="option.tenantId"
                         type="button"
-                        class="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="tenant-option-card"
                         :disabled="loading"
-                        @click="handleLogin"
+                        @click="handleTenantLogin(option)"
                       >
-                        <span
-                          v-if="loading"
-                          class="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                        />
-                        <template v-else>
-                          立即登录
-                          <el-icon class="transition-transform group-hover:translate-x-1"><Right /></el-icon>
-                        </template>
+                        <div class="tenant-option-card__icon">
+                          <el-icon :size="20"><OfficeBuilding /></el-icon>
+                        </div>
+                        <div class="tenant-option-card__content">
+                          <div class="tenant-option-card__title-row">
+                            <span class="tenant-option-card__title">{{ option.tenantName }}</span>
+                            <span class="tenant-option-card__tag">可登录</span>
+                          </div>
+                          <p class="tenant-option-card__meta">
+                            {{ option.realname || '当前成员账号' }}
+                          </p>
+                          <p class="tenant-option-card__hint">点击进入该企业工作台</p>
+                        </div>
+                        <span class="tenant-option-card__action">
+                          <span
+                            v-if="loading && pendingTenantId === option.tenantId"
+                            class="size-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary"
+                          />
+                          <el-icon v-else :size="18"><Right /></el-icon>
+                        </span>
                       </button>
-                    </el-form-item>
-                  </el-form>
+                    </div>
+                  </div>
                 </div>
 
                 <div
@@ -317,7 +378,17 @@
               </div>
 
               <div class="mt-6 text-center">
-                <p class="text-sm text-slate-500">
+                <p v-if="isLogin && loginStep === 'tenant-selection'" class="text-sm text-slate-500">
+                  需要使用其他账号？
+                  <button
+                    type="button"
+                    class="ml-2 font-bold text-primary hover:underline"
+                    @click="handleBackToCredentials"
+                  >
+                    返回登录
+                  </button>
+                </p>
+                <p v-else class="text-sm text-slate-500">
                   {{ isLogin ? '还没有账号？' : '已经有账号了？' }}
                   <button
                     type="button"
@@ -343,6 +414,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
+  ArrowLeft,
   CircleCheck,
   Lock,
   MagicStick,
@@ -356,6 +428,7 @@ import { useUserStore } from '@/stores/user'
 import logoImg from '@/assets/images/logo.png'
 import { getOidcSessionToken, register, sendEmailCode } from '@/api/auth'
 import SliderCaptchaDialog from '@/components/auth/SliderCaptchaDialog.vue'
+import type { LoginTenantOption } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -374,6 +447,9 @@ const stageRef = ref<HTMLElement>()
 const loginLayerRef = ref<HTMLElement>()
 const registerLayerRef = ref<HTMLElement>()
 const countdown = ref(0)
+const tenantOptions = ref<LoginTenantOption[]>([])
+const loginStep = ref<'credentials' | 'tenant-selection'>('credentials')
+const pendingTenantId = ref('')
 let countdownTimer: number | undefined
 
 const reduceMotion =
@@ -480,15 +556,26 @@ const sendCodeText = computed(() => {
   return '发送验证码'
 })
 
+function resetTenantSelection(clearOptions = true) {
+  loginStep.value = 'credentials'
+  pendingTenantId.value = ''
+  if (clearOptions) {
+    tenantOptions.value = []
+  }
+}
+
 watch(
   () => [route.name, route.query.register],
   ([name, registerQuery]) => {
     isLogin.value = name !== 'Register' && registerQuery !== '1' && registerQuery !== 'true'
+    if (!isLogin.value) {
+      resetTenantSelection()
+    }
   },
   { immediate: true }
 )
 
-watch(isLogin, async () => {
+watch([isLogin, loginStep], async () => {
   await syncStageHeight(true)
   formScrollRef.value?.scrollTo({
     top: 0,
@@ -496,7 +583,15 @@ watch(isLogin, async () => {
   })
 })
 
+watch(
+  () => [loginForm.username, loginForm.password],
+  () => {
+    resetTenantSelection()
+  }
+)
+
 function toggleMode() {
+  resetTenantSelection()
   const nextIsLogin = !isLogin.value
   const rest = { ...route.query }
   delete rest.register
@@ -512,36 +607,79 @@ async function handleLogin() {
   try {
     await loginFormRef.value.validate()
     loading.value = true
+    pendingTenantId.value = ''
 
-    await userStore.login({
+    const result = await userStore.login({
       username: loginForm.username,
       password: loginForm.password
     })
 
-    ElMessage.success('登录成功')
-
-    let redirect = (route.query.redirect as string) || '/'
-
-    if (redirect.includes('/oauth2/authorize')) {
-      try {
-        const { sessionToken } = await getOidcSessionToken()
-        const url = new URL(redirect)
-        url.searchParams.set('session_token', sessionToken)
-        redirect = url.toString()
-      } catch (e) {
-        console.error('Failed to get OIDC session token:', e)
-      }
+    if (result.requiresTenantSelection) {
+      tenantOptions.value = result.tenantOptions || []
+      loginStep.value = 'tenant-selection'
+      ElMessage.info('请选择要登录的企业')
+      return
     }
 
-    if (redirect.startsWith('http://') || redirect.startsWith('https://')) {
-      window.location.href = redirect
-    } else {
-      router.push(redirect)
-    }
+    await completeLoginRedirect()
   } catch (error) {
     console.error('Login error:', error)
   } finally {
     loading.value = false
+  }
+}
+
+function handleBackToCredentials() {
+  resetTenantSelection(false)
+}
+
+async function handleTenantLogin(option: LoginTenantOption) {
+  try {
+    loading.value = true
+    pendingTenantId.value = option.tenantId
+
+    const result = await userStore.login({
+      username: loginForm.username,
+      password: loginForm.password,
+      tenantId: option.tenantId
+    })
+
+    if (result.requiresTenantSelection) {
+      tenantOptions.value = result.tenantOptions || []
+      loginStep.value = 'tenant-selection'
+      ElMessage.info('请选择要登录的企业')
+      return
+    }
+
+    await completeLoginRedirect()
+  } catch (error) {
+    console.error('Login error:', error)
+  } finally {
+    loading.value = false
+    pendingTenantId.value = ''
+  }
+}
+
+async function completeLoginRedirect() {
+  ElMessage.success('登录成功')
+
+  let redirect = (route.query.redirect as string) || '/'
+
+  if (redirect.includes('/oauth2/authorize')) {
+    try {
+      const { sessionToken } = await getOidcSessionToken()
+      const url = new URL(redirect)
+      url.searchParams.set('session_token', sessionToken)
+      redirect = url.toString()
+    } catch (e) {
+      console.error('Failed to get OIDC session token:', e)
+    }
+  }
+
+  if (redirect.startsWith('http://') || redirect.startsWith('https://')) {
+    window.location.href = redirect
+  } else {
+    router.push(redirect)
   }
 }
 
@@ -781,6 +919,190 @@ onBeforeUnmount(() => {
   line-height: 1.2;
 }
 
+.tenant-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tenant-selection__back {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.tenant-selection__back:hover {
+  color: #0f172a;
+}
+
+.tenant-selection__hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tenant-selection__badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(19, 127, 236, 0.12), rgba(15, 23, 42, 0.06));
+  color: #137fec;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.tenant-selection__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%);
+}
+
+.tenant-selection__summary-icon {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: #ffffff;
+  color: #137fec;
+  box-shadow: 0 12px 30px rgba(19, 127, 236, 0.12);
+}
+
+.tenant-selection__summary-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.tenant-selection__summary-value {
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tenant-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tenant-option-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.4rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 1rem 1.05rem;
+  text-align: left;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.tenant-option-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(19, 127, 236, 0.35);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%);
+}
+
+.tenant-option-card:disabled {
+  cursor: not-allowed;
+}
+
+.tenant-option-card__icon {
+  display: flex;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: #eaf4ff;
+  color: #137fec;
+}
+
+.tenant-option-card__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tenant-option-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tenant-option-card__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tenant-option-card__tag {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  padding: 0.22rem 0.55rem;
+  color: #15803d;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tenant-option-card__meta,
+.tenant-option-card__hint {
+  margin: 0;
+}
+
+.tenant-option-card__meta {
+  margin-top: 0.35rem;
+  color: #334155;
+  font-size: 0.92rem;
+}
+
+.tenant-option-card__hint {
+  margin-top: 0.25rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.tenant-option-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+}
+
 /*
  * Element Plus 输入框用 inset box-shadow 模拟 1px 边框，普通 border 会叠两层或无效。
  * 这里统一改为：细 inset 描边 + 大圆角 + focus 外环（与设计稿 rounded-2xl + ring-primary/5 一致）
@@ -875,6 +1197,14 @@ onBeforeUnmount(() => {
     width: 100%;
     max-width: 480px;
     padding-inline: 1.5rem;
+  }
+
+  .tenant-option-card {
+    align-items: flex-start;
+  }
+
+  .tenant-option-card__title-row {
+    flex-wrap: wrap;
   }
 }
 </style>

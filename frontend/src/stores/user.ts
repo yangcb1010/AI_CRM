@@ -8,7 +8,7 @@ import {
   getUserAuth as apiGetUserAuth
 } from '@/api/auth'
 import { setToken, removeToken, getToken } from '@/utils/request'
-import type { UserInfo, LoginParams } from '@/types/api'
+import type { UserInfo, LoginParams, LoginResult } from '@/types/api'
 import { useEnterpriseStore } from './enterprise'
 
 export const useUserStore = defineStore('user', () => {
@@ -36,13 +36,22 @@ export const useUserStore = defineStore('user', () => {
     return !!permissions.value[permission]
   }
 
-  async function login(params: LoginParams): Promise<void> {
+  async function login(params: LoginParams): Promise<LoginResult> {
     const result = await apiLogin(params)
+    if (result.requiresTenantSelection) {
+      return result
+    }
+
+    if (!result.token || !result.userInfo) {
+      throw new Error('Invalid login response')
+    }
+
     token.value = result.token
     setToken(result.token)
     userInfo.value = result.userInfo
     permissions.value = await apiGetUserAuth() || {}
     permissionsLoaded.value = true
+    return result
   }
 
   async function logout(): Promise<void> {

@@ -21,11 +21,20 @@ export interface PageQuery {
 export interface LoginParams {
   username: string
   password: string
+  tenantId?: string
+}
+
+export interface LoginTenantOption {
+  tenantId: string
+  tenantName: string
+  realname?: string
 }
 
 export interface LoginResult {
-  token: string
-  userInfo: UserInfo
+  token?: string
+  userInfo?: UserInfo
+  requiresTenantSelection?: boolean
+  tenantOptions?: LoginTenantOption[]
 }
 
 export interface UserInfo {

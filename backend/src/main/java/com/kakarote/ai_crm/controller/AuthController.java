@@ -1,5 +1,7 @@
 package com.kakarote.ai_crm.controller;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.Result;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
@@ -7,12 +9,14 @@ import com.kakarote.ai_crm.config.OidcConfig;
 import com.kakarote.ai_crm.config.security.service.TokenService;
 import com.kakarote.ai_crm.entity.BO.LoginUser;
 import com.kakarote.ai_crm.entity.BO.LoginUserBO;
+import com.kakarote.ai_crm.entity.BO.RegisterBO;
+import com.kakarote.ai_crm.entity.PO.ManagerUser;
+import com.kakarote.ai_crm.entity.VO.LoginResponseVO;
 import com.kakarote.ai_crm.entity.VO.ManageUserVO;
+import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.ManageUserService;
 import com.kakarote.ai_crm.service.OidcService;
-import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.RegistrationService;
-import com.kakarote.ai_crm.entity.BO.RegisterBO;
 import com.kakarote.ai_crm.utils.UserUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,27 +27,25 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.InternalAuthenticationServiceException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * 认证控制器
- */
 @RestController
 @RequestMapping("/auth")
 @Tag(name = "认证接口")
 public class AuthController {
-
-    @Autowired
-    private AuthenticationManager authenticationManager;
 
     @Autowired
     private TokenService tokenService;
@@ -63,6 +65,9 @@ public class AuthController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @PostMapping("/register")
     @Operation(summary = "用户注册")
     public Result<String> register(@Valid @RequestBody RegisterBO registerBO) {
@@ -72,57 +77,65 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录")
-    public Result<Map<String, Object>> login(@Valid @RequestBody LoginUserBO loginUserBO,
-                                              HttpServletResponse response) {
-        // Authenticate
-        Authentication authentication;
-        try {
-            authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginUserBO.getUsername().trim(), loginUserBO.getPassword().trim()));
-        } catch (DisabledException e) {
-            throw new BusinessException(SystemCodeEnum.SYSTEM_USER_DISABLED);
-        } catch (BadCredentialsException e) {
-            throw new BusinessException(SystemCodeEnum.SYSTEM_USERNAME_OR_PASSWORD_ERROR);
-        } catch (InternalAuthenticationServiceException ex) {
-            if (ex.getCause() instanceof BusinessException) {
-                throw (BusinessException) ex.getCause();
-            }
+    public Result<LoginResponseVO> login(@Valid @RequestBody LoginUserBO loginUserBO,
+                                         HttpServletResponse response) {
+        String username = StrUtil.trim(loginUserBO.getUsername());
+        String password = StrUtil.trim(loginUserBO.getPassword());
+        if (StrUtil.isBlank(username) || StrUtil.isBlank(password)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "用户名和密码不能为空");
+        }
+
+        List<ManagerUser> candidateUsers = manageUserService.queryUsersByUsername(username);
+        if (CollUtil.isEmpty(candidateUsers)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_USER_DOES_NOT_EXIST);
         }
 
-        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-        String token = tokenService.createToken(loginUser);
-
-        // 创建 OIDC Session 并设置 Cookie（用于 MinIO SSO）
-        String sessionId = oidcService.createSession(loginUser);
-        ResponseCookie sessionCookie = ResponseCookie.from(oidcConfig.getSessionCookie(), sessionId)
-                .httpOnly(true)
-                .path("/")
-                .maxAge(oidcConfig.getTokenExpiry())
-                .sameSite("Lax")       // HTTP 环境使用 Lax，HTTPS 环境可改为 None + Secure
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
-
-        // Build response
-        Map<String, Object> result = new HashMap<>();
-        result.put("token", token);
-
-        ManageUserVO userVO = new ManageUserVO();
-        userVO.setUserId(loginUser.getUser().getUserId());
-        userVO.setUsername(loginUser.getUsername());
-        userVO.setRealname(loginUser.getUser().getRealname());
-        userVO.setImg(loginUser.getUser().getImg());
-        if (loginUser.getUser().getImg() != null && !loginUser.getUser().getImg().isEmpty()) {
-            try { userVO.setImgUrl(fileStorageService.getUrl(loginUser.getUser().getImg())); } catch (Exception ignored) {}
+        List<ManagerUser> passwordMatchedUsers = candidateUsers.stream()
+                .filter(user -> StrUtil.isNotBlank(user.getPassword()))
+                .filter(user -> passwordEncoder.matches(password, user.getPassword()))
+                .toList();
+        if (CollUtil.isEmpty(passwordMatchedUsers)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_USERNAME_OR_PASSWORD_ERROR);
         }
-        userVO.setMobile(loginUser.getUser().getMobile());
-        userVO.setEmail(loginUser.getUser().getEmail());
-        result.put("userInfo", userVO);
 
-        return Result.ok(result);
+        if (loginUserBO.getTenantId() != null) {
+            passwordMatchedUsers = passwordMatchedUsers.stream()
+                    .filter(user -> Objects.equals(user.getTenantId(), loginUserBO.getTenantId()))
+                    .toList();
+            if (CollUtil.isEmpty(passwordMatchedUsers)) {
+                throw new BusinessException(SystemCodeEnum.SYSTEM_USERNAME_OR_PASSWORD_ERROR);
+            }
+        }
+
+        List<ManagerUser> enabledUsers = passwordMatchedUsers.stream()
+                .filter(this::isEnabled)
+                .toList();
+        if (CollUtil.isEmpty(enabledUsers)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_USER_DISABLED);
+        }
+
+        if (loginUserBO.getTenantId() == null) {
+            Set<Long> tenantIds = enabledUsers.stream()
+                    .map(ManagerUser::getTenantId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (tenantIds.size() > 1) {
+                LoginResponseVO responseVO = new LoginResponseVO();
+                responseVO.setRequiresTenantSelection(Boolean.TRUE);
+                responseVO.setTenantOptions(manageUserService.buildLoginTenantOptions(enabledUsers));
+                return Result.ok(responseVO);
+            }
+        }
+
+        if (enabledUsers.size() > 1) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "当前企业下存在重复账号，请联系管理员处理");
+        }
+
+        return Result.ok(buildLoginSuccessResponse(enabledUsers.get(0), response));
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "用户登出")
+    @Operation(summary = "用户退出")
     public Result<String> logout(HttpServletRequest request, HttpServletResponse response) {
         try {
             LoginUser loginUser = UserUtil.getLoginUser();
@@ -130,12 +143,11 @@ public class AuthController {
                 tokenService.delLoginUser(loginUser.getToken());
             }
 
-            // 清除 OIDC Session Cookie
             String sessionId = getSessionIdFromCookie(request);
             if (sessionId != null) {
                 oidcService.removeSession(sessionId);
             }
-            // 清除 Cookie（使用 ResponseCookie 保持一致的属性）
+
             ResponseCookie clearCookie = ResponseCookie.from(oidcConfig.getSessionCookie(), "")
                     .httpOnly(true)
                     .path("/")
@@ -143,8 +155,7 @@ public class AuthController {
                     .sameSite("Lax")
                     .build();
             response.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());
-        } catch (Exception e) {
-            // Ignore
+        } catch (Exception ignored) {
         }
         return Result.ok();
     }
@@ -152,27 +163,22 @@ public class AuthController {
     @GetMapping("/userInfo")
     @Operation(summary = "获取当前用户信息")
     public Result<ManageUserVO> getUserInfo() {
-        ManageUserVO userVO = manageUserService.queryLoginUser();
-        return Result.ok(userVO);
+        return Result.ok(manageUserService.queryLoginUser());
     }
 
     @GetMapping("/oidc-session")
-    @Operation(summary = "获取 OIDC Session Token（用于 MinIO SSO 跨域跳转）")
+    @Operation(summary = "获取 OIDC Session Token")
     public Result<Map<String, String>> getOidcSessionToken() {
         LoginUser loginUser = UserUtil.getLoginUser();
         if (loginUser == null) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NOT_LOGIN);
         }
-        // 创建新的 OIDC Session
         String sessionId = oidcService.createSession(loginUser);
         Map<String, String> result = new HashMap<>();
         result.put("sessionToken", sessionId);
         return Result.ok(result);
     }
 
-    /**
-     * 从 Cookie 中获取 session ID
-     */
     private String getSessionIdFromCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
@@ -184,5 +190,47 @@ public class AuthController {
             }
         }
         return null;
+    }
+
+    private boolean isEnabled(ManagerUser user) {
+        return user != null && Integer.valueOf(1).equals(user.getStatus());
+    }
+
+    private LoginResponseVO buildLoginSuccessResponse(ManagerUser user, HttpServletResponse response) {
+        LoginUser loginUser = new LoginUser();
+        loginUser.setUser(user);
+
+        String token = tokenService.createToken(loginUser);
+        String sessionId = oidcService.createSession(loginUser);
+        ResponseCookie sessionCookie = ResponseCookie.from(oidcConfig.getSessionCookie(), sessionId)
+                .httpOnly(true)
+                .path("/")
+                .maxAge(oidcConfig.getTokenExpiry())
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
+
+        LoginResponseVO result = new LoginResponseVO();
+        result.setToken(token);
+        result.setUserInfo(buildUserInfo(user));
+        result.setRequiresTenantSelection(Boolean.FALSE);
+        return result;
+    }
+
+    private ManageUserVO buildUserInfo(ManagerUser user) {
+        ManageUserVO userVO = new ManageUserVO();
+        userVO.setUserId(user.getUserId());
+        userVO.setUsername(user.getUsername());
+        userVO.setRealname(user.getRealname());
+        userVO.setImg(user.getImg());
+        if (StrUtil.isNotBlank(user.getImg())) {
+            try {
+                userVO.setImgUrl(fileStorageService.getUrl(user.getImg()));
+            } catch (Exception ignored) {
+            }
+        }
+        userVO.setMobile(user.getMobile());
+        userVO.setEmail(user.getEmail());
+        return userVO;
     }
 }

@@ -7,7 +7,11 @@ import com.kakarote.ai_crm.entity.BO.UserQueryBO;
 import com.kakarote.ai_crm.entity.BO.UserStatusBO;
 import com.kakarote.ai_crm.entity.BO.UserUpdateBO;
 import com.kakarote.ai_crm.entity.PO.ManagerUser;
+import com.kakarote.ai_crm.entity.VO.LoginTenantOptionVO;
 import com.kakarote.ai_crm.entity.VO.ManageUserVO;
+
+import java.util.Collection;
+import java.util.List;
 
 
 /**
@@ -24,6 +28,20 @@ public interface ManageUserService extends IService<ManagerUser> {
      * @return user
      */
     ManagerUser queryUserByUsername(String username);
+
+    /**
+     * 通过用户名查询所有员工（跨租户）
+     * @param username 用户名
+     * @return 员工列表
+     */
+    List<ManagerUser> queryUsersByUsername(String username);
+
+    /**
+     * 构建登录时的企业选项
+     * @param users 员工列表
+     * @return 企业选项
+     */
+    List<LoginTenantOptionVO> buildLoginTenantOptions(Collection<ManagerUser> users);
 
     /**
      * 添加用户

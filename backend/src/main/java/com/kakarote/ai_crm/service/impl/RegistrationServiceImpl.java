@@ -1,5 +1,6 @@
 package com.kakarote.ai_crm.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Validator;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
@@ -8,10 +9,18 @@ import com.kakarote.ai_crm.common.redis.Redis;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
 import com.kakarote.ai_crm.config.tenant.TenantContextHolder;
 import com.kakarote.ai_crm.entity.BO.RegisterBO;
-import com.kakarote.ai_crm.entity.PO.*;
-import com.kakarote.ai_crm.mapper.ManageUserMapper;
+import com.kakarote.ai_crm.entity.PO.CrmTenant;
+import com.kakarote.ai_crm.entity.PO.ManagerDept;
+import com.kakarote.ai_crm.entity.PO.ManagerRole;
+import com.kakarote.ai_crm.entity.PO.ManagerUser;
+import com.kakarote.ai_crm.entity.PO.ManagerUserRole;
 import com.kakarote.ai_crm.mapper.ManagerDeptMapper;
-import com.kakarote.ai_crm.service.*;
+import com.kakarote.ai_crm.service.ICrmTenantService;
+import com.kakarote.ai_crm.service.IManagerRoleService;
+import com.kakarote.ai_crm.service.IManagerUserRoleService;
+import com.kakarote.ai_crm.service.ManageUserService;
+import com.kakarote.ai_crm.service.RegistrationService;
+import com.kakarote.ai_crm.service.WeKnoraClient;
 import com.kakarote.ai_crm.utils.CloudUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +37,6 @@ import java.util.Objects;
 @Service
 public class RegistrationServiceImpl implements RegistrationService {
 
-    /** 超级管理员角色标识 */
     public static final String SUPER_ADMIN_REALM = "super_admin";
 
     private static final String EMAIL_CODE_CACHE_PREFIX = "register:email:code:";
@@ -36,9 +44,6 @@ public class RegistrationServiceImpl implements RegistrationService {
     private static final int EMAIL_CODE_COOLDOWN_SECONDS = 60;
     private static final int REGISTER_EMAIL_TYPE = 1;
     private static final int RESET_PASSWORD_EMAIL_TYPE = 2;
-
-    @Autowired
-    private ManageUserMapper manageUserMapper;
 
     @Autowired
     private ICrmTenantService tenantService;
@@ -73,13 +78,6 @@ public class RegistrationServiceImpl implements RegistrationService {
         String companyName = StrUtil.trim(registerBO.getCompanyName());
         verifyEmailCode(email, registerBO.getVerificationCode());
 
-        // 2. 检查邮箱唯一性（跨租户，queryUserByUsername 有 @InterceptorIgnore）
-        ManagerUser existingUser = manageUserMapper.queryUserByUsername(email);
-        if (existingUser != null) {
-            throw new BusinessException(SystemCodeEnum.SYSTEM_EMAIL_ALREADY_REGISTERED);
-        }
-
-        // 3. 创建租户（crm_tenant 在 IGNORE_TENANT_TABLES 中，无需租户上下文）
         CrmTenant tenant = new CrmTenant();
         tenant.setTenantName(companyName);
         tenant.setContactEmail(email);
@@ -93,12 +91,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         tenantService.save(tenant);
 
         Long newTenantId = tenant.getTenantId();
-
-        // 4. 设置租户上下文，后续 INSERT 自动填充 tenantId
         TenantContextHolder.setTenantId(newTenantId);
 
         try {
-            // 5. 创建默认部门
             ManagerDept dept = new ManagerDept();
             dept.setDeptName(companyName);
             dept.setParentId(0L);
@@ -106,17 +101,15 @@ public class RegistrationServiceImpl implements RegistrationService {
             dept.setCreateTime(new Date());
             deptMapper.insert(dept);
 
-            // 6. 创建超级管理员角色（realm=super_admin，拥有全部权限，无需分配菜单）
             ManagerRole adminRole = ManagerRole.builder()
                     .roleName("超级管理员")
                     .realm(SUPER_ADMIN_REALM)
                     .description("系统超级管理员（注册时自动创建）")
-                    .dataType(5) // 全部数据权限
+                    .dataType(5)
                     .createTime(LocalDateTime.now())
                     .build();
             roleService.save(adminRole);
 
-            // 7. 创建管理员用户（email 作为 username）
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
             ManagerUser user = new ManagerUser();
             user.setUsername(email);
@@ -128,7 +121,6 @@ public class RegistrationServiceImpl implements RegistrationService {
             user.setCreateTime(new Date());
             manageUserService.save(user);
 
-            // 8. 关联用户与角色
             ManagerUserRole userRole = new ManagerUserRole();
             userRole.setUserId(user.getUserId());
             userRole.setRoleId(adminRole.getRoleId());
@@ -138,7 +130,6 @@ public class RegistrationServiceImpl implements RegistrationService {
             redis.del(getEmailCodeCacheKey(email));
             log.info("租户注册成功: tenantId={}, email={}, companyName={}", newTenantId, email, companyName);
 
-            // 9. 初始化 WeKnora 租户（注册 + 创建模型 + 创建知识库）
             if (weKnoraClient.isEnabled()) {
                 try {
                     weKnoraClient.getOrCreateTenantContext(newTenantId);
@@ -152,12 +143,6 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
-    /**
-     * 发送邮件验证码
-     *
-     * @param email 邮件
-     * @param type  类型 1为注册 2为找回密码
-     */
     @Override
     public void sendEmail(String email, Integer type) {
         String normalizedEmail = normalizeEmail(email);
@@ -189,15 +174,12 @@ public class RegistrationServiceImpl implements RegistrationService {
     }
 
     private void validateSendScene(String email, Integer type) {
-        ManagerUser existingUser = manageUserMapper.queryUserByUsername(email);
+        boolean hasExistingUser = CollUtil.isNotEmpty(manageUserService.queryUsersByUsername(email));
         if (Objects.equals(type, REGISTER_EMAIL_TYPE)) {
-            if (existingUser != null) {
-                throw new BusinessException(SystemCodeEnum.SYSTEM_EMAIL_ALREADY_REGISTERED);
-            }
             return;
         }
         if (Objects.equals(type, RESET_PASSWORD_EMAIL_TYPE)) {
-            if (existingUser == null) {
+            if (!hasExistingUser) {
                 throw new BusinessException(SystemCodeEnum.SYSTEM_USER_DOES_NOT_EXIST, "该邮箱尚未注册");
             }
             return;

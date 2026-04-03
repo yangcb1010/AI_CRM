@@ -9,6 +9,8 @@ import com.kakarote.ai_crm.entity.VO.ManageUserVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 用户表
  *
@@ -39,4 +41,12 @@ public interface ManageUserMapper extends BaseMapper<ManagerUser> {
      */
     @InterceptorIgnore(tenantLine = "true")
     ManagerUser queryUserByUsername(String username);
+
+    /**
+     * 通过用户名查询所有员工（登录认证用，跳过租户过滤）
+     * @param username 用户名
+     * @return 员工列表
+     */
+    @InterceptorIgnore(tenantLine = "true")
+    List<ManagerUser> queryUsersByUsername(String username);
 }
