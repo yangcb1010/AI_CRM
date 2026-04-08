@@ -58,6 +58,7 @@ export interface Knowledge {
   customerName?: string
   filePath?: string
   fileSize?: number
+  mimeType?: string
   summary?: string
   contentText?: string
   weKnoraParseStatus?: 'pending' | 'processing' | 'completed' | 'failed' | 'unsupported'

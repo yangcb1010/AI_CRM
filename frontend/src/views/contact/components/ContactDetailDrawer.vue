@@ -420,7 +420,8 @@ function formatDateTime(dateStr: string): string {
 async function ensureContactCustomFieldsLoaded() {
   if (contactCustomFieldsLoaded.value) return
   try {
-    contactCustomFields.value = await getEnabledFieldsByEntity('contact')
+    contactCustomFields.value = (await getEnabledFieldsByEntity('contact'))
+      .filter(field => field.fieldSource !== 'system')
     contactCustomFieldsLoaded.value = true
   } catch {
     contactCustomFields.value = []

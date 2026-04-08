@@ -4,11 +4,13 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.Const;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
+import com.kakarote.ai_crm.config.tenant.TenantContextHolder;
 import com.kakarote.ai_crm.entity.BO.UserAddBO;
 import com.kakarote.ai_crm.entity.BO.UserQueryBO;
 import com.kakarote.ai_crm.entity.BO.UserStatusBO;
@@ -18,16 +20,19 @@ import com.kakarote.ai_crm.entity.PO.ManagerDept;
 import com.kakarote.ai_crm.entity.PO.ManagerRole;
 import com.kakarote.ai_crm.entity.PO.ManagerUser;
 import com.kakarote.ai_crm.entity.PO.ManagerUserRole;
+import com.kakarote.ai_crm.entity.PO.SystemConfig;
 import com.kakarote.ai_crm.entity.VO.LoginTenantOptionVO;
 import com.kakarote.ai_crm.entity.VO.ManageUserVO;
 import com.kakarote.ai_crm.mapper.ManageUserMapper;
 import com.kakarote.ai_crm.mapper.ManagerDeptMapper;
+import com.kakarote.ai_crm.mapper.SystemConfigMapper;
 import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.ICrmTenantService;
 import com.kakarote.ai_crm.service.IManagerRoleService;
 import com.kakarote.ai_crm.service.IManagerUserRoleService;
 import com.kakarote.ai_crm.service.ManageUserService;
 import com.kakarote.ai_crm.utils.UserUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -50,8 +55,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service("manageUserService")
 public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, ManagerUser> implements ManageUserService {
+
+    private static final String ENTERPRISE_NAME_KEY = "enterprise_name";
 
     @Autowired
     private IManagerUserRoleService userRoleService;
@@ -67,6 +75,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
 
     @Autowired
     private ICrmTenantService tenantService;
+
+    @Autowired
+    private SystemConfigMapper systemConfigMapper;
 
     @Override
     public ManagerUser queryUserByUsername(String username) {
@@ -92,17 +103,20 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
             return Collections.emptyList();
         }
 
-        Map<Long, String> tenantNameMap = tenantService.listByIds(users.stream()
-                        .map(ManagerUser::getTenantId)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet()))
+        Set<Long> tenantIds = users.stream()
+                .map(ManagerUser::getTenantId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<Long, String> tenantNameMap = tenantService.listByIds(tenantIds)
                 .stream()
                 .collect(Collectors.toMap(CrmTenant::getTenantId, CrmTenant::getTenantName, (left, right) -> left));
+        Map<Long, String> enterpriseNameMap = resolveEnterpriseNameMap(tenantIds, tenantNameMap);
 
         List<ManagerUser> sortedUsers = users.stream()
                 .filter(user -> user.getTenantId() != null)
                 .sorted(Comparator
-                        .comparing((ManagerUser user) -> StrUtil.nullToDefault(tenantNameMap.get(user.getTenantId()), ""))
+                        .comparing((ManagerUser user) -> StrUtil.nullToDefault(enterpriseNameMap.get(user.getTenantId()), ""))
                         .thenComparing(ManagerUser::getUserId, Comparator.nullsLast(Long::compareTo)))
                 .toList();
 
@@ -114,10 +128,44 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return firstUserByTenantId.values().stream().map(user -> {
             LoginTenantOptionVO option = new LoginTenantOptionVO();
             option.setTenantId(user.getTenantId());
-            option.setTenantName(StrUtil.blankToDefault(tenantNameMap.get(user.getTenantId()), "未命名企业"));
             option.setRealname(StrUtil.blankToDefault(StrUtil.trim(user.getRealname()), user.getUsername()));
+            option.setTenantName(StrUtil.blankToDefault(enterpriseNameMap.get(user.getTenantId()), "未命名企业"));
             return option;
         }).collect(Collectors.toList());
+    }
+
+    private Map<Long, String> resolveEnterpriseNameMap(Collection<Long> tenantIds, Map<Long, String> tenantNameMap) {
+        if (CollUtil.isEmpty(tenantIds)) {
+            return Collections.emptyMap();
+        }
+
+        Long previousTenantId = TenantContextHolder.getTenantId();
+        Map<Long, String> enterpriseNameMap = new HashMap<>();
+        try {
+            for (Long tenantId : tenantIds) {
+                String fallbackName = StrUtil.trim(tenantNameMap.get(tenantId));
+                try {
+                    TenantContextHolder.setTenantId(tenantId);
+                    SystemConfig enterpriseConfig = systemConfigMapper.selectOne(
+                            new LambdaQueryWrapper<SystemConfig>()
+                                    .eq(SystemConfig::getConfigKey, ENTERPRISE_NAME_KEY)
+                                    .last("LIMIT 1"));
+                    String enterpriseName = enterpriseConfig != null ? StrUtil.trim(enterpriseConfig.getConfigValue()) : null;
+                    enterpriseNameMap.put(tenantId, StrUtil.blankToDefault(enterpriseName, fallbackName));
+                } catch (Exception e) {
+                    log.warn("加载登录企业名称失败，回退租户名称: tenantId={}, error={}", tenantId, e.getMessage());
+                    enterpriseNameMap.put(tenantId, fallbackName);
+                }
+            }
+        } finally {
+            if (previousTenantId != null) {
+                TenantContextHolder.setTenantId(previousTenantId);
+            } else {
+                TenantContextHolder.clear();
+            }
+        }
+
+        return enterpriseNameMap;
     }
 
     @Override

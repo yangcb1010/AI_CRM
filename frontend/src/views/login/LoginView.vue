@@ -212,7 +212,7 @@
                             <span class="tenant-option-card__tag">可登录</span>
                           </div>
                           <p class="tenant-option-card__meta">
-                            {{ option.realname || '当前成员账号' }}
+                            {{ option.tenantName || '当前企业' }}
                           </p>
                           <p class="tenant-option-card__hint">点击进入该企业工作台</p>
                         </div>

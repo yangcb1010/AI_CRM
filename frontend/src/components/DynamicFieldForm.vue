@@ -126,6 +126,14 @@ const emit = defineEmits<{
 const fields = ref<CustomField[]>([])
 const localValues = ref<Record<string, any>>({})
 
+function filterFieldsByMode(nextFields: CustomField[]): CustomField[] {
+  if (props.mode !== 'custom') {
+    return nextFields
+  }
+
+  return nextFields.filter(field => field.fieldSource !== 'system')
+}
+
 function getFieldWrapperClass(field: CustomField): string {
   if (field.fieldType === 'textarea' || props.fullSpanFieldNames.includes(field.fieldName)) {
     return 'md:col-span-2'
@@ -259,13 +267,13 @@ function applyFieldDefaults() {
 // Load custom fields
 async function loadFields() {
   try {
-    if (props.fields && props.fields.length > 0) {
-      fields.value = props.fields
-    } else {
-      fields.value = props.mode === 'form'
+    const loadedFields = props.fields && props.fields.length > 0
+      ? props.fields
+      : props.mode === 'form'
         ? await getFormFieldsByEntity(props.entityType)
         : await getEnabledFieldsByEntity(props.entityType)
-    }
+
+    fields.value = filterFieldsByMode(loadedFields)
     // 先按字段类型归一化编辑态已有值，再补默认值
     applyModelValue(props.modelValue)
     applyFieldDefaults()
@@ -287,7 +295,7 @@ watch(() => props.modelValue, (newVal) => {
 
 watch(() => props.fields, (newFields) => {
   if (newFields && newFields.length > 0) {
-    fields.value = newFields
+    fields.value = filterFieldsByMode(newFields)
     applyModelValue(props.modelValue)
     applyFieldDefaults()
     emit('fieldsLoaded', fields.value)

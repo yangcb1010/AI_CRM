@@ -303,7 +303,7 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
 
     @Override
     public Map<String, Object> getCustomFieldValues(String entityType, Long entityId) {
-        List<CustomFieldVO> fields = getEnabledFieldsByEntity(entityType);
+        List<CustomFieldVO> fields = getEnabledCustomFieldVOs(entityType);
         if (fields.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -348,7 +348,7 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
             return;
         }
 
-        List<CustomFieldVO> fields = getEnabledFieldsByEntity(entityType);
+        List<CustomFieldVO> fields = getEnabledCustomFieldVOs(entityType);
         if (fields.isEmpty()) {
             return;
         }
@@ -395,7 +395,7 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
             return Collections.emptyMap();
         }
 
-        List<CustomFieldVO> fields = getEnabledFieldsByEntity(entityType);
+        List<CustomFieldVO> fields = getEnabledCustomFieldVOs(entityType);
         if (fields.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -553,6 +553,12 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
 
     private boolean isCustomField(CustomField field) {
         return !isSystemField(field);
+    }
+
+    private List<CustomFieldVO> getEnabledCustomFieldVOs(String entityType) {
+        return getEnabledFieldsByEntity(entityType).stream()
+                .filter(field -> !FIELD_SOURCE_SYSTEM.equalsIgnoreCase(field.getFieldSource()))
+                .collect(Collectors.toList());
     }
 
     private List<CustomFieldVO> convertToVO(List<CustomField> fields) {

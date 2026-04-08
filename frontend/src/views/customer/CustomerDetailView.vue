@@ -1040,7 +1040,7 @@ onMounted(async () => {
         console.error('Failed to fetch customer detail:', err)
       }),
       getEnabledFieldsByEntity('customer').then(data => {
-        customFields.value = data
+        customFields.value = data.filter(field => field.fieldSource !== 'system')
       }).catch(err => {
         console.error('Failed to fetch custom fields:', err)
         customFields.value = []

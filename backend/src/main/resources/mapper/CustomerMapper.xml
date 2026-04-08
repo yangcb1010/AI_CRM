@@ -15,8 +15,18 @@
         </if>
         <if test="query.keyword != null and query.keyword != ''">
             AND (
-                c.search_text::pdb.alias('customer_search_cjk') &amp;&amp;&amp; #{query.keyword}::pdb.boost(2)
-                OR c.search_text::pdb.alias('customer_search_ngram') &amp;&amp;&amp; #{query.keyword}
+                c.customer_id @@@ paradedb.boolean(
+                    should =&gt; ARRAY[
+                        paradedb.match(
+                            field =&gt; 'customer_search_cjk',
+                            value =&gt; CAST(#{query.keyword,jdbcType=VARCHAR} AS TEXT)
+                        ),
+                        paradedb.match(
+                            field =&gt; 'customer_search_ngram',
+                            value =&gt; CAST(#{query.keyword,jdbcType=VARCHAR} AS TEXT)
+                        )
+                    ]
+                )
             )
         </if>
         <if test="query.stage != null and query.stage != ''">
