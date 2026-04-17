@@ -148,10 +148,6 @@
                 <span class="material-symbols-outlined text-[18px] leading-none">info</span>
                 <span>{{ viewBasicInfoButtonText }}</span>
               </button>
-              <button v-if="canEditCustomer" class="h-8 px-4 bg-primary text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20 flex items-center gap-1.5 hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed" :disabled="generatingAiReport" @click="handleGenerateReport">
-                <WkIcon name="ai" class="text-sm" />
-                <span class="text-sm leading-none">{{ generatingAiReport ? '生成中...' : '生成 AI 分析报告' }}</span>
-              </button>
               <el-dropdown
                 v-if="canTransferCustomer || canDeleteCustomer"
                 trigger="click"
@@ -324,18 +320,30 @@
           <div class="lg:col-span-3 space-y-4">
             <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
               <div class="mb-4 flex items-start justify-between gap-3">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 min-w-0">
                   <span :class="sectionIconBoxClass" :style="getSectionIconStyle('basicInfo')">
                     <WkIcon name="ai" :size="15" />
                   </span>
-                  <div>
-                    <h3 class="text-sm font-bold text-slate-900">{{ savedAiAnalysisTitle }}</h3>
-                    <p class="text-xs text-slate-400">{{ savedAiAnalysisDescription }}</p>
-                  </div>
+                  <h3 class="text-sm font-bold text-slate-900">{{ savedAiAnalysisTitle }}</h3>
                 </div>
-                <div class="flex items-center gap-1 text-xs text-slate-400">
-                  <span class="material-symbols-outlined text-sm">schedule</span>
-                  <span>{{ aiAnalysisDisplayTime }}</span>
+                <div class="flex shrink-0 flex-col items-end gap-1">
+                  <button
+                    v-if="canEditCustomer"
+                    type="button"
+                    class="flex size-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="generatingAiReport"
+                    :title="generatingAiReport ? '生成中…' : '更新 AI 分析'"
+                    :aria-label="generatingAiReport ? '生成中' : '更新 AI 分析'"
+                    @click="handleGenerateReport"
+                  >
+                    <span
+                      class="material-symbols-outlined text-[20px] leading-none"
+                      :class="{ 'animate-spin': generatingAiReport }"
+                    >refresh</span>
+                  </button>
+                  <p class="text-right text-xs leading-relaxed text-slate-400">
+                    更新于：{{ aiAnalysisDisplayTime }}
+                  </p>
                 </div>
               </div>
 
@@ -416,14 +424,14 @@
                   <button class="px-3 py-1 text-xs font-medium text-slate-500">会议摘要</button>
                   <button class="px-3 py-1 text-xs font-medium text-slate-500">重要进展</button>
                 </div> -->
-                <button
+                <!-- <button
                   v-if="canCreateFollowUps"
                   class="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/20 transition-colors"
                   @click="handleOpenFollowUpDialog"
                 >
                   <span class="material-symbols-outlined text-sm">add</span>
                   添加跟进
-                </button>
+                </button> -->
               </div>
             </div>
 
@@ -945,6 +953,7 @@
       v-model="showAiReportDialog"
       title="AI 分析报告"
       width="680px"
+      class="wk-dialog--flush"
       destroy-on-close
     >
       <div class="space-y-4">
@@ -1066,7 +1075,6 @@ const sectionIconBgColors = {
 } as const
 
 const savedAiAnalysisTitle = '\u0041\u0049 \u667a\u80fd\u5206\u6790'
-const savedAiAnalysisDescription = '\u4fdd\u5b58\u5ba2\u6237\u540e\u81ea\u52a8\u751f\u6210\u7684 AI \u5ba2\u6237\u753b\u50cf\u548c\u63a8\u8fdb\u5efa\u8bae'
 const emptyAiAnalysisTitle = '\u6682\u65e0 AI \u5206\u6790'
 const emptyAiAnalysisDescription = '\u4fdd\u5b58\u5ba2\u6237\u540e\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u89e6\u53d1 AI \u5206\u6790\uff0c\u7ed3\u679c\u4f1a\u5c55\u793a\u5728\u8fd9\u91cc\u3002'
 const aiReportSummaryTitle = 'AI \u62a5\u544a\u6458\u8981'
