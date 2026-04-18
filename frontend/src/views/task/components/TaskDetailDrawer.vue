@@ -100,13 +100,13 @@
             </div>
           </section>
 
-          <section v-if="aiInsight" class="p-6 bg-slate-900 rounded-[2rem] text-white">
+          <section v-if="displayAiInsight" class="p-6 bg-slate-900 rounded-[2rem] text-white">
             <div class="flex items-center gap-2 mb-4">
               <WkIcon name="ai" class="text-emerald-400" />
               <h3 class="text-sm font-bold">AI 推荐沟通话术</h3>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed italic">
-              "{{ aiInsight }}"
+              "{{ displayAiInsight }}"
             </p>
           </section>
         </div>
@@ -117,7 +117,7 @@
         <div class="flex gap-3 items-stretch">
           <button
             v-if="canToggleComplete && task.status !== 'COMPLETED'"
-            @click="$emit('toggle-complete', task)"
+            @click="handleToggleComplete"
             class="flex-1 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
             type="button"
           >
@@ -126,7 +126,7 @@
           </button>
           <button
             v-else-if="canToggleComplete"
-            @click="$emit('toggle-complete', task)"
+            @click="handleToggleComplete"
             class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
             type="button"
           >
@@ -136,7 +136,7 @@
 
           <button
             v-if="canDelete"
-            @click="$emit('delete', task)"
+            @click="handleDelete"
             class="size-12 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
             type="button"
             aria-label="删除任务"
@@ -214,12 +214,12 @@
         <p class="text-sm text-slate-600 whitespace-pre-wrap">{{ task.description }}</p>
       </div>
 
-      <div v-if="aiInsight" class="p-4 bg-slate-900 rounded-2xl text-white">
+      <div v-if="displayAiInsight" class="p-4 bg-slate-900 rounded-2xl text-white">
         <div class="flex items-center gap-2 mb-3">
           <WkIcon name="ai" class="text-emerald-400 text-sm" />
           <h3 class="text-sm font-bold">AI 推荐沟通话术</h3>
         </div>
-        <p class="text-xs text-slate-300 leading-relaxed italic">"{{ aiInsight }}"</p>
+        <p class="text-xs text-slate-300 leading-relaxed italic">"{{ displayAiInsight }}"</p>
       </div>
     </template>
 
@@ -237,7 +237,7 @@
           </button>
           <button
             v-if="canToggleComplete && task.status !== 'COMPLETED'"
-            @click="$emit('toggle-complete', task)"
+            @click="handleToggleComplete"
             class="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"
             type="button"
           >
@@ -247,7 +247,7 @@
         </div>
         <button
           v-if="canDelete"
-          @click="$emit('delete', task)"
+          @click="handleDelete"
           class="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-slate-400 hover:text-red-500 transition-colors"
           type="button"
         >
@@ -262,15 +262,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useTaskStore } from '@/stores/task'
 import type { Task, TaskPriority, TaskStatus } from '@/types/common'
+import { getTaskAiInsightText } from '@/utils/taskAiInsight'
 
 const router = useRouter()
+const taskStore = useTaskStore()
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
   task: Task | null
   isMobile: boolean
   desktopWidth?: string
+  /** 非空时覆盖根据任务推导的默认 AI 话术 */
   aiInsight?: string
   canEdit?: boolean
   canDelete?: boolean
@@ -286,14 +291,46 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
   (e: 'edit', task: Task): void
-  (e: 'delete', task: Task): void
-  (e: 'toggle-complete', task: Task): void
+  /** 完成状态切换或删除成功后触发，由父级刷新列表/客户数据 */
+  (e: 'mutated'): void
 }>()
 
 const open = computed({
   get: () => props.modelValue,
   set: (v: boolean) => emit('update:modelValue', v)
 })
+
+const displayAiInsight = computed(() => {
+  const override = props.aiInsight?.trim()
+  if (override) return props.aiInsight!.trim()
+  if (!props.task) return ''
+  return getTaskAiInsightText(props.task)
+})
+
+async function handleToggleComplete() {
+  const task = props.task
+  if (!task) return
+  const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
+  await taskStore.changeTaskStatus(task.taskId, newStatus)
+  emit('mutated')
+  if (props.isMobile) {
+    open.value = false
+  }
+}
+
+async function handleDelete() {
+  const task = props.task
+  if (!task) return
+  try {
+    await ElMessageBox.confirm(`确定要删除任务「${task.title}」吗？`, '提示', { type: 'warning' })
+    await taskStore.removeTask(task.taskId)
+    ElMessage.success('删除成功')
+    open.value = false
+    emit('mutated')
+  } catch {
+    /* 取消 */
+  }
+}
 
 function handleGoToCustomerDetail() {
   if (!props.task?.customerId) return

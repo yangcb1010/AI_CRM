@@ -720,8 +720,14 @@
                   </span>
                   待办任务
                 </h4>
-                <button v-if="canCreateTasks" class="size-6 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all" @click="handleAddTask">
-                  <span class="material-symbols-outlined wk-plus-button-icon wk-plus-button-icon--compact">add</span>
+                <button
+                  v-if="canCreateTasks"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary/90"
+                  @click="handleAddTask"
+                >
+                  <span class="material-symbols-outlined text-[16px] leading-none">add</span>
+                  新建任务
                 </button>
               </div>
               <div class="space-y-4">
@@ -731,12 +737,17 @@
                 <div
                   v-for="task in customer.tasks?.slice(0, 5)"
                   :key="task.taskId"
-                  class="flex items-start gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition-all"
+                  class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-all hover:shadow-sm"
+                  :class="selectedCustomerTask?.taskId === task.taskId ? 'border-primary ring-1 ring-primary/20' : 'border-slate-100 bg-white'"
+                  @click="handleViewCustomerTask(task)"
                 >
-                  <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold text-slate-900 truncate">{{ task.title }}</p>
-                    <div class="flex items-center gap-2 mt-1">
-                      <span class="text-xs font-bold uppercase" :class="task.dueDate && isOverdue(task.dueDate) ? 'text-red-500' : 'text-slate-400'">
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-xs font-bold text-slate-900">{{ task.title }}</p>
+                    <div class="mt-1 flex items-center gap-2">
+                      <span
+                        class="text-xs font-bold uppercase"
+                        :class="task.dueDate && isCustomerTaskOverdue(task) ? 'text-red-500' : 'text-slate-400'"
+                      >
                         {{ task.dueDate ? formatDate(task.dueDate) : '无截止日期' }}
                       </span>
                     </div>
@@ -774,7 +785,13 @@
     </el-dialog>
 
     <!-- Add Follow-up Dialog -->
-    <el-dialog v-model="showAddFollowUpDialog" :title="isEditingFollowUp ? '编辑跟进记录' : '添加跟进记录'" :width="isMobile ? '95%' : '500px'" :fullscreen="isMobile">
+    <el-dialog 
+      v-model="showAddFollowUpDialog" 
+      :title="isEditingFollowUp ? '编辑跟进记录' : '添加跟进记录'" 
+      :width="isMobile ? '95%' : '500px'" 
+      :fullscreen="isMobile"
+      class="wk-dialog--flush"
+      >
       <el-form :model="followUpForm" label-width="80px">
         <el-form-item label="跟进类型">
           <el-select v-model="followUpForm.type" class="w-full">
@@ -1012,6 +1029,34 @@
       :customer="customer"
       @saved="handleAiFollowUpSaved"
     />
+
+    <TaskDetailDrawer
+      v-model="showCustomerTaskDetail"
+      :task="selectedCustomerTask"
+      :is-mobile="isMobile"
+      :can-edit="canCreateTasks"
+      @edit="handleCustomerTaskEditFromDetail"
+      @mutated="refreshCustomerAfterTaskMutation"
+    />
+
+    <TaskEditDialog
+      v-model="showTaskEditDialog"
+      :is-mobile="isMobile"
+      :editing-task="editingCustomerTask"
+      :submitting="taskFormSubmitting"
+      :ai-parsing="taskAiParsing"
+      v-model:ai-parse-input="taskAiParseInput"
+      :form-data="taskFormData"
+      v-model:selected-participants="taskSelectedParticipants"
+      :user-options="taskUserOptions"
+      :user-search-loading="taskUserSearchLoading"
+      :customer-options="taskCustomerOptions"
+      :customer-search-loading="taskCustomerSearchLoading"
+      :search-users="searchTaskUsers"
+      :search-customers="searchTaskCustomers"
+      @ai-parse="handleCustomerTaskAiParse"
+      @submit="handleTaskDialogSubmit"
+    />
   </div>
 </template>
 
@@ -1019,15 +1064,18 @@
 import { ref, reactive, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
+import { useTaskStore } from '@/stores/task'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
-import { addCustomerTag, generateCustomerAiReport, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
+import { addCustomerTag, generateCustomerAiReport, queryCustomerList, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
+import { aiParseTask } from '@/api/task'
 import type { CustomerAiParseVO } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import { addFollowUp, deleteFollowUp, queryFollowUpPageList, updateFollowUp } from '@/api/followup'
 import { deleteContact, queryContactPageList, queryContactsByCustomer, setPrimaryContact } from '@/api/contact'
 import { getEnabledFieldsByEntity } from '@/api/customField'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { Task, TaskAddBO, TaskStatus } from '@/types/common'
 import type { Contact, CustomerAiReportVO, CustomerTag, FollowUp, FollowUpAddBO, FollowUpType, FollowUpUpdateBO } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { getCustomerAiStatusMeta } from '@/utils/customerAi'
@@ -1038,11 +1086,14 @@ import FollowUpCard from '@/components/customer/FollowUpCard.vue'
 import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDialog.vue'
 import ContactUpsertDialog from '@/views/contact/components/ContactUpsertDialog.vue'
 import ContactDetailDrawer from '@/views/contact/components/ContactDetailDrawer.vue'
+import TaskDetailDrawer from '@/views/task/components/TaskDetailDrawer.vue'
+import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
 import { appEvents, APP_EVENT } from '@/utils/events'
 
 const route = useRoute()
 const router = useRouter()
 const customerStore = useCustomerStore()
+const taskStore = useTaskStore()
 const userStore = useUserStore()
 const { isMobile } = useResponsive()
 
@@ -1080,6 +1131,34 @@ const latestAiReport = ref<CustomerAiReportVO | null>(null)
 const ownerSearch = ref('')
 const ownerListLoading = ref(false)
 const userListLoaded = ref(false)
+
+const selectedCustomerTask = ref<Task | null>(null)
+const showCustomerTaskDetail = computed({
+  get: () => !!selectedCustomerTask.value,
+  set: (val: boolean) => {
+    if (!val) selectedCustomerTask.value = null
+  }
+})
+const showTaskEditDialog = ref(false)
+const editingCustomerTask = ref<Task | null>(null)
+const taskFormSubmitting = ref(false)
+const taskAiParseInput = ref('')
+const taskAiParsing = ref(false)
+const taskCustomerOptions = ref<{ value: string; label: string }[]>([])
+const taskCustomerSearchLoading = ref(false)
+const taskUserOptions = ref<{ value: string; label: string }[]>([])
+const taskUserSearchLoading = ref(false)
+const taskSelectedParticipants = ref<string[]>([])
+const taskFormData = reactive<TaskAddBO & { status?: TaskStatus; assignedToName?: string }>({
+  title: '',
+  description: '',
+  priority: 'MEDIUM',
+  dueDate: undefined,
+  status: undefined,
+  taskType: '',
+  customerId: '',
+  assignedToName: ''
+})
 
 interface TransferUserOption {
   userId: string
@@ -1768,9 +1847,194 @@ async function handleSetPrimary(contactId: string) {
   }
 }
 
+function formatTaskDateTimeLocal(dateStr: string): string {
+  const d = new Date(dateStr)
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+async function refreshCustomerAfterTaskMutation() {
+  if (!customer.value) return
+  await customerStore.fetchCustomerDetail(customer.value.customerId)
+  const id = selectedCustomerTask.value?.taskId
+  if (id && customer.value.tasks) {
+    selectedCustomerTask.value = customer.value.tasks.find((t: Task) => t.taskId === id) || null
+  }
+}
+
+function isCustomerTaskOverdue(task: Task): boolean {
+  if (!task.dueDate || task.status === 'COMPLETED') return false
+  return new Date(task.dueDate) < new Date()
+}
+
+function resetCustomerTaskForm() {
+  editingCustomerTask.value = null
+  taskAiParseInput.value = ''
+  taskSelectedParticipants.value = []
+  taskCustomerOptions.value = []
+  taskUserOptions.value = []
+  Object.assign(taskFormData, {
+    title: '',
+    description: '',
+    priority: 'MEDIUM',
+    dueDate: undefined,
+    status: undefined,
+    taskType: '',
+    customerId: '',
+    assignedToName: ''
+  })
+  const c = customer.value
+  if (c) {
+    taskFormData.customerId = String(c.customerId)
+    taskCustomerOptions.value = [{ value: String(c.customerId), label: c.companyName || '' }]
+  }
+}
+
+async function searchTaskCustomers(query: string) {
+  if (!query.trim()) {
+    taskCustomerOptions.value = []
+    return
+  }
+  taskCustomerSearchLoading.value = true
+  try {
+    const res = await queryCustomerList({ keyword: query, page: 1, limit: 20 })
+    taskCustomerOptions.value = (res.list || []).map((c: { customerId: string; companyName?: string }) => ({
+      value: String(c.customerId),
+      label: c.companyName || ''
+    }))
+  } catch (e) {
+    console.warn('客户搜索失败:', e)
+    taskCustomerOptions.value = []
+  } finally {
+    taskCustomerSearchLoading.value = false
+  }
+}
+
+async function searchTaskUsers(query: string) {
+  if (!query.trim()) {
+    taskUserOptions.value = []
+    return
+  }
+  taskUserSearchLoading.value = true
+  try {
+    const res = await queryUserList({ search: query })
+    taskUserOptions.value = (res.list || []).map((u: { realname?: string; username?: string }) => ({
+      value: u.realname || u.username || '',
+      label: u.realname || u.username || ''
+    }))
+  } catch (e) {
+    console.warn('用户搜索失败:', e)
+    taskUserOptions.value = []
+  } finally {
+    taskUserSearchLoading.value = false
+  }
+}
+
+async function handleCustomerTaskAiParse() {
+  if (!taskAiParseInput.value.trim()) return
+  taskAiParsing.value = true
+  try {
+    const result = await aiParseTask(taskAiParseInput.value)
+    if (result.title) taskFormData.title = result.title
+    if (result.dueDate) taskFormData.dueDate = result.dueDate
+    if (result.priority) taskFormData.priority = result.priority.toUpperCase() as Task['priority']
+    if (result.taskType) taskFormData.taskType = result.taskType
+    if (result.customerName) {
+      const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
+      const list = res.list || []
+      if (list.length > 0) {
+        taskCustomerOptions.value = list.map((c: { customerId: string; companyName?: string }) => ({
+          value: String(c.customerId),
+          label: c.companyName || ''
+        }))
+        taskFormData.customerId = String(list[0].customerId)
+      }
+    }
+    if (result.participantNames) {
+      taskSelectedParticipants.value = result.participantNames.split(/[,，]\s*/).filter(Boolean)
+      taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
+    }
+    if (result.description) taskFormData.description = result.description
+    if (result.assignedToName) taskFormData.assignedToName = result.assignedToName
+    ElMessage.success('AI 解析完成，请确认并补充信息')
+  } catch (error) {
+    console.error('AI parse task failed:', error)
+  } finally {
+    taskAiParsing.value = false
+  }
+}
+
+function handleViewCustomerTask(task: Task) {
+  if (!canViewTasks.value) return
+  selectedCustomerTask.value = task
+}
+
 function handleAddTask() {
   if (!canCreateTasks.value) return
-  router.push('/task')
+  if (!customer.value) return
+  resetCustomerTaskForm()
+  showTaskEditDialog.value = true
+}
+
+function handleEditCustomerTask(task: Task) {
+  if (!canCreateTasks.value) return
+  editingCustomerTask.value = task
+  Object.assign(taskFormData, {
+    title: task.title,
+    description: task.description || '',
+    priority: task.priority,
+    dueDate: task.dueDate ? formatTaskDateTimeLocal(task.dueDate) : undefined,
+    status: task.status,
+    taskType: task.taskType || '',
+    customerId: task.customerId || '',
+    assignedToName: task.assignedToName || ''
+  })
+  if (task.customerId && task.customerName) {
+    taskCustomerOptions.value = [{ value: String(task.customerId), label: task.customerName }]
+  }
+  taskSelectedParticipants.value = task.participantNames ? task.participantNames.split(/[,，]\s*/).filter(Boolean) : []
+  taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
+  showTaskEditDialog.value = true
+}
+
+function handleCustomerTaskEditFromDetail(task: Task) {
+  handleEditCustomerTask(task)
+  if (isMobile.value) selectedCustomerTask.value = null
+}
+
+async function handleTaskDialogSubmit() {
+  if (!taskFormData.title.trim()) {
+    ElMessage.warning('请输入任务标题')
+    return
+  }
+  if (!taskFormData.dueDate) {
+    ElMessage.warning('请选择截止时间')
+    return
+  }
+  taskFormSubmitting.value = true
+  try {
+    const submitData = {
+      title: taskFormData.title,
+      description: taskFormData.description,
+      priority: taskFormData.priority,
+      dueDate: taskFormData.dueDate,
+      taskType: taskFormData.taskType,
+      participantNames: taskSelectedParticipants.value.join(', '),
+      customerId: taskFormData.customerId || undefined
+    }
+    if (editingCustomerTask.value) {
+      await taskStore.editTask({ ...submitData, taskId: editingCustomerTask.value.taskId, status: taskFormData.status })
+      ElMessage.success('更新成功')
+    } else {
+      await taskStore.createTask(submitData)
+      ElMessage.success('创建成功')
+    }
+    showTaskEditDialog.value = false
+    resetCustomerTaskForm()
+    await refreshCustomerAfterTaskMutation()
+  } finally {
+    taskFormSubmitting.value = false
+  }
 }
 
 async function handleAddTag() {
@@ -2031,10 +2295,6 @@ function getFollowUpIcon(type: string): string {
   return icons[type] || 'edit_note'
 }
 
-function isOverdue(dateStr: string): boolean {
-  return new Date(dateStr) < new Date()
-}
-
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
@@ -2074,6 +2334,7 @@ function formatCustomFieldValue(field: CustomField, value: any): string {
 }
 
 void formatCustomFieldValue
+void handleOpenFollowUpDialog
 </script>
 
 <style>

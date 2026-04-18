@@ -186,7 +186,7 @@
                 <!-- AI Insight -->
                 <div class="p-3 bg-primary/5 rounded-xl border border-primary/10 flex items-start gap-2">
                   <WkIcon name="ai" class="text-primary text-sm mt-0.5" />
-                  <p class="text-xs text-slate-600 leading-relaxed italic">"{{ getAiInsight(task) }}"</p>
+                  <p class="text-xs text-slate-600 leading-relaxed italic">"{{ getTaskAiInsightText(task) }}"</p>
                 </div>
 
                 <!-- Action Buttons -->
@@ -264,10 +264,8 @@
       v-model="showTaskDetail"
       :task="selectedTask"
       :is-mobile="isMobile"
-      :ai-insight="selectedTask ? getAiInsight(selectedTask) : ''"
       @edit="handleEditFromDetail"
-      @toggle-complete="handleToggleCompleteFromDetail"
-      @delete="handleDeleteFromDetail"
+      @mutated="handleTaskDetailMutated"
     />
 
     <TaskEditDialog
@@ -301,6 +299,7 @@ import { aiParseTask } from '@/api/task'
 import { queryCustomerList } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import type { Task, TaskAddBO, TaskStatus } from '@/types/common'
+import { getTaskAiInsightText } from '@/utils/taskAiInsight'
 import TaskDetailDrawer from './components/TaskDetailDrawer.vue'
 import TaskEditDialog from './components/TaskEditDialog.vue'
 
@@ -509,14 +508,12 @@ function handleEditFromDetail(task: Task) {
   if (isMobile.value) selectedTask.value = null
 }
 
-async function handleToggleCompleteFromDetail(task: Task) {
-  await handleToggleComplete(task)
-  if (isMobile.value) selectedTask.value = null
-}
-
-async function handleDeleteFromDetail(task: Task) {
-  await handleDelete(task)
-  if (isMobile.value) selectedTask.value = null
+async function handleTaskDetailMutated() {
+  await taskStore.fetchTaskList(false)
+  const id = selectedTask.value?.taskId
+  if (id) {
+    selectedTask.value = taskStore.taskList.find(t => t.taskId === id) ?? null
+  }
 }
 
 function handleAddTask() {
@@ -643,14 +640,6 @@ function getAiScore(task: Task): number {
   const base = task.priority === 'HIGH' ? 90 : task.priority === 'MEDIUM' ? 60 : 30
   const offset = Number(task.taskId) % 10
   return Math.min(99, base + offset)
-}
-
-// AI Insight - use description or generate from priority
-function getAiInsight(task: Task): string {
-  if (task.description) return task.description
-  if (task.priority === 'HIGH') return '此任务优先级较高，建议尽快处理以推进业务进展。'
-  if (task.priority === 'MEDIUM') return '常规跟进任务，按计划执行即可。'
-  return '低优先级任务，可在空闲时间处理。'
 }
 
 // Check if task is overdue
