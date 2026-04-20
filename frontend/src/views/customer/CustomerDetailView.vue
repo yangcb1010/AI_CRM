@@ -88,7 +88,7 @@
                 </div>
               </div>
             </div>
-            <div class="flex gap-2 shrink-0 items-center">
+            <div class="flex gap-2 shrink-0">
               <el-popover
                 v-if="canTransferCustomer"
                 :visible="showTransferPopover"
@@ -142,10 +142,10 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-colors hover:bg-primary/90"
+                class="h-8 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-colors hover:bg-primary/90 whitespace-nowrap"
                 @click="showBasicInfoDrawer = true"
               >
-                <span class="material-symbols-outlined text-[18px] leading-none">description</span>
+                <span class="material-symbols-outlined text-base leading-none">description</span>
                 <span>{{ viewBasicInfoButtonText }}</span>
               </button>
               <el-dropdown
@@ -437,29 +437,33 @@
             </section>
           </div>
 
-          <!-- Center Column: Follow-ups Timeline (col-span-6) -->
+          <!-- Center Column: Follow-ups Timeline (col-span-6)；标题图标与时间轴节点共用 28px 轨宽以便纵轴对齐 -->
           <div v-if="canViewFollowUps" class="lg:col-span-6 space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="flex items-center gap-2 text-lg font-bold text-slate-900">
-                <span :class="sectionIconBoxClass" :style="getSectionIconStyle('recentActivity')">
-                  <span :class="sectionMaterialIconClass">history</span>
-                </span>
-                最近活动 - AI时间轴
-              </h3>
-              <div class="flex items-center gap-3">
-                <!-- <div class="flex bg-slate-100 p-1 rounded-lg">
-                  <button class="px-3 py-1 text-xs font-bold rounded bg-white shadow-sm">全部</button>
-                  <button class="px-3 py-1 text-xs font-medium text-slate-500">会议摘要</button>
-                  <button class="px-3 py-1 text-xs font-medium text-slate-500">重要进展</button>
-                </div> -->
-                <!-- <button
-                  v-if="canCreateFollowUps"
-                  class="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/20 transition-colors"
-                  @click="handleOpenFollowUpDialog"
-                >
-                  <span class="material-symbols-outlined text-sm">add</span>
-                  添加跟进
-                </button> -->
+            <div class="grid grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-x-2">
+              <span
+                :class="sectionIconBoxClass"
+                class="justify-self-center"
+                :style="getSectionIconStyle('recentActivity')"
+              >
+                <span :class="sectionMaterialIconClass">history</span>
+              </span>
+              <div class="flex min-w-0 items-center justify-between gap-2">
+                <h3 class="truncate text-lg font-bold text-slate-900">最近活动 - AI时间轴</h3>
+                <div class="flex shrink-0 items-center gap-3">
+                  <!-- <div class="flex bg-slate-100 p-1 rounded-lg">
+                    <button class="px-3 py-1 text-xs font-bold rounded bg-white shadow-sm">全部</button>
+                    <button class="px-3 py-1 text-xs font-medium text-slate-500">会议摘要</button>
+                    <button class="px-3 py-1 text-xs font-medium text-slate-500">重要进展</button>
+                  </div> -->
+                  <!-- <button
+                    v-if="canCreateFollowUps"
+                    class="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/20 transition-colors"
+                    @click="handleOpenFollowUpDialog"
+                  >
+                    <span class="material-symbols-outlined text-sm">add</span>
+                    添加跟进
+                  </button> -->
+                </div>
               </div>
             </div>
 
@@ -469,14 +473,14 @@
               <p class="text-xs text-slate-300 mt-1">点击上方按钮添加第一条跟进记录</p>
             </div>
 
-            <div v-else class="pl-2 sm:pl-3" v-loading="followUpLoading">
+            <div v-else v-loading="followUpLoading">
               <div
                 v-for="(item, followUpIndex) in followUps"
                 :key="item.followUpId"
-                class="flex items-stretch gap-3"
+                class="grid grid-cols-[1.75rem_minmax(0,1fr)] items-stretch gap-x-2"
               >
-                <!-- Timeline rail: line + dot centered on same axis; segment avoids gap between items -->
-                <div class="relative flex w-7 shrink-0 flex-col items-center pt-1.5">
+                <!-- Timeline rail：与标题区同宽 28px，节点与 section 图标同一纵轴 -->
+                <div class="relative flex w-full shrink-0 flex-col items-center pt-1.5">
                   <div
                     v-if="followUps.length > 1"
                     class="absolute left-1/2 z-0 w-px -translate-x-1/2 bg-slate-200"
@@ -535,7 +539,7 @@
                     @edit="handleEditFollowUp"
                     @delete="confirmDeleteFollowUp"
                   />
-                  <div v-if="followUpIndex < followUps.length - 1" class="h-4 shrink-0" aria-hidden="true" />
+                  <div v-if="followUpIndex < followUps.length - 1" class="h-3 shrink-0" aria-hidden="true" />
                 </div>
               </div>
             </div>

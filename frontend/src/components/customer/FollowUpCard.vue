@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+  <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-3">
@@ -36,16 +36,16 @@
           </div>
         </div>
 
-        <p class="mt-4 text-sm leading-7 text-slate-700 whitespace-pre-line">{{ item.content }}</p>
+        <p class="mt-3 text-sm leading-5 text-slate-700 whitespace-pre-line">{{ item.content }}</p>
 
-        <div class="mt-4 flex flex-wrap items-center gap-3 text-xs">
-          <span class="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-2 text-slate-500">
+        <div class="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+          <span class="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-1.5 text-slate-500">
             <span class="material-symbols-outlined text-sm">schedule</span>
             跟进时间 {{ formatDateTime(item.followTime || item.createTime) }}
           </span>
           <span
             v-if="item.nextFollowTime"
-            class="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-amber-700"
+            class="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-2.5 py-1.5 text-amber-700"
           >
             <span class="material-symbols-outlined text-sm">event_repeat</span>
             下次联系 {{ formatDateTime(item.nextFollowTime) }}
@@ -73,13 +73,13 @@
       </div>
     </div>
 
-    <div v-if="attachments.length > 0" class="mt-5 rounded-2xl border border-slate-200 overflow-hidden">
+    <div v-if="attachments.length > 0" class="mt-3 rounded-2xl border border-slate-200 overflow-hidden">
       <div
         v-for="attachment in attachments"
         :key="attachment.attachmentId"
         class="border-b border-slate-100 last:border-b-0"
       >
-        <div class="flex items-center gap-3 px-4 py-4">
+        <div class="flex items-center gap-3 px-3 py-3">
           <div class="size-11 rounded-xl bg-slate-100 flex items-center justify-center text-primary shrink-0">
             <span class="material-symbols-outlined text-xl">{{ getAttachmentIcon(attachment) }}</span>
           </div>
@@ -96,7 +96,7 @@
           </button>
         </div>
 
-        <div v-if="previewUrls[attachment.attachmentId]" class="px-4 pb-4">
+        <div v-if="previewUrls[attachment.attachmentId]" class="px-3 pb-3">
           <img
             :src="previewUrls[attachment.attachmentId]"
             :alt="attachment.fileName"
