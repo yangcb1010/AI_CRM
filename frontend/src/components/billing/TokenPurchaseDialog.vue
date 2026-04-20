@@ -7,7 +7,7 @@
     class="token-purchase-dialog wk-dialog--flush"
     @close="handleClose"
   >
-    <div class="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+    <div class="relative overflow-hidden rounded-[28px] bg-white ">
       <button
         type="button"
         class="absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200/80 hover:text-slate-700"
@@ -367,18 +367,18 @@ function statusTagType(status: TokenPurchaseOrder['status']) {
 }
 </script>
 
-<style scoped>
-:deep(.token-purchase-dialog .el-dialog) {
+<style >
+.token-purchase-dialog .el-dialog {
   padding: 0;
   border-radius: 28px;
   overflow: hidden;
 }
 
-:deep(.token-purchase-dialog .el-dialog__header) {
+.token-purchase-dialog .el-dialog__header {
   display: none;
 }
 
-:deep(.token-purchase-dialog .el-dialog__body) {
-  padding: 0;
+.token-purchase-dialog .el-dialog__body {
+  padding: 0 !important;
 }
 </style>
