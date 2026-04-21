@@ -21,8 +21,8 @@
 
         <!-- Customer Info Card -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div class="flex justify-between">
-            <div class="flex gap-4 min-w-0">
+          <div class="flex flex-col gap-3 md:flex-row md:justify-between md:gap-0">
+            <div class="flex min-w-0 gap-4">
               <div class="size-14 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
                 <img
                   v-if="customer.logoUrl"
@@ -34,7 +34,7 @@
               </div>
               <div class="min-w-0 space-y-2">
                 <div class="flex items-center gap-3 flex-wrap">
-                  <h2 class="text-xl font-bold text-slate-900 truncate">{{ customer.companyName }}</h2>
+                  <h2 class="text-lg md:text-xl font-bold text-slate-900 truncate">{{ customer.companyName }}</h2>
                   <!-- <span
                     class="px-2 py-0.5 text-xs font-bold rounded uppercase"
                     :class="getStageBadgeClass(customer.stage)"
@@ -92,7 +92,7 @@
                 </div>
               </div>
             </div>
-            <div class="flex gap-2 shrink-0">
+            <div class="flex w-full flex-wrap justify-end gap-2 md:w-auto md:flex-nowrap md:justify-start shrink-0">
               <el-popover
                 v-if="canTransferCustomer"
                 :visible="showTransferPopover"
@@ -193,9 +193,9 @@
               </span>
               <h3 class="text-sm font-bold text-slate-900">客户阶段</h3>
             </div> -->
-            <div class="relative overflow-visible">
-              <!-- Chevron segments (wrap layout, no scroll) -->
-              <div class="relative flex flex-wrap items-stretch gap-y-2">
+            <div class="relative overflow-x-auto overflow-y-visible md:overflow-visible">
+              <!-- Chevron segments (mobile: no wrap + horizontal scroll; desktop: wrap) -->
+              <div class="relative flex flex-nowrap md:flex-wrap items-stretch gap-x-2 md:gap-x-0 gap-y-2 min-w-max">
                 <template v-for="(stage, idx) in stageFlow" :key="stage">
                   <el-popover
                     v-if="isTerminalStage(stage)"
@@ -318,7 +318,7 @@
       </div>
 
       <!-- 3-Column Content -->
-      <div class="flex-1 overflow-auto px-8 pb-8 pt-6">
+      <div class="flex-1 overflow-auto wk-mobile-px-15 md:px-8 pb-8 pt-6">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <!-- Left Column: Basic Info (col-span-3) -->
           <div class="lg:col-span-3 space-y-4">
@@ -2347,5 +2347,12 @@ function formatCustomFieldValue(field: CustomField, value: any): string {
 
 .wk-stage-result-popover__item--reopen:hover {
   background: rgb(248 250 252);
+}
+
+@media (max-width: 767.98px) {
+  .wk-mobile-px-15 {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
 }
 </style>
