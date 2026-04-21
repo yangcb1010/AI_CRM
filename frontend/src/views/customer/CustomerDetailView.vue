@@ -1275,14 +1275,26 @@ function applyPrimaryContactLocally(contactId: string) {
 
 const primaryContact = computed(() => contacts.value.find(contact => isPrimaryContact(contact)) || contacts.value[0] || null)
 const savedAiParseResult = computed<CustomerAiParseVO | null>(() => {
+  const fullInsight = (latestAiReport.value?.aiInsight || customer.value?.aiInsight || '').trim()
   const snapshot = customer.value?.aiParseSnapshot
-  if (!snapshot) return null
+
+  if (!snapshot) {
+    return fullInsight ? { summary: fullInsight } : null
+  }
 
   try {
     const parsed = JSON.parse(snapshot)
-    return parsed && typeof parsed === 'object' ? parsed as CustomerAiParseVO : null
+    if (!parsed || typeof parsed !== 'object') {
+      return fullInsight ? { summary: fullInsight } : null
+    }
+
+    const snapshotResult = parsed as CustomerAiParseVO
+    return {
+      ...snapshotResult,
+      summary: fullInsight || snapshotResult.summary
+    }
   } catch {
-    return null
+    return fullInsight ? { summary: fullInsight } : null
   }
 })
 const aiAnalysisStatus = computed(() => customer.value?.aiAnalysisStatus || '')
@@ -1656,12 +1668,6 @@ function handleAiFollowUp() {
 async function handleAiFollowUpSaved() {
   if (!customer.value) return
   await refreshFollowUpContext(customer.value.customerId, { resetFollowUps: true })
-}
-
-function handleOpenFollowUpDialog() {
-  if (!canCreateFollowUps.value) return
-  editingFollowUpForDialog.value = null
-  showAddFollowUpDialog.value = true
 }
 
 function handleEditFollowUp(followUp: FollowUp) {
