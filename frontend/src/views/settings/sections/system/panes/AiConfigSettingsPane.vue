@@ -27,7 +27,7 @@
             </p>
           </div>
 
-          <div class="flex gap-2">
+          <div class="flex flex-wrap md:flex-nowrap gap-2">
             <el-button
               :disabled="!canUseGiftMode"
               :loading="switchingAiMode"

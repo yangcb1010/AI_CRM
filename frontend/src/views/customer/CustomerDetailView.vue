@@ -21,7 +21,7 @@
 
         <!-- Customer Info Card -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div class="flex justify-between">
+          <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div class="flex gap-4 min-w-0">
               <div class="size-14 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
                 <img
@@ -92,9 +92,12 @@
                 </div>
               </div>
             </div>
-            <div class="flex gap-2 shrink-0">
+            <div
+              class="flex shrink-0 flex-nowrap items-center justify-end gap-2 max-md:w-full max-md:min-w-0 max-md:overflow-x-auto max-md:overflow-y-hidden max-md:overscroll-x-contain max-md:[-webkit-overflow-scrolling:touch] md:w-auto md:overflow-visible"
+            >
               <el-popover
                 v-if="canTransferCustomer"
+                class="shrink-0"
                 :visible="showTransferPopover"
                 trigger="manual"
                 virtual-triggering
@@ -139,14 +142,26 @@
                   </div>
                 </div>
               </el-popover>
-              <button v-if="canEditCustomer" class="h-8 px-4 inline-flex items-center border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors" @click="handleEdit">编辑资料</button>
-              <button v-if="canCreateFollowUps" class="h-8 px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold flex items-center gap-1.5 hover:bg-primary/20 transition-colors" @click="handleAiFollowUp">
+              <button
+                v-if="canEditCustomer"
+                type="button"
+                class="h-8 shrink-0 inline-flex items-center max-md:whitespace-nowrap px-4 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+                @click="handleEdit"
+              >
+                编辑资料
+              </button>
+              <button
+                v-if="canCreateFollowUps"
+                type="button"
+                class="h-8 shrink-0 inline-flex items-center gap-1.5 max-md:whitespace-nowrap px-4 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-bold hover:bg-primary/20 transition-colors"
+                @click="handleAiFollowUp"
+              >
                 <WkIcon name="ai" class="text-sm" />
                 AI 跟进
               </button>
               <button
                 type="button"
-                class="h-8 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-colors hover:bg-primary/90 whitespace-nowrap"
+                class="h-8 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-md shadow-primary/25 transition-colors hover:bg-primary/90 max-md:whitespace-nowrap"
                 @click="showBasicInfoDrawer = true"
               >
                 <span class="material-symbols-outlined text-base leading-none">description</span>
@@ -154,6 +169,7 @@
               </button>
               <el-dropdown
                 v-if="canTransferCustomer || canDeleteCustomer"
+                class="shrink-0"
                 trigger="click"
                 @visible-change="onHeaderMoreDropdownVisible"
               >
@@ -186,16 +202,18 @@
           </div>
 
           <!-- Stage Stepper (inside same card) -->
-          <div class="mt-5 pt-4 border-t border-slate-100">
+          <div class="mt-5 pt-4 border-t border-slate-100 min-w-0">
             <!-- <div class="flex items-center gap-2 mb-6">
               <span :class="sectionIconBoxClass" :style="getSectionIconStyle('customerStage')">
                 <WkIcon name="stage" :size="15" />
               </span>
               <h3 class="text-sm font-bold text-slate-900">客户阶段</h3>
             </div> -->
-            <div class="relative overflow-visible">
-              <!-- Chevron segments (wrap layout, no scroll) -->
-              <div class="relative flex flex-wrap items-stretch gap-y-2">
+            <div
+              class="relative -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto overscroll-x-contain md:overflow-visible [-webkit-overflow-scrolling:touch]"
+            >
+              <!-- Chevron segments: mobile = nowrap + horizontal scroll; md+ = wrap -->
+              <div class="relative flex min-w-min flex-nowrap md:flex-wrap items-stretch gap-0 md:gap-y-2">
                 <template v-for="(stage, idx) in stageFlow" :key="stage">
                   <el-popover
                     v-if="isTerminalStage(stage)"
@@ -243,7 +261,7 @@
                     </div>
                     <template #reference>
                       <div
-                        class="relative h-8 flex-none w-[180px] group"
+                        class="relative h-8 w-[180px] flex-none shrink-0 group"
                         :class="canChangeStage ? 'cursor-pointer' : 'cursor-default'"
                         :title="getStepperLabel(stage)"
                         :style="{ zIndex: getStepperZIndex(stage, idx) }"
@@ -281,7 +299,7 @@
 
                   <div
                     v-else
-                    class="relative h-8 flex-none w-[180px] group"
+                    class="relative h-8 w-[180px] flex-none shrink-0 group"
                     :class="canChangeStage ? 'cursor-pointer' : 'cursor-default'"
                     @click="handleStageChange(stage)"
                     :title="getStepperLabel(stage)"
@@ -318,7 +336,7 @@
       </div>
 
       <!-- 3-Column Content -->
-      <div class="flex-1 overflow-auto px-8 pb-8 pt-6">
+      <div class="flex-1 overflow-auto px-4 md:px-8 pb-8 pt-6">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <!-- Left Column: Basic Info (col-span-3) -->
           <div class="lg:col-span-3 space-y-4">
@@ -1740,6 +1758,13 @@ async function handleAiFollowUpSaved() {
   await refreshFollowUpContext(customer.value.customerId, { resetFollowUps: true })
 }
 
+function handleOpenFollowUpDialog() {
+  if (!canCreateFollowUps.value) return
+  if (!customer.value) return
+  resetFollowUpForm(customer.value.customerId)
+  showAddFollowUpDialog.value = true
+}
+
 function handleEditFollowUp(followUp: FollowUp) {
   if (!canEditFollowUps.value) return
   editingFollowUpId.value = String(followUp.followUpId)
@@ -2315,7 +2340,6 @@ function formatAmount(value?: number | null): string {
   })}`
 }
 
-/* Legacy helper kept only as a reference during the custom field display refactor.
 function formatCustomFieldValue(field: CustomField, value: any): string {
   if (value === null || value === undefined || value === '') return '-'
   switch (field.fieldType) {
@@ -2333,7 +2357,7 @@ function formatCustomFieldValue(field: CustomField, value: any): string {
     case 'datetime': return formatDateTime(value)
     default: return String(value)
   }
-} */
+}
 
 </script>
 

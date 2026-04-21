@@ -2,8 +2,21 @@
   <div class="flex flex-col h-full bg-background-light">
     <SettingsMainTabs v-model:active-tab="activeMainTab" />
 
-    <div class="flex-1 min-h-0" :class="activeMainTab === 'team' ? 'overflow-hidden' : 'overflow-auto'">
-      <div :class="activeMainTab === 'team' ? 'h-full min-h-0 flex flex-col' : 'p-4 md:p-6'">
+    <div
+      class="flex-1 min-h-0"
+      :class="
+        activeMainTab === 'team'
+          ? 'overflow-y-auto overscroll-y-contain max-md:[-webkit-overflow-scrolling:touch] md:overflow-hidden'
+          : 'overflow-y-auto overscroll-y-contain max-md:[-webkit-overflow-scrolling:touch]'
+      "
+    >
+      <div
+        :class="
+          activeMainTab === 'team'
+            ? 'min-h-0 flex flex-col max-md:min-h-full md:h-full'
+            : 'p-4 md:p-6'
+        "
+      >
         <KeepAlive>
           <component
             :is="activeSectionComponent"

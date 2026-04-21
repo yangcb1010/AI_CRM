@@ -6,7 +6,7 @@
         <h2 class="text-2xl font-bold text-slate-900">客户列表</h2>
         <p class="text-sm text-slate-500">管理您的客户关系并查看 AI 驱动的业务洞察。</p>
       </div>
-      <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex flex-nowrap sm:flex-wrap items-center gap-3">
         <!-- Search -->
         <div class="relative group flex items-center">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
@@ -28,7 +28,7 @@
         >
           <template #reference>
             <button
-              class="h-10 px-4 bg-white border border-primary/30 text-primary rounded-xl text-sm font-bold hover:bg-primary/5 transition-all shadow-sm flex items-center gap-2"
+              class="h-10 shrink-0 px-4 bg-white border border-primary/30 text-primary rounded-xl text-sm font-bold whitespace-nowrap hover:bg-primary/5 transition-all shadow-sm flex items-center gap-2"
               type="button"
             >
               <WkIcon name="ai" class="text-sm" />
@@ -148,15 +148,15 @@
     </div>
 
     <!-- Main Content: Table + AI Sidebar -->
-    <div class="flex flex-col xl:flex-row gap-6 items-start relative overflow-x-hidden">
+    <div class="flex flex-col xl:flex-row gap-6 items-stretch xl:items-start relative overflow-x-hidden">
       <!-- Table Area -->
-      <div class="flex-1 min-w-0 space-y-6">
+      <div class="w-full min-w-0 flex-1 space-y-6">
         <div
           ref="tableCardRef"
           class="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden"
           v-loading="customerStore.loading"
         >
-          <div>
+          <div v-if="!isMobile">
             <el-table
               :data="customerStore.customerList"
               :height="tableHeight"
@@ -360,6 +360,76 @@
                 </div>
               </template>
             </el-table>
+          </div>
+
+          <div v-else class="wk-customer-cards px-3 py-3">
+            <div v-if="customerStore.customerList.length === 0" class="text-center py-16">
+              <div class="size-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mx-auto mb-4">
+                <span class="material-symbols-outlined text-4xl">group</span>
+              </div>
+              <p class="text-slate-400 text-sm font-medium">暂无客户数据</p>
+            </div>
+
+            <div v-else class="flex flex-col gap-3">
+              <div
+                v-for="row in customerStore.customerList"
+                :key="row.customerId"
+                role="button"
+                tabindex="0"
+                class="wk-customer-card w-full text-left bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
+                @click="handleRowClick(row)"
+                @keydown.enter.prevent="handleRowClick(row)"
+                @keydown.space.prevent="handleRowClick(row)"
+              >
+                <div class="flex items-start gap-3">
+                  <div class="size-10 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center flex-shrink-0">
+                    <img
+                      v-if="row.logoUrl"
+                      :src="row.logoUrl"
+                      :alt="row.companyName || 'company logo'"
+                      class="size-full object-contain"
+                    />
+                    <span v-else class="bg-primary/10 text-primary flex size-full items-center justify-center font-bold text-sm">
+                      {{ row.companyName?.charAt(0) || '?' }}
+                    </span>
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start gap-2">
+                      <div class="min-w-0 flex-1">
+                        <div class="text-sm font-bold text-slate-900 truncate">
+                          {{ row.companyName || '-' }}
+                        </div>
+                      </div>
+                      <span class="material-symbols-outlined text-slate-300 text-base leading-none pt-0.5">chevron_right</span>
+                    </div>
+
+                    <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">industry</div>
+                        <div class="text-sm text-slate-600 truncate" :title="getMobileIndustryText(row)">
+                          {{ getMobileIndustryText(row) }}
+                        </div>
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">level</div>
+                        <div class="mt-0.5">
+                          <span
+                            v-if="row.level"
+                            class="inline-flex items-center justify-center h-6 min-w-[2.5rem] px-2 rounded-lg font-bold text-xs"
+                            :class="getLevelBadgeClass(row.level)"
+                          >
+                            {{ getMobileLevelText(row) }}
+                          </span>
+                          <span v-else class="text-sm text-slate-300">-</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Pagination -->
@@ -824,6 +894,20 @@ const visiblePages = computed(() => {
   return pages
 })
 
+const industryField = computed(() => listFields.value.find(field => field.fieldName === 'industry') || null)
+const levelField = computed(() => listFields.value.find(field => field.fieldName === 'level') || null)
+
+function getMobileIndustryText(row: CustomerListVO): string {
+  if (!industryField.value) return (row.industry as unknown as string) || '-'
+  return getListFieldDisplayValue(industryField.value, row)
+}
+
+function getMobileLevelText(row: CustomerListVO): string {
+  if (!row.level) return '-'
+  if (!levelField.value) return String(row.level)
+  return getLevelLabel(levelField.value, String(row.level))
+}
+
 // Computed
 const closedCount = computed(() => {
   return customerStore.customerList.filter(c => c.stage === 'closed').length
@@ -1245,5 +1329,9 @@ async function handleImportSuccess(_result: CustomerImportResult) {
   border: 1px solid #dbeafe;
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
   padding: 16px;
+}
+
+.wk-customer-card {
+  -webkit-tap-highlight-color: transparent;
 }
 </style>

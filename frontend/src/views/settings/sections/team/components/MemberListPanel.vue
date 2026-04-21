@@ -1,6 +1,9 @@
 <template>
-  <div class="flex-1 min-h-0 overflow-hidden" :class="isMobile ? 'p-4' : 'p-8'">
-    <div class="max-w-6xl mx-auto w-full h-full min-h-0 flex flex-col gap-6">
+  <div
+    class="min-h-0 md:flex-1 md:overflow-hidden max-md:flex-none max-md:overflow-visible"
+    :class="isMobile ? 'p-4' : 'p-8'"
+  >
+    <div class="max-w-6xl mx-auto w-full min-h-0 flex flex-col gap-6 md:h-full max-md:h-auto">
       <div v-if="isMobile" class="flex items-center gap-2 p-4 border border-slate-100 bg-white rounded-2xl">
         <button
           class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm max-w-[200px]"
@@ -56,7 +59,7 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 min-h-0 flex flex-col">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0 max-md:flex-none md:flex-1">
         <div v-if="loadingMembers" class="flex-1 min-h-0 flex items-center justify-center text-center py-16">
           <span class="material-symbols-outlined text-slate-300 text-3xl animate-spin">progress_activity</span>
         </div>
@@ -88,8 +91,9 @@
             </select>
           </div>
 
-          <div class="flex-1 min-h-0">
+          <div class="min-h-0 max-md:flex-none md:flex-1">
             <el-table
+              v-if="!isMobile"
               :data="filteredMembers"
               height="100%"
               row-key="userId"
@@ -191,6 +195,93 @@
                 </div>
               </template>
             </el-table>
+
+            <div v-else class="p-3 space-y-3">
+              <div v-if="filteredMembers.length === 0" class="text-center py-16 text-slate-400">
+                <span class="material-symbols-outlined text-3xl mb-2 opacity-50">search_off</span>
+                <div class="text-sm">未找到匹配的员工</div>
+              </div>
+
+              <div
+                v-for="row in filteredMembers"
+                v-else
+                :key="row.userId"
+                role="button"
+                tabindex="0"
+                class="w-full text-left bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm active:bg-slate-50 transition-colors"
+                @click="$emit('row-click', row)"
+                @keydown.enter.prevent="$emit('row-click', row)"
+                @keydown.space.prevent="$emit('row-click', row)"
+              >
+                <div class="flex items-start gap-3">
+                  <img v-if="row.imgUrl" :src="row.imgUrl" class="size-11 rounded-full object-cover shrink-0 shadow-sm" alt="avatar" />
+                  <div v-else class="size-11 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm" :class="getAvatarColor(row.realname)">
+                    {{ (row.realname || row.username || '?').charAt(0) }}
+                  </div>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-900 truncate">
+                          {{ row.realname || row.username || '-' }}
+                        </p>
+                        <p class="text-xs text-slate-400 truncate">
+                          {{ row.email || '-' }}
+                        </p>
+                      </div>
+                      <span
+                        class="shrink-0 px-2 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest"
+                        :class="row.status === 1 ? 'bg-emerald-50 text-emerald-600' : row.status === 0 ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-400'"
+                      >
+                        {{ row.status === 1 ? '活跃' : row.status === 0 ? '禁用' : '未激活' }}
+                      </span>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                      <div class="min-w-0">
+                        <p class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">department</p>
+                        <p class="text-sm text-slate-700 truncate">{{ selectedDept?.deptName || '-' }}</p>
+                      </div>
+                      <div class="min-w-0">
+                        <p class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">mobile</p>
+                        <p class="text-sm text-slate-700 truncate">{{ row.mobile || '-' }}</p>
+                      </div>
+                      <div class="min-w-0 col-span-2">
+                        <p class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">roles</p>
+                        <div class="mt-1 flex flex-wrap gap-1">
+                          <span
+                            v-for="roleName in row.roleNames || []"
+                            :key="roleName"
+                            class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-bold max-w-full truncate"
+                          >
+                            {{ roleName }}
+                          </span>
+                          <span v-if="!row.roleNames || row.roleNames.length === 0" class="text-sm text-slate-400">-</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        class="h-8 px-3 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors whitespace-nowrap"
+                        @click.stop="$emit('edit-member', row)"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        class="h-8 px-3 rounded-xl border text-xs font-bold whitespace-nowrap transition-colors"
+                        :class="row.status === 1 ? 'border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100' : 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'"
+                        @click.stop="$emit('toggle-status', row)"
+                      >
+                        {{ row.status === 1 ? '停用' : '启用' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </template>
       </div>

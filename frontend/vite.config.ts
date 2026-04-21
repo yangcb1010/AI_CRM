@@ -16,7 +16,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/crmapi': {
-        target: 'http://localhost:8088/',
+        target: 'https://www.72crm.com/crmapi/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/crmapi/, '')
       }

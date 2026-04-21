@@ -1,6 +1,9 @@
 <template>
-  <div class="h-full min-h-0">
-    <div class="flex h-full min-h-0 bg-slate-50/50 overflow-hidden" :class="{ 'flex-col': isMobile }">
+  <div class="min-h-0 max-md:h-auto md:h-full">
+    <div
+      class="flex min-h-0 bg-slate-50/50 max-md:h-auto max-md:overflow-visible md:h-full md:overflow-hidden"
+      :class="{ 'flex-col': isMobile }"
+    >
       <DepartmentTreePanel
         v-if="!isMobile"
         variant="desktop"
