@@ -627,12 +627,28 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 });
             }
             vo.setRelatedEntities(entities);
+            persistKnowledgeSummaryIfNeeded(knowledge, vo.getCoreHighlights());
 
             return vo;
         } catch (Exception e) {
             log.warn("AI 文档分析 JSON 解析失败: {}", e.getMessage());
             return buildFallbackAnalyzeResult(knowledge);
         }
+    }
+
+    private void persistKnowledgeSummaryIfNeeded(Knowledge knowledge, String summary) {
+        String normalizedSummary = StrUtil.trim(summary);
+        if (StrUtil.isBlank(normalizedSummary)
+            || StrUtil.equals(normalizedSummary, StrUtil.trim(knowledge.getSummary()))) {
+            return;
+        }
+
+        lambdaUpdate()
+            .eq(Knowledge::getKnowledgeId, knowledge.getKnowledgeId())
+            .set(Knowledge::getSummary, normalizedSummary)
+            .update();
+        knowledge.setSummary(normalizedSummary);
+        globalSearchIndexService.refreshKnowledgeIndex(knowledge.getKnowledgeId());
     }
 
     private KnowledgeAiAnalyzeVO buildFallbackAnalyzeResult(Knowledge knowledge) {

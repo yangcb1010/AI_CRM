@@ -650,7 +650,11 @@
     </el-dialog>
 
     <!-- Document Detail Modal -->
-    <KnowledgeDetailModal v-model="showDetailModal" :knowledge-id="selectedKnowledgeId" />
+    <KnowledgeDetailModal
+      v-model="showDetailModal"
+      :knowledge-id="selectedKnowledgeId"
+      @summary-updated="handleKnowledgeSummaryUpdated"
+    />
     <KnowledgeScriptGeneratorDialog v-model="showScriptDialog" />
   </div>
 </template>
@@ -850,6 +854,28 @@ function openDetail(item: Knowledge) {
 function openDetailById(knowledgeId: string | number) {
   selectedKnowledgeId.value = String(knowledgeId)
   showDetailModal.value = true
+}
+
+function handleKnowledgeSummaryUpdated(payload: { knowledgeId: string; summary: string }) {
+  const summary = payload.summary.trim()
+  if (!summary) return
+
+  knowledgeList.value = knowledgeList.value.map(item =>
+    item.knowledgeId === payload.knowledgeId
+      ? { ...item, summary }
+      : item
+  )
+
+  if (aiSearchResult.value) {
+    aiSearchResult.value = {
+      ...aiSearchResult.value,
+      references: aiSearchResult.value.references.map(item =>
+        item.knowledgeId === payload.knowledgeId
+          ? { ...item, summary }
+          : item
+      )
+    }
+  }
 }
 
 function openScriptGenerator() {
