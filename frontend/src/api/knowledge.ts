@@ -70,6 +70,13 @@ export function addKnowledgeTag(knowledgeId: string, tagName: string): Promise<v
 }
 
 /**
+ * Update knowledge related customer
+ */
+export function updateKnowledgeCustomer(knowledgeId: string, customerId?: string): Promise<void> {
+  return post('/knowledge/updateCustomer', null, { params: { knowledgeId, customerId } })
+}
+
+/**
  * Get knowledge file content for frontend preview
  */
 export function getKnowledgeFileBlob(id: string): Promise<Blob> {
@@ -86,8 +93,13 @@ export function getKnowledgePreviewHtml(id: string): Promise<string> {
 /**
  * AI analyze knowledge document
  */
-export function aiAnalyzeKnowledge(id: string): Promise<KnowledgeAiAnalyzeVO> {
-  return post(`/knowledge/${id}/ai-analyze`)
+export function aiAnalyzeKnowledge(
+  id: string,
+  forceRefresh = false
+): Promise<KnowledgeAiAnalyzeVO> {
+  return post(`/knowledge/${id}/ai-analyze`, null, {
+    params: { forceRefresh }
+  })
 }
 
 /**

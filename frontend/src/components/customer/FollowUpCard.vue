@@ -7,7 +7,7 @@
             <span class="material-symbols-outlined text-base">{{ getFollowUpIcon(item.type) }}</span>
           </div>
           <div class="min-w-0 flex-1 flex flex-col gap-1.5">
-            <h4 class="font-bold text-slate-900 text-base leading-tight">
+            <h4 class="truncate font-bold text-slate-900 text-base leading-tight">
               {{ item.summary || getFollowUpTypeLabel(item.type) }}
             </h4>
             <div class="flex flex-wrap items-center gap-2">
@@ -41,7 +41,9 @@
           </div>
         </div>
 
-        <p class="mt-3 text-sm leading-5 text-slate-700 whitespace-pre-line">{{ item.content }}</p>
+        <div v-if="displayContent" class="mt-3 rounded-2xl bg-slate-50/80 px-4 py-3">
+          <p class="text-sm leading-6 text-slate-700 whitespace-pre-line">{{ displayContent }}</p>
+        </div>
 
         <div class="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
           <span class="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 py-1.5 text-slate-500">
@@ -88,26 +90,44 @@
           <div class="size-11 rounded-xl bg-slate-100 flex items-center justify-center text-primary shrink-0">
             <span class="material-symbols-outlined text-xl">{{ getAttachmentIcon(attachment) }}</span>
           </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-semibold text-slate-900">{{ attachment.fileName }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ formatFileSize(attachment.fileSize) }}</p>
-          </div>
+          <button
+            type="button"
+            class="min-w-0 flex-1 rounded-xl px-2 py-1 text-left transition hover:bg-slate-50"
+            @click="handlePreview(attachment)"
+          >
+            <p class="truncate text-sm font-semibold text-slate-900 transition-colors hover:text-primary">
+              {{ attachment.fileName }}
+            </p>
+            <p class="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+              <span>{{ formatFileSize(attachment.fileSize) }}</span>
+              <span class="text-slate-300">|</span>
+              <span class="inline-flex items-center gap-1 text-primary/80">
+                <span class="material-symbols-outlined text-[14px] leading-none">visibility</span>
+                点击预览
+              </span>
+            </p>
+          </button>
           <button
             type="button"
             class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-50 hover:text-primary"
-            @click="handleDownload(attachment)"
+            @click.stop="handleDownload(attachment)"
           >
             <span class="material-symbols-outlined text-[20px] leading-none">download</span>
           </button>
         </div>
 
-        <div v-if="previewUrls[attachment.attachmentId]" class="px-3 pb-3">
+        <button
+          v-if="previewUrls[attachment.attachmentId]"
+          type="button"
+          class="block w-full px-3 pb-3 text-left"
+          @click="handlePreview(attachment)"
+        >
           <img
             :src="previewUrls[attachment.attachmentId]"
             :alt="attachment.fileName"
-            class="h-48 w-full rounded-2xl object-cover border border-slate-100"
-          />
-        </div>
+            class="h-48 w-full rounded-2xl border border-slate-100 object-cover transition hover:opacity-95"
+          >
+        </button>
 
         <div class="bg-slate-50/80 px-4 py-3">
           <template v-if="attachment.analysisStatus === 'completed' && attachment.analysisContent">
@@ -140,6 +160,11 @@
         </div>
       </div>
     </div>
+
+    <FollowUpAttachmentPreviewModal
+      v-model="previewVisible"
+      :attachment="previewAttachment"
+    />
 
     <div v-if="tasks.length > 0" class="mt-5 rounded-2xl border border-slate-200 p-4">
       <div class="flex items-center justify-between">
@@ -190,6 +215,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import FollowUpAttachmentPreviewModal from '@/components/customer/FollowUpAttachmentPreviewModal.vue'
 import {
   aiAnalyzeFollowUpAttachment,
   downloadFollowUpAttachment,
@@ -211,9 +237,12 @@ defineEmits<{
 const attachments = ref<FollowUpAttachment[]>([])
 const previewUrls = ref<Record<string, string>>({})
 const analyzingId = ref('')
+const previewVisible = ref(false)
+const previewAttachment = ref<FollowUpAttachment | null>(null)
 
 const tasks = computed(() => props.item.tasks || [])
 const pendingTaskCount = computed(() => tasks.value.filter(task => !isTaskCompleted(task)).length)
+const displayContent = computed(() => normalizeContentText(props.item.content))
 
 watch(
   () => props.item.attachments,
@@ -261,8 +290,20 @@ async function handleDownload(attachment: FollowUpAttachment) {
   await downloadFollowUpAttachment(attachment.attachmentId, attachment.fileName)
 }
 
+function handlePreview(attachment: FollowUpAttachment) {
+  previewAttachment.value = attachment
+  previewVisible.value = true
+}
+
 function isImageAttachment(attachment: FollowUpAttachment): boolean {
   return String(attachment.mimeType || '').startsWith('image/')
+}
+
+function normalizeContentText(value?: string): string {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function getFollowUpTypeLabel(type?: string): string {

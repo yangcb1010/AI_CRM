@@ -42,6 +42,7 @@ import com.kakarote.ai_crm.service.IGlobalSearchIndexService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.WeKnoraClient;
 import com.kakarote.ai_crm.utils.DocumentTextExtractor;
+import com.kakarote.ai_crm.utils.KnowledgeAnswerLocalizationUtil;
 import com.kakarote.ai_crm.utils.UserUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -66,6 +67,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -285,7 +287,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         if (ObjectUtil.isNull(knowledge)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "知识库文件不存在");
         }
-        return BeanUtil.copyProperties(knowledge, KnowledgeVO.class);
+        KnowledgeVO detail = BeanUtil.copyProperties(knowledge, KnowledgeVO.class);
+        detail.setAiAnalyzeResult(readCachedAnalyzeResult(knowledge));
+        return detail;
     }
 
     /**
@@ -490,6 +494,30 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     // ==================== AI 文档分析 ====================
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateCustomer(Long knowledgeId, Long customerId) {
+        Knowledge knowledge = getById(knowledgeId);
+        if (ObjectUtil.isNull(knowledge)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Knowledge file does not exist");
+        }
+
+        if (customerId != null) {
+            Customer customer = customerMapper.selectById(customerId);
+            if (ObjectUtil.isNull(customer)) {
+                throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Customer does not exist or is inaccessible");
+            }
+        }
+
+        if (ObjectUtil.equal(knowledge.getCustomerId(), customerId)) {
+            return;
+        }
+
+        knowledge.setCustomerId(customerId);
+        updateById(knowledge);
+        globalSearchIndexService.refreshKnowledgeIndex(knowledgeId);
+    }
+
     private static final String AI_ANALYZE_PROMPT_TEMPLATE = """
         你是一个专业的 CRM 助手。请分析以下知识库文档，提取关键信息并以 JSON 格式返回。
 
@@ -554,10 +582,15 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         """;
 
     @Override
-    public KnowledgeAiAnalyzeVO aiAnalyzeDocument(Long knowledgeId) {
+    public KnowledgeAiAnalyzeVO aiAnalyzeDocument(Long knowledgeId, boolean forceRefresh) {
         Knowledge knowledge = getById(knowledgeId);
         if (ObjectUtil.isNull(knowledge)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "知识库文件不存在");
+        }
+
+        KnowledgeAiAnalyzeVO cachedResult = readCachedAnalyzeResult(knowledge);
+        if (!forceRefresh && cachedResult != null) {
+            return cachedResult;
         }
 
         String contentText = StrUtil.blankToDefault(knowledge.getContentText(), "");
@@ -581,10 +614,15 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                     .content();
 
             log.info("AI 文档分析原始响应: {}", response);
-            return parseAnalyzeResponse(response, knowledge);
+            KnowledgeAiAnalyzeVO analyzedResult = parseAnalyzeResponse(response, knowledge);
+            if (analyzedResult != null) {
+                persistAnalyzeResult(knowledge, analyzedResult);
+                return analyzedResult;
+            }
+            return cachedResult != null ? cachedResult : buildFallbackAnalyzeResult(knowledge);
         } catch (Exception e) {
             log.error("AI 文档分析失败，返回默认值", e);
-            return buildFallbackAnalyzeResult(knowledge);
+            return cachedResult != null ? cachedResult : buildFallbackAnalyzeResult(knowledge);
         }
     }
 
@@ -627,11 +665,95 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 });
             }
             vo.setRelatedEntities(entities);
-
-            return vo;
+            return normalizeAnalyzeResult(vo, knowledge);
         } catch (Exception e) {
             log.warn("AI 文档分析 JSON 解析失败: {}", e.getMessage());
-            return buildFallbackAnalyzeResult(knowledge);
+            return null;
+        }
+    }
+
+    private KnowledgeAiAnalyzeVO readCachedAnalyzeResult(Knowledge knowledge) {
+        String snapshot = StrUtil.trimToNull(knowledge.getAiAnalysisSnapshot());
+        if (snapshot == null) {
+            return null;
+        }
+
+        try {
+            KnowledgeAiAnalyzeVO cached = objectMapper.readValue(snapshot, KnowledgeAiAnalyzeVO.class);
+            return normalizeAnalyzeResult(cached, knowledge);
+        } catch (Exception e) {
+            log.warn("解析知识库缓存分析结果失败: knowledgeId={}, error={}",
+                knowledge.getKnowledgeId(), e.getMessage());
+            return null;
+        }
+    }
+
+    private KnowledgeAiAnalyzeVO normalizeAnalyzeResult(KnowledgeAiAnalyzeVO source, Knowledge knowledge) {
+        KnowledgeAiAnalyzeVO normalized = new KnowledgeAiAnalyzeVO();
+        normalized.setCoreHighlights(StrUtil.blankToDefault(StrUtil.trim(source.getCoreHighlights()),
+            StrUtil.blankToDefault(StrUtil.trim(knowledge.getSummary()), "")));
+
+        List<String> talkingPoints = new ArrayList<>();
+        if (source.getTalkingPoints() != null) {
+            source.getTalkingPoints().forEach(point -> {
+                String normalizedPoint = StrUtil.trim(point);
+                if (StrUtil.isNotBlank(normalizedPoint)) {
+                    talkingPoints.add(normalizedPoint);
+                }
+            });
+        }
+        normalized.setTalkingPoints(talkingPoints);
+
+        List<KnowledgeAiAnalyzeVO.RelatedEntity> entities = new ArrayList<>();
+        if (source.getRelatedEntities() != null) {
+            source.getRelatedEntities().forEach(item -> {
+                if (item == null) {
+                    return;
+                }
+                String name = StrUtil.trim(item.getName());
+                if (StrUtil.isBlank(name)) {
+                    return;
+                }
+
+                KnowledgeAiAnalyzeVO.RelatedEntity entity = new KnowledgeAiAnalyzeVO.RelatedEntity();
+                entity.setName(name);
+                entity.setType(StrUtil.trim(item.getType()));
+                entities.add(entity);
+            });
+        }
+        normalized.setRelatedEntities(entities);
+        return normalized;
+    }
+
+    private void persistAnalyzeResult(Knowledge knowledge, KnowledgeAiAnalyzeVO analyzeResult) {
+        String snapshot;
+        try {
+            snapshot = objectMapper.writeValueAsString(analyzeResult);
+        } catch (Exception e) {
+            log.warn("序列化知识库分析结果失败: knowledgeId={}, error={}",
+                knowledge.getKnowledgeId(), e.getMessage());
+            return;
+        }
+
+        String previousSummary = StrUtil.trim(knowledge.getSummary());
+        String normalizedSummary = StrUtil.trim(analyzeResult.getCoreHighlights());
+        Date analysisTime = new Date();
+
+        lambdaUpdate()
+            .eq(Knowledge::getKnowledgeId, knowledge.getKnowledgeId())
+            .set(Knowledge::getAiAnalysisSnapshot, snapshot)
+            .set(Knowledge::getAiAnalysisTime, analysisTime)
+            .set(StrUtil.isNotBlank(normalizedSummary), Knowledge::getSummary, normalizedSummary)
+            .update();
+
+        knowledge.setAiAnalysisSnapshot(snapshot);
+        knowledge.setAiAnalysisTime(analysisTime);
+        if (StrUtil.isNotBlank(normalizedSummary)) {
+            knowledge.setSummary(normalizedSummary);
+        }
+
+        if (StrUtil.isNotBlank(normalizedSummary) && !StrUtil.equals(previousSummary, normalizedSummary)) {
+            globalSearchIndexService.refreshKnowledgeIndex(knowledge.getKnowledgeId());
         }
     }
 
@@ -833,6 +955,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             3. 先给结论，再分点列出关键依据。
             4. 如果资料不足以得出确定结论，要明确说明信息不足。
             5. 不要输出“根据资料1/资料2”这类生硬措辞，改成自然表达。
+            6. 所有标题、分节名和标签都必须使用中文，不要出现 Summary、Retrieved Information、Key Points、References 等英文标题。
 
             用户问题：
             %s
@@ -847,7 +970,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 .user(prompt)
                 .call()
                 .content();
-            return StrUtil.isNotBlank(answer) ? answer.trim() : fallback;
+            return StrUtil.isNotBlank(answer)
+                ? KnowledgeAnswerLocalizationUtil.localizeToChinese(answer)
+                : fallback;
         } catch (Exception e) {
             log.warn("生成知识库 AI 检索答案失败，使用兜底摘要: {}", e.getMessage());
             return fallback;

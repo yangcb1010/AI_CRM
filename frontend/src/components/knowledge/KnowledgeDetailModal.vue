@@ -410,6 +410,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'summary-updated': [payload: { knowledgeId: string; summary: string }]
 }>()
 
 const { isMobile } = useResponsive()
@@ -654,6 +655,7 @@ async function loadDocument(id: string) {
   try {
     const detail = await getKnowledgeDetail(id)
     knowledge.value = detail
+    analysis.value = detail.aiAnalyzeResult ?? null
 
     const kind = resolvePreviewKind(detail.name, detail.mimeType)
     previewKind.value = kind
@@ -715,7 +717,17 @@ async function handleAnalyze() {
   analysisError.value = ''
 
   try {
-    analysis.value = await aiAnalyzeKnowledge(props.knowledgeId)
+    analysis.value = await aiAnalyzeKnowledge(props.knowledgeId, Boolean(analysis.value))
+    const summary = analysis.value?.coreHighlights?.trim()
+    if (summary) {
+      if (knowledge.value) {
+        knowledge.value.summary = summary
+      }
+      emit('summary-updated', {
+        knowledgeId: props.knowledgeId,
+        summary
+      })
+    }
   } catch (error) {
     console.error('AI analysis failed:', error)
     analysisError.value = 'AI 分析失败，请稍后重试。'

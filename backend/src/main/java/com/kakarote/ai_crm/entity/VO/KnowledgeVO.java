@@ -55,6 +55,12 @@ public class KnowledgeVO {
     @Schema(description = "WeKnora 解析状态: pending, processing, completed, failed, unsupported")
     private String weKnoraParseStatus;
 
+    @Schema(description = "AI analysis result")
+    private KnowledgeAiAnalyzeVO aiAnalyzeResult;
+
+    @Schema(description = "AI analysis time")
+    private Date aiAnalysisTime;
+
     @Schema(description = "上传人ID")
     private Long uploadUserId;
 

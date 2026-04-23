@@ -17,6 +17,10 @@ export interface Task {
   generatedByAi: boolean
   createTime: string
   updateTime: string
+  valuePriorityScore?: number
+  valuePriorityTier?: 'HIGH' | 'MEDIUM' | 'LOW'
+  valuePriorityReason?: string
+  highValue?: boolean
 }
 
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW'
@@ -46,6 +50,8 @@ export interface TaskQueryBO {
   customerId?: string
   assignedTo?: string
   filter?: 'all' | 'today' | 'thisWeek' | 'overdue' | 'mine'
+  sortMode?: 'default' | 'value'
+  highValueOnly?: boolean
   page?: number
   limit?: number
 }
@@ -62,6 +68,8 @@ export interface Knowledge {
   mimeType?: string
   summary?: string
   contentText?: string
+  aiAnalyzeResult?: KnowledgeAiAnalyzeVO
+  aiAnalysisTime?: string
   weKnoraParseStatus?: 'pending' | 'processing' | 'completed' | 'failed' | 'unsupported'
   createUserId: string
   createUserName?: string
