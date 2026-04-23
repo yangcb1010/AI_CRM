@@ -728,14 +728,6 @@ function clearAiQueryField(query: CustomerAiSearchQuery, key: string) {
       delete query.quotationMin
       delete query.quotationMax
       break
-    case 'contractAmount':
-      delete query.contractAmountMin
-      delete query.contractAmountMax
-      break
-    case 'revenue':
-      delete query.revenueMin
-      delete query.revenueMax
-      break
     case 'lastContact':
       delete query.lastContactStart
       delete query.lastContactEnd
@@ -939,7 +931,7 @@ function getFieldFixed(field: CustomField): 'left' | undefined {
 function getFieldAlign(field: CustomField): 'left' | 'center' | 'right' {
   if (field.fieldName === 'aiStatusDetection') return 'center'
   if (field.fieldName === 'level') return 'center'
-  if (field.fieldType === 'number' || ['quotation', 'contractAmount', 'revenue'].includes(field.fieldName)) return 'right'
+  if (field.fieldType === 'number' || field.fieldName === 'quotation') return 'right'
   return 'left'
 }
 
@@ -954,8 +946,6 @@ function getFieldMinWidth(field: CustomField): number {
     source: 140,
     website: 180,
     quotation: 130,
-    contractAmount: 140,
-    revenue: 140,
     lastContactTime: 120,
     nextFollowTime: 160,
     address: 180,
@@ -1011,7 +1001,7 @@ function getListFieldDisplayValue(field: CustomField, row: CustomerListVO): stri
     return formatRelativeTime(String(rawValue))
   }
 
-  if (['quotation', 'contractAmount', 'revenue'].includes(field.fieldName)) {
+  if (field.fieldName === 'quotation') {
     return formatMoney(rawValue)
   }
 
