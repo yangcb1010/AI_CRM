@@ -1,4 +1,0 @@
-ALTER TABLE crm_task ADD COLUMN IF NOT EXISTS value_priority_score INTEGER;
-ALTER TABLE crm_task ADD COLUMN IF NOT EXISTS value_priority_tier VARCHAR(20);
-ALTER TABLE crm_task ADD COLUMN IF NOT EXISTS value_priority_reason TEXT;
-ALTER TABLE crm_task ADD COLUMN IF NOT EXISTS high_value BOOLEAN DEFAULT FALSE;
