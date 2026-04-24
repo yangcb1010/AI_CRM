@@ -5,12 +5,14 @@ import cn.hutool.core.util.StrUtil;
 import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.common.BasePage;
+import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.entity.BO.KnowledgeQueryBO;
 import com.kakarote.ai_crm.entity.PO.Knowledge;
 import com.kakarote.ai_crm.entity.VO.KnowledgeVO;
 import com.kakarote.ai_crm.entity.VO.WeKnoraChunk;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.WeKnoraClient;
+import com.kakarote.ai_crm.service.impl.AiQuotaService;
 import com.kakarote.ai_crm.utils.KnowledgeAnswerLocalizationUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -37,6 +39,9 @@ public class KnowledgeTools {
 
     @Autowired
     private WeKnoraClient weKnoraClient;
+
+    @Autowired
+    private AiQuotaService aiQuotaService;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
@@ -153,6 +158,7 @@ public class KnowledgeTools {
             if (tenantId == null) {
                 return "知识库问答失败：无法确定当前租户。";
             }
+            aiQuotaService.ensureQuotaAvailable(tenantId, "knowledge_tool_ask", null, null, query);
 
             KnowledgeScope scope = resolveKnowledgeScope(knowledgeIdsStr);
             log.debug("RAG知识库问答开始: tenantId={}, conversationId={}, query={}, scopedIds={}, invalidIds={}",
@@ -177,12 +183,17 @@ public class KnowledgeTools {
                 if (StrUtil.isNotBlank(fallback)) {
                     log.debug("RAG知识库问答兜底成功: tenantId={}, conversationId={}, fallbackLength={}",
                             tenantId, conversationId, fallback.length());
+                    aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_ask", query, fallback);
                     return fallback;
                 }
                 if (!scope.invalidKnowledgeIds().isEmpty()) {
-                    return "当前未能直接从知识库生成回答。以下文件ID无效或尚未完成解析: " + scope.invalidKnowledgeIds();
+                    String response = "当前未能直接从知识库生成回答。以下文件ID无效或尚未完成解析: " + scope.invalidKnowledgeIds();
+                    aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_ask", query, response);
+                    return response;
                 }
-                return "当前未能直接从知识库生成回答，请尝试换一种问法，或先查看相关文档片段。";
+                String response = "当前未能直接从知识库生成回答，请尝试换一种问法，或先查看相关文档片段。";
+                aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_ask", query, response);
+                return response;
             }
 
             StringBuilder sb = new StringBuilder();
@@ -195,7 +206,11 @@ public class KnowledgeTools {
             }
 
             appendReferenceSummary(sb, result.getReferences());
-            return sb.toString();
+            String response = sb.toString();
+            aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_ask", query, response);
+            return response;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("RAG 知识库问答失败: query={}, error={}", query, e.getMessage(), e);
             String fallback = buildRagFallbackContext(query, resolveKnowledgeScope(knowledgeIdsStr), AiContextHolder.getCurrentTenantId());
@@ -220,6 +235,7 @@ public class KnowledgeTools {
             if (tenantId == null) {
                 return "语义检索失败：无法确定当前租户。";
             }
+            aiQuotaService.ensureQuotaAvailable(tenantId, "knowledge_tool_search", null, null, query);
 
             WeKnoraClient.TenantWeKnoraContext ctx = weKnoraClient.getOrCreateTenantContext(tenantId);
             log.debug("RAG语义检索开始: tenantId={}, query={}, kbId={}",
@@ -229,7 +245,9 @@ public class KnowledgeTools {
                     tenantId, abbreviateForLog(query), chunks.size());
 
             if (chunks.isEmpty()) {
-                return "未找到与 \"" + query + "\" 相关的文档内容。您可以尝试更换关键词，或先查看知识库文件列表。";
+                String response = "未找到与 \"" + query + "\" 相关的文档内容。您可以尝试更换关键词，或先查看知识库文件列表。";
+                aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_search", query, response);
+                return response;
             }
 
             StringBuilder sb = new StringBuilder();
@@ -252,7 +270,11 @@ public class KnowledgeTools {
             }
 
             sb.append("\n> 以上内容来自 RAG 语义检索结果，适合用于核对原文或出处。");
-            return sb.toString();
+            String response = sb.toString();
+            aiQuotaService.consumeEstimatedTokens(tenantId, "knowledge_tool_search", query, response);
+            return response;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             return "语义检索失败: " + e.getMessage();
         }

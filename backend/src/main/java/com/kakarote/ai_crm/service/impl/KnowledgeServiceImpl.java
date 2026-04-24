@@ -84,6 +84,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     private static final int MAX_SEARCHABLE_CONTENT_LENGTH = 20_000;
     private static final int DEFAULT_AI_SEARCH_LIMIT = 5;
     private static final int MAX_AI_SEARCH_LIMIT = 8;
+    private static final int MAX_AI_SEARCH_RAG_SCOPE_SIZE = 80;
     private static final int MAX_AI_SEARCH_CONTEXT_LENGTH = 1_200;
     private static final int MAX_TARGETED_SCRIPT_DOC_COUNT = 4;
     private static final int MAX_TARGETED_SCRIPT_DOC_CONTENT_LENGTH = 1_000;
@@ -121,6 +122,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     @Lazy
     @Autowired
     private ICustomerService customerService;
+
+    @Autowired
+    private AiQuotaService aiQuotaService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -309,9 +313,25 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             limit = Math.min(searchBO.getLimit(), MAX_AI_SEARCH_LIMIT);
         }
 
-        List<KnowledgeAiSearchVO.ReferenceItem> references = buildSemanticReferences(keyword, type, limit);
+        String answer = null;
+        List<KnowledgeAiSearchVO.ReferenceItem> references = List.of();
+
+        WeKnoraClient.WeKnoraChatResult ragResult = askKnowledgeBaseQuestion(keyword, type);
+        if (ragResult != null) {
+            if (!isUnavailableRagAnswer(ragResult.getAnswer())) {
+                answer = KnowledgeAnswerLocalizationUtil.localizeToChinese(ragResult.getAnswer());
+            }
+            references = buildReferencesFromChunks(ragResult.getReferences(), type, limit);
+        }
+
+        if (references.isEmpty()) {
+            references = buildSemanticReferences(keyword, type, limit);
+        }
         if (references.isEmpty()) {
             references = buildLocalReferences(keyword, type, limit);
+        }
+        if (StrUtil.isBlank(answer)) {
+            answer = buildAiSearchAnswer(keyword, references);
         }
 
         KnowledgeAiSearchVO result = new KnowledgeAiSearchVO();
@@ -319,7 +339,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         result.setReferences(references);
         result.setTotalHits(references.size());
         result.setMatchPercent(calculateOverallMatchPercent(references));
-        result.setAnswer(buildAiSearchAnswer(keyword, references));
+        result.setAnswer(answer);
         result.setTookMs(System.currentTimeMillis() - startAt);
         return result;
     }
@@ -369,12 +389,21 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         String content = fallback;
         if (chatClientProvider.isApiKeyConfigured()) {
             try {
-                String response = chatClientProvider.getChatClient()
+                String prompt = buildTargetedScriptPrompt(customerDetail, recentFollowUps, knowledges);
+                aiQuotaService.ensureQuotaAvailable("knowledge_targeted_script", null, null, prompt);
+                var chatResponse = chatClientProvider.getChatClient()
                     .prompt()
-                    .user(buildTargetedScriptPrompt(customerDetail, recentFollowUps, knowledges))
+                    .user(prompt)
                     .call()
-                    .content();
+                    .chatResponse();
+                String response = chatResponse.getResult().getOutput().getText();
+                aiQuotaService.consumeResolvedTokens(
+                    "knowledge_targeted_script",
+                    aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+                );
                 content = cleanGeneratedMarkdown(response, fallback);
+            } catch (BusinessException e) {
+                throw e;
             } catch (Exception e) {
                 log.warn("生成定向销售话术失败，使用兜底内容: customerId={}, knowledgeIds={}, error={}",
                     scriptBO.getCustomerId(), requestedIds, e.getMessage());
@@ -607,11 +636,17 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 contentText);
 
         try {
-            String response = chatClientProvider.getChatClient()
+            aiQuotaService.ensureQuotaAvailable("knowledge_analyze", null, null, prompt);
+            var chatResponse = chatClientProvider.getChatClient()
                     .prompt()
                     .user(prompt)
                     .call()
-                    .content();
+                    .chatResponse();
+            String response = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "knowledge_analyze",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
 
             log.info("AI 文档分析原始响应: {}", response);
             KnowledgeAiAnalyzeVO analyzedResult = parseAnalyzeResponse(response, knowledge);
@@ -620,6 +655,8 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 return analyzedResult;
             }
             return cachedResult != null ? cachedResult : buildFallbackAnalyzeResult(knowledge);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI 文档分析失败，返回默认值", e);
             return cachedResult != null ? cachedResult : buildFallbackAnalyzeResult(knowledge);
@@ -681,6 +718,8 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         try {
             KnowledgeAiAnalyzeVO cached = objectMapper.readValue(snapshot, KnowledgeAiAnalyzeVO.class);
             return normalizeAnalyzeResult(cached, knowledge);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("解析知识库缓存分析结果失败: knowledgeId={}, error={}",
                 knowledge.getKnowledgeId(), e.getMessage());
@@ -803,6 +842,16 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
 
         // 流式调用
+        String quotaTip = aiQuotaService.resolveQuotaFailureMessage(
+            currentTenantId, "knowledge_ask", systemPrompt, history, askBO.getQuestion()
+        );
+        if (quotaTip != null) {
+            AiContextHolder.clear();
+            return Flux.just(quotaTip);
+        }
+
+        StringBuilder fullResponse = new StringBuilder();
+
         return chatClientProvider.getChatClient()
                 .prompt()
                 .system(systemPrompt)
@@ -810,13 +859,29 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 .user(askBO.getQuestion())
                 .stream()
                 .chatResponse()
+                .doOnNext(chatResponse -> {
+                    if (chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null) {
+                        String text = chatResponse.getResult().getOutput().getText();
+                        if (text != null) {
+                            fullResponse.append(text);
+                        }
+                    }
+                })
                 .mapNotNull(chatResponse -> {
                     if (chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null) {
                         return chatResponse.getResult().getOutput().getText();
                     }
                     return null;
                 })
-                .doOnComplete(AiContextHolder::clear)
+                .doOnComplete(() -> {
+                    aiQuotaService.consumeEstimatedTokens(
+                        currentTenantId,
+                        "knowledge_ask",
+                        systemPrompt + "\n\n" + askBO.getQuestion(),
+                        fullResponse.toString()
+                    );
+                    AiContextHolder.clear();
+                })
                 .doOnError(error -> {
                     log.error("文档问答错误: {}", error.getMessage(), error);
                     AiContextHolder.clear();
@@ -898,6 +963,139 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    private WeKnoraClient.WeKnoraChatResult askKnowledgeBaseQuestion(String keyword, String type) {
+        if (!weKnoraClient.isEnabled()) {
+            return null;
+        }
+
+        Long tenantId = UserUtil.getTenantId();
+        if (tenantId == null) {
+            return null;
+        }
+
+        List<String> scopedKnowledgeIds = resolveAiSearchScopedKnowledgeIds(type);
+        if (StrUtil.isNotBlank(type) && scopedKnowledgeIds == null) {
+            return null;
+        }
+
+        try {
+            aiQuotaService.ensureQuotaAvailable(tenantId, "knowledge_search_answer", null, null, keyword);
+            WeKnoraClient.WeKnoraChatResult result = weKnoraClient.askKnowledgeQuestion(
+                tenantId,
+                null,
+                keyword,
+                scopedKnowledgeIds == null ? List.of() : scopedKnowledgeIds
+            );
+            aiQuotaService.consumeEstimatedTokens(
+                tenantId,
+                "knowledge_search_answer",
+                keyword,
+                result != null ? result.getAnswer() : null
+            );
+            return result;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("鐭ヨ瘑搴?AI 妫€绱㈢洿鎺ラ棶绛斿け璐ワ紝鍥為€€鍒版绱㈡憳瑕? keyword={}, type={}, error={}",
+                keyword, type, e.getMessage());
+            return null;
+        }
+    }
+
+    private List<String> resolveAiSearchScopedKnowledgeIds(String type) {
+        if (StrUtil.isBlank(type)) {
+            return List.of();
+        }
+
+        List<String> scopedKnowledgeIds = list(new LambdaQueryWrapper<Knowledge>()
+            .select(Knowledge::getWeKnoraKnowledgeId)
+            .eq(Knowledge::getType, type)
+            .ne(Knowledge::getStatus, 2)
+            .isNotNull(Knowledge::getWeKnoraKnowledgeId))
+            .stream()
+            .map(Knowledge::getWeKnoraKnowledgeId)
+            .filter(StrUtil::isNotBlank)
+            .distinct()
+            .toList();
+
+        if (scopedKnowledgeIds.isEmpty()) {
+            return null;
+        }
+        if (scopedKnowledgeIds.size() > MAX_AI_SEARCH_RAG_SCOPE_SIZE) {
+            log.info("鐭ヨ瘑搴?AI 妫€绱㈣烦杩囩被鍨嬮檺瀹氶棶绛旓紝鑼冨洿杩囧ぇ: type={}, count={}",
+                type, scopedKnowledgeIds.size());
+            return null;
+        }
+        return scopedKnowledgeIds;
+    }
+
+    private List<KnowledgeAiSearchVO.ReferenceItem> buildReferencesFromChunks(List<WeKnoraChunk> chunks,
+                                                                              String type,
+                                                                              int limit) {
+        if (chunks == null || chunks.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> weKnoraIds = new LinkedHashSet<>();
+        for (WeKnoraChunk chunk : chunks) {
+            if (StrUtil.isNotBlank(chunk.getKnowledgeId())) {
+                weKnoraIds.add(chunk.getKnowledgeId());
+            }
+        }
+        if (weKnoraIds.isEmpty()) {
+            return List.of();
+        }
+
+        LambdaQueryWrapper<Knowledge> wrapper = new LambdaQueryWrapper<Knowledge>()
+            .in(Knowledge::getWeKnoraKnowledgeId, weKnoraIds)
+            .ne(Knowledge::getStatus, 2);
+        if (StrUtil.isNotBlank(type)) {
+            wrapper.eq(Knowledge::getType, type);
+        }
+
+        List<Knowledge> localKnowledges = list(wrapper);
+        if (localKnowledges.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Knowledge> knowledgeByWeKnoraId = new LinkedHashMap<>();
+        for (Knowledge knowledge : localKnowledges) {
+            if (StrUtil.isNotBlank(knowledge.getWeKnoraKnowledgeId())) {
+                knowledgeByWeKnoraId.put(knowledge.getWeKnoraKnowledgeId(), knowledge);
+            }
+        }
+
+        Map<Long, String> customerNameMap = loadCustomerNameMap(localKnowledges);
+        LinkedHashMap<Long, KnowledgeAiSearchVO.ReferenceItem> deduped = new LinkedHashMap<>();
+        for (WeKnoraChunk chunk : chunks) {
+            Knowledge knowledge = knowledgeByWeKnoraId.get(chunk.getKnowledgeId());
+            if (knowledge == null) {
+                continue;
+            }
+
+            KnowledgeAiSearchVO.ReferenceItem item = deduped.computeIfAbsent(
+                knowledge.getKnowledgeId(),
+                ignored -> toReferenceItem(knowledge, customerNameMap.get(knowledge.getCustomerId()))
+            );
+            item.setMatchPercent(Math.max(item.getMatchPercent(), toMatchPercent(chunk.getScore())));
+
+            String chunkExcerpt = extractSnippet(chunk.getContent(), null);
+            if (StrUtil.isNotBlank(chunkExcerpt)) {
+                item.setExcerpt(chunkExcerpt);
+            }
+        }
+
+        return deduped.values().stream()
+            .sorted(Comparator.comparingInt(KnowledgeAiSearchVO.ReferenceItem::getMatchPercent).reversed()
+                .thenComparing(KnowledgeAiSearchVO.ReferenceItem::getCreateTime, Comparator.nullsLast(Comparator.reverseOrder())))
+            .limit(limit)
+            .toList();
+    }
+
+    private boolean isUnavailableRagAnswer(String answer) {
+        return StrUtil.isBlank(answer) || answer.contains("NO_MATCH");
+    }
+
     private List<KnowledgeAiSearchVO.ReferenceItem> buildLocalReferences(String keyword, String type, int limit) {
         KnowledgeQueryBO queryBO = new KnowledgeQueryBO();
         queryBO.setKeyword(keyword);
@@ -965,14 +1163,22 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             """.formatted(keyword, contextBuilder);
 
         try {
-            String answer = chatClientProvider.getChatClient()
+            aiQuotaService.ensureQuotaAvailable("knowledge_search_answer", null, null, prompt);
+            var chatResponse = chatClientProvider.getChatClient()
                 .prompt()
                 .user(prompt)
                 .call()
-                .content();
+                .chatResponse();
+            String answer = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "knowledge_search_answer",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, answer)
+            );
             return StrUtil.isNotBlank(answer)
                 ? KnowledgeAnswerLocalizationUtil.localizeToChinese(answer)
                 : fallback;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("生成知识库 AI 检索答案失败，使用兜底摘要: {}", e.getMessage());
             return fallback;

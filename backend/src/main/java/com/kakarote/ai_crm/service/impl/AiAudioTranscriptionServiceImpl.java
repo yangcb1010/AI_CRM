@@ -44,6 +44,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
     @Autowired
     private DynamicChatClientProvider chatClientProvider;
 
+    @Autowired
+    private AiQuotaService aiQuotaService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WebClient webClient = WebClient.builder().build();
 
@@ -69,6 +72,8 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "请先提供录音文件");
         }
 
+        aiQuotaService.ensureQuotaAvailable("audio_transcription");
+
         DynamicChatClientProvider.AiRuntimeConfigSnapshot runtimeConfig =
             chatClientProvider.getCurrentRuntimeConfigSnapshot();
         if (runtimeConfig == null || StrUtil.isBlank(runtimeConfig.apiKey())) {
@@ -82,11 +87,17 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
 
         String providerCode = StrUtil.blankToDefault(runtimeConfig.providerCode(), "").trim().toLowerCase();
         try {
-            return switch (providerCode) {
+            String transcript = switch (providerCode) {
                 case "openai" -> transcribeWithOpenAi(runtimeConfig, audioBytes, filename, contentType);
                 case "dashscope" -> transcribeWithDashscope(runtimeConfig, audioBytes, contentType);
                 default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, UNSUPPORTED_PROVIDER_MESSAGE);
             };
+            aiQuotaService.consumeEstimatedTokens(
+                "audio_transcription",
+                StrUtil.blankToDefault(filename, "audio"),
+                transcript
+            );
+            return transcript;
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {

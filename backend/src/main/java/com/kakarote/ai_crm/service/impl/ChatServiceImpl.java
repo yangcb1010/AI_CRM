@@ -70,9 +70,6 @@ public class ChatServiceImpl implements IChatService {
     private FileStorageService fileStorageService;
 
     @Autowired
-    private ICrmTenantService tenantService;
-
-    @Autowired
     private WeKnoraClient weKnoraClient;
 
     @Autowired
@@ -80,6 +77,9 @@ public class ChatServiceImpl implements IChatService {
 
     @Autowired
     private KnowledgeTools knowledgeTools;
+
+    @Autowired
+    private AiQuotaService aiQuotaService;
 
     private static final int MAX_EXTRACTED_TEXT_LENGTH = 3000;
 
@@ -307,7 +307,15 @@ public class ChatServiceImpl implements IChatService {
         boolean ragEnabled = Boolean.TRUE.equals(sendBO.getRagEnabled());
         log.debug("聊天请求 RAG 开关: sessionId={}, tenantId={}, ragEnabled={}", sessionId, currentTenantId, ragEnabled);
 
-        String routedKnowledgeResponse = tryHandleKnowledgeQuestion(content, attachments, ragEnabled);
+        String routedKnowledgeResponse;
+        try {
+            routedKnowledgeResponse = tryHandleKnowledgeQuestion(content, attachments, ragEnabled);
+        } catch (BusinessException exception) {
+            saveMessage(sessionId, "assistant", exception.getMsg());
+            updateSessionTime(sessionId);
+            AiContextHolder.clear();
+            return Flux.just(exception.getMsg());
+        }
         if (routedKnowledgeResponse != null) {
             saveMessage(sessionId, "assistant", routedKnowledgeResponse);
             updateSessionTime(sessionId);
@@ -346,17 +354,19 @@ public class ChatServiceImpl implements IChatService {
         String unavailableTip = resolveAiUnavailableTip(currentTenantId);
         if (unavailableTip != null) {
             saveMessage(sessionId, "assistant", unavailableTip);
+            updateSessionTime(sessionId);
             AiContextHolder.clear();
             return Flux.just(unavailableTip);
         }
 
-        if (chatClientProvider.isUsingGiftMode()) {
-            String quotaTip = ensureGiftQuotaAvailable(currentTenantId);
-            if (quotaTip != null) {
-                saveMessage(sessionId, "assistant", quotaTip);
-                AiContextHolder.clear();
-                return Flux.just(quotaTip);
-            }
+        String quotaTip = aiQuotaService.resolveQuotaFailureMessage(
+            currentTenantId, "chat", enhancedSystemPrompt, history, enhancedContent
+        );
+        if (quotaTip != null) {
+            saveMessage(sessionId, "assistant", quotaTip);
+            updateSessionTime(sessionId);
+            AiContextHolder.clear();
+            return Flux.just(quotaTip);
         }
 
         log.debug("开始 AI 对话，启用工具调用...");
@@ -417,7 +427,7 @@ public class ChatServiceImpl implements IChatService {
             })
             .doOnComplete(() -> {
                 // SSE 场景下只有在流完成后才能拿到最终累积文本与较完整的 token 统计，因此持久化放在完成回调里统一处理。
-                TokenUsageSnapshot usage = resolveTokenUsage(
+                AiQuotaService.TokenUsageSnapshot usage = aiQuotaService.resolveTokenUsage(
                     promptTokensRef.get(),
                     completionTokensRef.get(),
                     totalTokensRef.get(),
@@ -431,7 +441,7 @@ public class ChatServiceImpl implements IChatService {
                 saveMessage(sessionId, "assistant", fullResponse.toString(),
                     usage.promptTokens(), usage.completionTokens(),
                     usage.totalTokens(), modelNameRef.get());
-                consumeGiftTokensIfNecessary(currentTenantId, usage.totalTokens());
+                aiQuotaService.consumeResolvedTokens(currentTenantId, "chat", usage);
                 updateSessionTime(sessionId);
                 // 会话结束后清理当前会话的 AiContextHolder。
                 AiContextHolder.clear();
@@ -466,7 +476,14 @@ public class ChatServiceImpl implements IChatService {
         boolean ragEnabled = Boolean.TRUE.equals(sendBO.getRagEnabled());
         log.debug("聊天请求 RAG 开关: sessionId={}, tenantId={}, ragEnabled={}", sessionId, currentTenantId, ragEnabled);
 
-        String routedKnowledgeResponse = tryHandleKnowledgeQuestion(content, attachments, ragEnabled);
+        String routedKnowledgeResponse;
+        try {
+            routedKnowledgeResponse = tryHandleKnowledgeQuestion(content, attachments, ragEnabled);
+        } catch (BusinessException exception) {
+            saveMessage(sessionId, "assistant", exception.getMsg());
+            updateSessionTime(sessionId);
+            return exception.getMsg();
+        }
         if (routedKnowledgeResponse != null) {
             saveMessage(sessionId, "assistant", routedKnowledgeResponse);
             updateSessionTime(sessionId);
@@ -498,15 +515,17 @@ public class ChatServiceImpl implements IChatService {
         String unavailableTip = resolveAiUnavailableTip(currentTenantId);
         if (unavailableTip != null) {
             saveMessage(sessionId, "assistant", unavailableTip);
+            updateSessionTime(sessionId);
             return unavailableTip;
         }
 
-        if (chatClientProvider.isUsingGiftMode()) {
-            String quotaTip = ensureGiftQuotaAvailable(currentTenantId);
-            if (quotaTip != null) {
-                saveMessage(sessionId, "assistant", quotaTip);
-                return quotaTip;
-            }
+        String quotaTip = aiQuotaService.resolveQuotaFailureMessage(
+            currentTenantId, "chat", enhancedSystemPrompt, history, enhancedContent
+        );
+        if (quotaTip != null) {
+            saveMessage(sessionId, "assistant", quotaTip);
+            updateSessionTime(sessionId);
+            return quotaTip;
         }
 
         try {
@@ -539,7 +558,7 @@ public class ChatServiceImpl implements IChatService {
                 modelName = chatResponse.getMetadata().getModel();
             }
 
-            TokenUsageSnapshot usageSnapshot = resolveTokenUsage(
+            AiQuotaService.TokenUsageSnapshot usageSnapshot = aiQuotaService.resolveTokenUsage(
                 promptTokens,
                 completionTokens,
                 totalTokens,
@@ -551,13 +570,18 @@ public class ChatServiceImpl implements IChatService {
 
             saveMessage(sessionId, "assistant", response,
                 usageSnapshot.promptTokens(), usageSnapshot.completionTokens(), usageSnapshot.totalTokens(), modelName);
-            consumeGiftTokensIfNecessary(currentTenantId, usageSnapshot.totalTokens());
+            aiQuotaService.consumeResolvedTokens(currentTenantId, "chat", usageSnapshot);
             updateSessionTime(sessionId);
 
             return response;
+        } catch (BusinessException e) {
+            saveMessage(sessionId, "assistant", e.getMsg());
+            updateSessionTime(sessionId);
+            return e.getMsg();
         } catch (Exception e) {
             String errorMsg = "抱歉，处理您的请求时发生错误。请稍后重试。";
             saveMessage(sessionId, "assistant", errorMsg);
+            updateSessionTime(sessionId);
             return errorMsg;
         } finally {
             // 非流式分支在 finally 清理当前会话的 AiContextHolder。
@@ -816,6 +840,8 @@ public class ChatServiceImpl implements IChatService {
             log.debug("知识库问题已由 askKnowledgeQuestion 兜底处理: sessionId={}, tenantId={}, responseLength={}",
                     sessionId, tenantId, askResponse.length());
             return askResponse;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("服务端前置处理知识库问题失败，将回退到通用聊天链路: sessionId={}, tenantId={}, error={}",
                     sessionId, tenantId, e.getMessage(), e);
@@ -836,107 +862,10 @@ public class ChatServiceImpl implements IChatService {
         if (!chatClientProvider.isApiKeyConfigured()) {
             return "请先在系统设置中配置 AI 服务，或切换到赠送额度模式。";
         }
-        if (chatClientProvider.isUsingGiftMode() && tenantId == null) {
-            return "当前租户信息缺失，暂时无法使用赠送额度。";
-        }
-        return null;
-    }
-
-    private String ensureGiftQuotaAvailable(Long tenantId) {
         if (tenantId == null) {
-            return "当前租户信息缺失，暂时无法使用赠送额度。";
-        }
-        if (tenantService.hasAvailableTokens(tenantId)) {
-            return null;
-        }
-        return "赠送 token 已用完，请配置 AI Key 或购买 AI 套餐后继续使用。";
-    }
-
-    private void consumeGiftTokensIfNecessary(Long tenantId, Integer totalTokens) {
-        if (!chatClientProvider.isUsingGiftMode() || tenantId == null || totalTokens == null || totalTokens <= 0) {
-            return;
-        }
-        tenantService.consumeTokens(tenantId, totalTokens.longValue());
-    }
-
-    private TokenUsageSnapshot resolveTokenUsage(Integer promptTokens, Integer completionTokens, Integer totalTokens,
-                                                 String systemPrompt, List<Message> history,
-                                                 String currentContent, String responseContent) {
-        int resolvedPromptTokens = promptTokens != null && promptTokens > 0
-                ? promptTokens
-                : estimatePromptTokens(systemPrompt, history, currentContent);
-        int resolvedCompletionTokens = completionTokens != null && completionTokens > 0
-                ? completionTokens
-                : estimateTokens(responseContent);
-        int resolvedTotalTokens = totalTokens != null && totalTokens > 0
-                ? totalTokens
-                : resolvedPromptTokens + resolvedCompletionTokens;
-
-        if ((totalTokens == null || totalTokens <= 0) && resolvedTotalTokens > 0) {
-            log.debug("模型未返回 usage，使用估算 token: prompt={}, completion={}, total={}",
-                    resolvedPromptTokens, resolvedCompletionTokens, resolvedTotalTokens);
-        }
-
-        return new TokenUsageSnapshot(resolvedPromptTokens, resolvedCompletionTokens, resolvedTotalTokens);
-    }
-
-    private int estimatePromptTokens(String systemPrompt, List<Message> history, String currentContent) {
-        int total = estimateTokens(systemPrompt);
-        if (history != null) {
-            for (Message message : history) {
-                total += estimateTokens(extractMessageContent(message)) + 4;
-            }
-        }
-        total += estimateTokens(currentContent);
-        return total;
-    }
-
-    private String extractMessageContent(Message message) {
-        if (message == null) {
-            return null;
-        }
-        try {
-            Object value = message.getClass().getMethod("getContent").invoke(message);
-            return value != null ? String.valueOf(value) : null;
-        } catch (Exception ignored) {
-        }
-        try {
-            Object value = message.getClass().getMethod("getText").invoke(message);
-            return value != null ? String.valueOf(value) : null;
-        } catch (Exception ignored) {
+            return "当前租户信息缺失，本次AI对话失败";
         }
         return null;
-    }
-
-    private int estimateTokens(String text) {
-        if (StrUtil.isBlank(text)) {
-            return 0;
-        }
-
-        int cjkChars = 0;
-        int otherChars = 0;
-        for (int i = 0; i < text.length(); i++) {
-            char current = text.charAt(i);
-            if (Character.isWhitespace(current)) {
-                continue;
-            }
-            if (isCjkCharacter(current)) {
-                cjkChars++;
-            } else {
-                otherChars++;
-            }
-        }
-
-        int estimated = cjkChars + (int) Math.ceil(otherChars / 4.0);
-        return Math.max(estimated, 1);
-    }
-
-    private boolean isCjkCharacter(char value) {
-        Character.UnicodeScript script = Character.UnicodeScript.of(value);
-        return script == Character.UnicodeScript.HAN
-                || script == Character.UnicodeScript.HIRAGANA
-                || script == Character.UnicodeScript.KATAKANA
-                || script == Character.UnicodeScript.HANGUL;
     }
 
     private String buildKnowledgeToolPrompt(boolean ragEnabled) {
@@ -961,8 +890,5 @@ public class ChatServiceImpl implements IChatService {
         }
         String normalized = text.replaceAll("\\s+", " ").trim();
         return normalized.length() > 120 ? normalized.substring(0, 120) + "..." : normalized;
-    }
-
-    private record TokenUsageSnapshot(int promptTokens, int completionTokens, int totalTokens) {
     }
 }

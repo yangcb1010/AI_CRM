@@ -756,6 +756,14 @@ public class WeKnoraClient {
                     if (!filteredChunks.isEmpty()) {
                         return filteredChunks;
                     }
+                    List<WeKnoraChunk> fallbackChunks = chunks.stream()
+                            .limit(maxCount)
+                            .toList();
+                    if (!fallbackChunks.isEmpty()) {
+                        log.info("WeKnora 鎼滅储缁撴灉鍏ㄩ儴浣庝簬闃堝€硷紝杩斿洖 TopN 鍏滃簳: threshold={}, rawCount={}, query={}",
+                                threshold, chunks.size(), abbreviateForLog(query));
+                        return fallbackChunks;
+                    }
                     return Collections.emptyList();
                 }
             }

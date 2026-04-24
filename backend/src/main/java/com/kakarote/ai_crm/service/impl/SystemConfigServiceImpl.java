@@ -80,6 +80,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     @Autowired
     private ICrmTenantService tenantService;
 
+    @Autowired
+    private AiQuotaService aiQuotaService;
+
     @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode}")
     private String defaultApiUrl;
 
@@ -283,6 +286,14 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         result.setProvider(descriptor.getCode());
 
         try {
+            String quotaFailureMessage = aiQuotaService.resolveQuotaFailureMessage("system_ai_test");
+            if (quotaFailureMessage != null) {
+                result.setSuccess(false);
+                result.setMessage(quotaFailureMessage);
+                result.setResponseTime(System.currentTimeMillis() - startTime);
+                return result;
+            }
+
             AiModelCapabilities capabilities = validateAiConfig(descriptor, configBO);
 
             ChatClient testClient = chatClientProvider.createTestChatClient(
@@ -296,10 +307,16 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                     capabilities
             );
 
-            String response = testClient.prompt()
+            var chatResponse = testClient.prompt()
                     .user("请只回复 OK")
                     .call()
-                    .content();
+                    .chatResponse();
+
+            String response = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "system_ai_test",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, "请只回复 OK", response)
+            );
 
             result.setSuccess(true);
             result.setMessage(response);
@@ -521,10 +538,7 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     }
 
     private boolean isAiReady(AiMode mode, String apiKey, long tokenRemaining) {
-        if (mode == AiMode.GIFT) {
-            return StrUtil.isNotBlank(apiKey) && tokenRemaining > 0;
-        }
-        return StrUtil.isNotBlank(apiKey);
+        return StrUtil.isNotBlank(apiKey) && tokenRemaining > 0;
     }
 
     private List<AiConfigVO.ProviderOptionVO> buildProviderOptions(Map<String, SavedProviderConfigSnapshot> savedProviderConfigs,

@@ -145,6 +145,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
     @Autowired
     private DynamicChatClientProvider chatClientProvider;
 
+    @Autowired
+    private AiQuotaService aiQuotaService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -241,6 +244,7 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         );
 
         try {
+            aiQuotaService.ensureQuotaAvailable("followup_parse", null, null, prompt);
             List<Media> mediaList = buildMediaList(parseBO.getAttachments(), capabilities);
             var requestSpec = chatClientProvider.getChatClient().prompt();
 
@@ -250,9 +254,16 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
                 requestSpec.user(prompt);
             }
 
-            String response = requestSpec.call().content();
+            var chatResponse = requestSpec.call().chatResponse();
+            String response = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "followup_parse",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
             log.info("AI follow-up parse raw response: {}", response);
             return parseAiResponse(response, parseBO.getContent(), now);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI follow-up parse failed, using fallback result", e);
             return buildFallbackResult(parseBO.getContent(), now);
@@ -799,19 +810,28 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
             """;
 
         try {
+            aiQuotaService.ensureQuotaAvailable("followup_attachment", null, null, prompt);
             Media media = AiMediaUtil.buildMedia(
                 fileStorageService,
                 attachment.getFilePath(),
                 MimeType.valueOf(StrUtil.blankToDefault(attachment.getMimeType(), "image/jpeg"))
             );
-            return StrUtil.blankToDefault(
-                chatClientProvider.getChatClient()
-                    .prompt()
-                    .user(user -> user.text(prompt).media(media))
-                    .call()
-                    .content(),
+            var chatResponse = chatClientProvider.getChatClient()
+                .prompt()
+                .user(user -> user.text(prompt).media(media))
+                .call()
+                .chatResponse();
+            String response = StrUtil.blankToDefault(
+                chatResponse.getResult().getOutput().getText(),
                 "图片内容较模糊，暂时无法形成有效分析。"
             ).trim();
+            aiQuotaService.consumeResolvedTokens(
+                "followup_attachment",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
+            return response;
+        } catch (BusinessException ex) {
+            throw ex;
         } catch (Exception ex) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "Image analysis failed, please try again later");
         }
@@ -854,10 +874,23 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
             """.formatted(fileName, limitText(content, MAX_ATTACHMENT_ANALYSIS_LENGTH));
 
         try {
-            return StrUtil.blankToDefault(
-                chatClientProvider.getChatClient().prompt().user(prompt).call().content(),
+            aiQuotaService.ensureQuotaAvailable("followup_attachment", null, null, prompt);
+            var chatResponse = chatClientProvider.getChatClient()
+                .prompt()
+                .user(prompt)
+                .call()
+                .chatResponse();
+            String response = StrUtil.blankToDefault(
+                chatResponse.getResult().getOutput().getText(),
                 "附件内容已读取，但暂时无法生成有效分析。"
             ).trim();
+            aiQuotaService.consumeResolvedTokens(
+                "followup_attachment",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
+            return response;
+        } catch (BusinessException ex) {
+            throw ex;
         } catch (Exception ex) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "Attachment analysis failed, please try again later");
         }

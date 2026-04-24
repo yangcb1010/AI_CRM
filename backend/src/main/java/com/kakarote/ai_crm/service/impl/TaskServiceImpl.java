@@ -62,6 +62,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
     @Autowired
     private CustomerMapper customerMapper;
 
+    @Autowired
+    private AiQuotaService aiQuotaService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final int HIGH_VALUE_THRESHOLD = 72;
@@ -847,14 +850,22 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         String prompt = String.format(AI_TASK_PARSE_PROMPT, now, parseBO.getContent());
 
         try {
-            String response = chatClientProvider.getChatClient()
+            aiQuotaService.ensureQuotaAvailable("task_parse", null, null, prompt);
+            var chatResponse = chatClientProvider.getChatClient()
                     .prompt()
                     .user(prompt)
                     .call()
-                    .content();
+                    .chatResponse();
+            String response = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "task_parse",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
 
             log.info("AI 任务解析原始响应: {}", response);
             return parseTaskAiResponse(response);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI 任务解析失败，返回默认值", e);
             return buildFallbackTaskResult(parseBO.getContent());

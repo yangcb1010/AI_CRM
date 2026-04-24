@@ -685,7 +685,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         CustomerAiReportVO report;
         String prompt = String.format(AI_CUSTOMER_REPORT_PROMPT_V2, buildCustomerAiReportContext(detail, recentFollowUps));
         try {
-            aiQuotaService.ensureQuotaAvailable("客户AI报告生成", null, null, prompt);
+            aiQuotaService.ensureQuotaAvailable("customer_report", null, null, prompt);
             var chatResponse = chatClientProvider.getChatClient()
                     .prompt()
                     .user(prompt)
@@ -693,7 +693,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                     .chatResponse();
             String response = chatResponse.getResult().getOutput().getText();
             aiQuotaService.consumeResolvedTokens(
-                "客户AI报告生成",
+                "customer_report",
                 aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
             );
             report = parseCustomerAiReportResponse(response, detail, recentFollowUps);
@@ -2576,7 +2576,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         String prompt = String.format(AI_CUSTOMER_PARSE_PROMPT, parseBO.getContent());
 
         try {
-            aiQuotaService.ensureQuotaAvailable("客户AI解析", null, null, prompt);
+            aiQuotaService.ensureQuotaAvailable("customer_parse", null, null, prompt);
             String response;
 
             if (StrUtil.isNotEmpty(parseBO.getImageObjectKey())) {
@@ -2596,7 +2596,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                         .chatResponse();
                 response = chatResponse.getResult().getOutput().getText();
                 aiQuotaService.consumeResolvedTokens(
-                    "客户AI解析",
+                    "customer_parse",
                     aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
                 );
             } else {
@@ -2608,7 +2608,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                         .chatResponse();
                 response = chatResponse.getResult().getOutput().getText();
                 aiQuotaService.consumeResolvedTokens(
-                    "客户AI解析",
+                    "customer_parse",
                     aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
                 );
             }
@@ -2640,7 +2640,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         String prompt = String.format(AI_CUSTOMER_SEARCH_PARSE_PROMPT, now, normalizedQuery);
 
         try {
-            aiQuotaService.ensureQuotaAvailable("客户AI搜索解析", null, null, prompt);
+            aiQuotaService.ensureQuotaAvailable("customer_search_parse", null, null, prompt);
             var chatResponse = chatClientProvider.getChatClient()
                 .prompt()
                 .user(prompt)
@@ -2648,12 +2648,14 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .chatResponse();
             String response = chatResponse.getResult().getOutput().getText();
             aiQuotaService.consumeResolvedTokens(
-                "客户AI搜索解析",
+                "customer_search_parse",
                 aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
             );
 
             log.info("AI 客户搜索解析原始响应: {}", response);
             return parseCustomerAiSearchResponse(response, normalizedQuery);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI 客户搜索解析失败", e);
             CustomerAiSearchQueryVO heuristicQuery = buildHeuristicSearchQuery(normalizedQuery);

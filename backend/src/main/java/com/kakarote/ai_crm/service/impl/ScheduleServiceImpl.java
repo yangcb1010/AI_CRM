@@ -69,6 +69,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
     @Autowired
     private AiCustomerMatcher aiCustomerMatcher;
 
+    @Autowired
+    private AiQuotaService aiQuotaService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String AI_SCHEDULE_PARSE_PROMPT = """
@@ -170,14 +173,22 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         String prompt = String.format(AI_SCHEDULE_PARSE_PROMPT, now, parseBO.getContent());
 
         try {
-            String response = chatClientProvider.getChatClient()
+            aiQuotaService.ensureQuotaAvailable("schedule_parse", null, null, prompt);
+            var chatResponse = chatClientProvider.getChatClient()
                     .prompt()
                     .user(prompt)
                     .call()
-                    .content();
+                    .chatResponse();
+            String response = chatResponse.getResult().getOutput().getText();
+            aiQuotaService.consumeResolvedTokens(
+                "schedule_parse",
+                aiQuotaService.resolveTokenUsage(chatResponse, null, null, prompt, response)
+            );
 
             log.info("AI 日程解析原始响应: {}", response);
             return parseScheduleAiResponse(response, parseBO.getContent());
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI 日程解析失败，返回默认结果", e);
             return buildFallbackScheduleResult(parseBO.getContent());
