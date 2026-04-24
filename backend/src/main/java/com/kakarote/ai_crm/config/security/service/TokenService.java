@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 @Slf4j
 public class TokenService {
-    private static final DateTimeFormatter KICKOUT_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter KICKOUT_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final long MILLIS_SECOND = 1000;
     private static final long MILLIS_MINUTE = 60 * MILLIS_SECOND;
     private static final long MILLIS_MINUTE_TEN = 1400 * 60 * 1000L;
@@ -250,7 +250,7 @@ public class TokenService {
     }
 
     private String buildKickoutMessage(String loginIp) {
-        String time = LocalTime.now().format(KICKOUT_TIME_FORMATTER);
+        String time = LocalDateTime.now().format(KICKOUT_TIME_FORMATTER);
         if (StrUtil.isBlank(loginIp)) {
             return "\u5f53\u524d\u7528\u6237\u4e8e" + time + "\u5728\u5176\u4ed6IP\u767b\u5f55\uff0c\u5f53\u524d\u767b\u5f55\u5df2\u88ab\u9000\u51fa";
         }

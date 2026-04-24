@@ -269,6 +269,134 @@ html, body, #app {
   border-color: rgba(19, 127, 236, 0.9) !important;
 }
 
+.account-kickout-dialog__overlay {
+  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.account-kickout-dialog.el-message-box {
+  width: 420px !important;
+  max-width: calc(100vw - 32px);
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 32px !important;
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.18) !important;
+  overflow: hidden;
+}
+
+.account-kickout-dialog .el-message-box__header {
+  display: none;
+}
+
+.account-kickout-dialog .el-message-box__content {
+  padding: 0 !important;
+}
+
+.account-kickout-dialog .el-message-box__container {
+  padding: 0 !important;
+}
+
+.account-kickout-dialog .el-message-box__message {
+  margin: 0 !important;
+}
+
+.account-kickout-dialog .el-message-box__btns {
+  padding: 0 32px 32px !important;
+  border-top: none !important;
+}
+
+.account-kickout-dialog__content {
+  padding: 34px 32px 26px;
+  text-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.account-kickout-dialog__icon-shell {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.account-kickout-dialog__icon-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #fff9e8 0%, #fff4d1 100%);
+}
+
+.account-kickout-dialog__icon {
+  font-size: 32px;
+  color: #f59e0b;
+}
+
+.account-kickout-dialog__title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.account-kickout-dialog__desc {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.account-kickout-dialog__info {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid #edf2f7;
+  border-radius: 18px;
+  background: #f8fbff;
+}
+
+.account-kickout-dialog__info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.account-kickout-dialog__info-row + .account-kickout-dialog__info-row {
+  margin-top: 10px;
+}
+
+.account-kickout-dialog__info-label {
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-kickout-dialog__info-value {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-all;
+}
+
+.account-kickout-dialog .el-button.account-kickout-dialog__confirm {
+  width: 100%;
+  height: 56px;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, #17213a 0%, #0f172a 100%) !important;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16) !important;
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+.account-kickout-dialog .el-button.account-kickout-dialog__confirm:hover {
+  background: linear-gradient(180deg, #1f2b4d 0%, #111c33 100%) !important;
+}
+
 .wk-markdown {
   color: inherit;
   line-height: 1.75;

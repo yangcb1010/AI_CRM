@@ -1,12 +1,20 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
+import { h } from 'vue'
 import type { Result } from '@/types/api'
 import router from '@/router'
 import { isRequestErrorHandled, markRequestErrorHandled } from '@/utils/requestError'
 
 const TOKEN_KEY = 'Manager-Token'
+const DEFAULT_NOT_LOGIN_MESSAGE = '登录已过期，请重新登录'
+const KICKOUT_NOTICE_PATTERN = /当前用户于(.+?)在其他IP(?:\((.+?)\))?登录，当前登录已被退出/
 
-/** 未配置、仅空白或显式空字符串时返回 ''，axios 将按相对当前页面的路径发请求 */
+type KickoutNotice = {
+  time: string
+  ip: string
+}
+
 export function getApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_BASE_URL
   if (typeof raw !== 'string') return ''
@@ -17,6 +25,7 @@ export function getApiBaseUrl(): string {
 
 let isRedirecting = false
 let isPermissionAlertVisible = false
+let isNotLoginAlertVisible = false
 let errorMessageTimer: ReturnType<typeof setTimeout> | null = null
 let pendingErrorMessage = ''
 
@@ -30,7 +39,6 @@ const service: AxiosInstance = axios.create({
   }
 })
 
-// 某些接口会在极短时间内连续抛出同一类错误，这里做一次短时间防重，避免重复 toast 干扰操作。
 function showErrorMessage(message?: string): void {
   pendingErrorMessage = typeof message === 'string' && message.trim() ? message.trim() : '请求失败'
 
@@ -44,21 +52,97 @@ function showErrorMessage(message?: string): void {
   }, ERROR_MESSAGE_DEBOUNCE_MS)
 }
 
+function parseKickoutNotice(message: string): KickoutNotice | null {
+  const match = message.trim().match(KICKOUT_NOTICE_PATTERN)
+  if (!match) {
+    return null
+  }
+
+  return {
+    time: match[1]?.trim() || '--',
+    ip: match[2]?.trim() || '--'
+  }
+}
+
+function shouldShowLoginNoticeDialog(message: string): boolean {
+  return message.includes('当前登录已被退出')
+}
+
+function buildKickoutDialogMessage(message: string) {
+  const notice = parseKickoutNotice(message)
+
+  const buildInfoRow = (label: string, value: string) =>
+    h('div', { class: 'account-kickout-dialog__info-row' }, [
+      h('span', { class: 'account-kickout-dialog__info-label' }, label),
+      h('span', { class: 'account-kickout-dialog__info-value' }, value || '--')
+    ])
+
+  return h('div', { class: 'account-kickout-dialog__content' }, [
+    h('div', { class: 'account-kickout-dialog__icon-shell' }, [
+      h('div', { class: 'account-kickout-dialog__icon-ring' }, [
+        h(WarningFilled, { class: 'account-kickout-dialog__icon' })
+      ])
+    ]),
+    h('h3', { class: 'account-kickout-dialog__title' }, '账号下线通知'),
+    h(
+      'p',
+      { class: 'account-kickout-dialog__desc' },
+      '您的账号已在其他设备登录。如非本人操作，请及时修改密码。'
+    ),
+    h('div', { class: 'account-kickout-dialog__info' }, [
+      buildInfoRow('下线时间', notice?.time || '--'),
+      buildInfoRow('异地 IP', notice?.ip || '--')
+    ])
+  ])
+}
+
 function handleNotLogin(message?: string): Promise<never> {
+  const resolvedMessage =
+    typeof message === 'string' && message.trim() ? message.trim() : DEFAULT_NOT_LOGIN_MESSAGE
+
   if (!isRedirecting) {
     isRedirecting = true
-    showErrorMessage(message || '登录已过期，请重新登录')
     localStorage.removeItem(TOKEN_KEY)
 
     const currentPath = router.currentRoute.value.fullPath
-    router.push({
-      path: '/login',
-      query: currentPath !== '/' && currentPath !== '/login' ? { redirect: currentPath } : {}
-    }).finally(() => {
-      isRedirecting = false
-    })
+    const redirectToLogin = () =>
+      router
+        .push({
+          path: '/login',
+          query: currentPath !== '/' && currentPath !== '/login' ? { redirect: currentPath } : {}
+        })
+        .finally(() => {
+          isRedirecting = false
+        })
+
+    if (shouldShowLoginNoticeDialog(resolvedMessage)) {
+      if (!isNotLoginAlertVisible) {
+        isNotLoginAlertVisible = true
+        ElMessageBox({
+          title: '',
+          message: buildKickoutDialogMessage(resolvedMessage),
+          customClass: 'account-kickout-dialog',
+          modalClass: 'account-kickout-dialog__overlay',
+          showClose: false,
+          closeOnClickModal: false,
+          closeOnPressEscape: false,
+          closeOnHashChange: false,
+          showCancelButton: false,
+          confirmButtonText: '重新登录',
+          confirmButtonClass: 'account-kickout-dialog__confirm',
+          autofocus: false
+        }).finally(() => {
+          isNotLoginAlertVisible = false
+          void redirectToLogin()
+        })
+      }
+    } else {
+      showErrorMessage(resolvedMessage)
+      void redirectToLogin()
+    }
   }
-  return Promise.reject(markRequestErrorHandled(new Error(message || '认证失败')))
+
+  return Promise.reject(markRequestErrorHandled(new Error(resolvedMessage || '认证失败')))
 }
 
 function handleNoPermission(message?: string): Promise<never> {
@@ -107,13 +191,10 @@ service.interceptors.response.use(
       return handleNoPermission(res.msg)
     }
 
-    // 业务失败通常仍返回 200，这里主动转成 rejected，交给调用方按错误流处理。
     showErrorMessage(res.msg || '请求失败')
     return Promise.reject(markRequestErrorHandled(new Error(res.msg || '请求失败')))
   },
   (error) => {
-    // response 分支里手动 reject 的错误会继续沿拦截器链向后传递；
-    // 已经弹过提示的错误直接放行，避免再次进入通用错误提示。
     if (isRequestErrorHandled(error)) {
       return Promise.reject(error)
     }
