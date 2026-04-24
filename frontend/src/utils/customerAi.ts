@@ -60,3 +60,20 @@ export function getCustomerAiStatusMeta(value?: string | null): CustomerAiStatus
   return CUSTOMER_AI_STATUS_META[status]
 }
 
+export function compactCustomerAiInsight(value?: string | null, maxLength = 76): string {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  if (normalized.length <= maxLength) return normalized
+
+  const sentences = normalized.match(/[^。！？!?；;]+[。！？!?；;]?/g) || []
+  let result = ''
+  for (const sentence of sentences) {
+    const part = sentence.trim()
+    if (!part) continue
+    if (result && result.length + part.length > maxLength) break
+    if (!result && part.length > maxLength) return `${part.slice(0, maxLength)}...`
+    result += part
+  }
+
+  return result || `${normalized.slice(0, maxLength)}...`
+}

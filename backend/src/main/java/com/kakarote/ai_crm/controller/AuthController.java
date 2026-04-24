@@ -86,6 +86,7 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "用户登录")
     public Result<LoginResponseVO> login(@Valid @RequestBody LoginUserBO loginUserBO,
+                                         HttpServletRequest request,
                                          HttpServletResponse response) {
         String username = StrUtil.trim(loginUserBO.getUsername());
         String password = StrUtil.trim(loginUserBO.getPassword());
@@ -139,7 +140,7 @@ public class AuthController {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "当前企业下存在重复账号，请联系管理员处理");
         }
 
-        return Result.ok(buildLoginSuccessResponse(enabledUsers.get(0), response));
+        return Result.ok(buildLoginSuccessResponse(enabledUsers.get(0), request, response));
     }
 
     @PostMapping("/logout")
@@ -204,11 +205,13 @@ public class AuthController {
         return user != null && Integer.valueOf(1).equals(user.getStatus());
     }
 
-    private LoginResponseVO buildLoginSuccessResponse(ManagerUser user, HttpServletResponse response) {
+    private LoginResponseVO buildLoginSuccessResponse(ManagerUser user,
+                                                      HttpServletRequest request,
+                                                      HttpServletResponse response) {
         LoginUser loginUser = new LoginUser();
         loginUser.setUser(user);
 
-        String token = tokenService.createToken(loginUser);
+        String token = tokenService.createToken(loginUser, tokenService.resolveLoginIp(request));
         String sessionId = oidcService.createSession(loginUser);
         ResponseCookie sessionCookie = ResponseCookie.from(oidcConfig.getSessionCookie(), sessionId)
                 .httpOnly(true)

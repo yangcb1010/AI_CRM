@@ -412,32 +412,6 @@
                 </template>
               </AiParseInsightSidebar>
 
-              <section
-                v-if="latestAiReport?.aiStatusDetection || latestAiReport?.aiInsight || customer.aiStatusDetection || customer.aiInsight"
-                class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-              >
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-base text-primary">auto_awesome</span>
-                  <h4 class="text-xs font-bold uppercase tracking-widest text-slate-500">{{ aiReportSummaryTitle }}</h4>
-                </div>
-                <div class="mt-3">
-                  <span
-                    v-if="getAiStatusMeta(latestAiReport?.aiStatusDetection || customer.aiStatusDetection)"
-                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold shadow-sm"
-                    :class="getAiStatusMeta(latestAiReport?.aiStatusDetection || customer.aiStatusDetection)?.badgeClass"
-                  >
-                    <span class="size-1.5 rounded-full mr-1.5" :class="getAiStatusMeta(latestAiReport?.aiStatusDetection || customer.aiStatusDetection)?.dotClass"></span>
-                    {{ getAiStatusMeta(latestAiReport?.aiStatusDetection || customer.aiStatusDetection)?.label }}
-                  </span>
-                  <p
-                    v-else
-                    class="text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words"
-                  >{{ latestAiReport?.aiStatusDetection || customer.aiStatusDetection }}</p>
-                </div>
-                <p class="mt-3 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">
-                  {{ latestAiReport?.aiInsight || customer.aiInsight }}
-                </p>
-              </section>
             </section>
           </div>
 
@@ -1073,6 +1047,30 @@
           </div>
 
           <div class="space-y-5">
+            <section
+              v-if="currentAiReportVisible"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+            >
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-base text-primary">auto_awesome</span>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ aiReportSummaryTitle }}</p>
+              </div>
+              <div v-if="currentAiStatusDetection" class="mt-3">
+                <span
+                  v-if="getAiStatusMeta(currentAiStatusDetection)"
+                  class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold shadow-sm"
+                  :class="getAiStatusMeta(currentAiStatusDetection)?.badgeClass"
+                >
+                  <span class="size-1.5 rounded-full mr-1.5" :class="getAiStatusMeta(currentAiStatusDetection)?.dotClass"></span>
+                  {{ getAiStatusMeta(currentAiStatusDetection)?.label }}
+                </span>
+                <p v-else class="text-sm leading-6 text-slate-700">{{ currentAiStatusDetection }}</p>
+              </div>
+              <p class="mt-3 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">
+                {{ currentAiInsight || '暂无 AI 报告摘要' }}
+              </p>
+            </section>
+
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">公司全称</p>
               <p class="text-sm text-slate-900 font-medium">{{ customer.companyName }}</p>
@@ -1241,7 +1239,7 @@ import { ElMessage, ElMessageBox, UploadRequestOptions } from 'element-plus'
 import type { Knowledge, Task, TaskAddBO, TaskStatus } from '@/types/common'
 import type { Contact, CustomerAiReportVO, CustomerTag, FollowUp, FollowUpAddBO, FollowUpTask, FollowUpUpdateBO } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
-import { getCustomerAiStatusMeta } from '@/utils/customerAi'
+import { compactCustomerAiInsight, getCustomerAiStatusMeta } from '@/utils/customerAi'
 import { formatCustomFieldValue as formatCustomFieldDisplayValue } from '@/utils/customFieldDisplay'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import FollowUpUpsertDialog from '@/components/customer/FollowUpUpsertDialog.vue'
@@ -1483,27 +1481,34 @@ function applyPrimaryContactLocally(contactId: string) {
 }
 
 const primaryContact = computed(() => contacts.value.find(contact => isPrimaryContact(contact)) || contacts.value[0] || null)
+const currentAiStatusDetection = computed(() => (latestAiReport.value?.aiStatusDetection || customer.value?.aiStatusDetection || '').trim())
+const currentAiInsight = computed(() => compactCustomerAiInsight(latestAiReport.value?.aiInsight || customer.value?.aiInsight))
+const currentAiReportVisible = computed(() => !!currentAiStatusDetection.value || !!currentAiInsight.value)
 const savedAiParseResult = computed<CustomerAiParseVO | null>(() => {
-  const fullInsight = (latestAiReport.value?.aiInsight || customer.value?.aiInsight || '').trim()
   const snapshot = customer.value?.aiParseSnapshot
 
   if (!snapshot) {
-    return fullInsight ? { summary: fullInsight } : null
+    return null
   }
 
   try {
     const parsed = JSON.parse(snapshot)
     if (!parsed || typeof parsed !== 'object') {
-      return fullInsight ? { summary: fullInsight } : null
+      return null
     }
 
     const snapshotResult = parsed as CustomerAiParseVO
-    return {
+    const sidebarResult = {
       ...snapshotResult,
-      summary: fullInsight || snapshotResult.summary
+      summary: undefined
     }
+    const hasSidebarContent = sidebarResult.score != null
+      || !!sidebarResult.nextStep
+      || (sidebarResult.tags?.length || 0) > 0
+      || (sidebarResult.keyPoints?.length || 0) > 0
+    return hasSidebarContent ? sidebarResult : null
   } catch {
-    return fullInsight ? { summary: fullInsight } : null
+    return null
   }
 })
 const aiAnalysisStatus = computed(() => customer.value?.aiAnalysisStatus || '')

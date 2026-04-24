@@ -187,13 +187,13 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         你是一位资深 CRM 销售分析师。请基于下面的客户资料，生成客户 AI 分析报告，并严格返回 JSON：
         {
           "aiStatusDetection": "只能是 高意向、活跃状态、需跟进、休眠 之一",
-          "aiInsight": "120-220字，输出客户需求判断、决策链判断、推进建议和风险提醒"
+          "aiInsight": "40-70字，输出一句短摘要：阶段/沟通状态/需求/联系人 + 建议 + 风险提醒"
         }
 
         要求：
         1. 使用中文。
         2. aiStatusDetection 只能返回以下四个值之一：高意向、活跃状态、需跟进、休眠。
-        3. aiInsight 要具体、可执行，适合在客户详情中长期保存；列表中会展示其摘要。
+        3. aiInsight 是列表和客户基本信息中的摘要，不要写长段落；参考格式：线索阶段，未沟通，需求不明，无联系人。建议尽快触达并完善信息，避免流失。
         4. 只返回 JSON，不要返回 Markdown、代码块或额外说明。
 
         客户资料：
@@ -1130,32 +1130,72 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
 
     private CustomerAiReportVO buildFallbackCustomerAiReportV2(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         CustomerAiReportVO report = new CustomerAiReportVO();
-        String stageLabel = getStageLabel(detail.getStage());
         String aiStatus = inferAiStatusDetection(detail, recentFollowUps);
-        FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
 
         report.setAiStatusDetection(aiStatus);
-
-        List<String> insightParts = new ArrayList<>();
-        insightParts.add("客户行业为" + StrUtil.blankToDefault(detail.getIndustry(), "未明确") + "，当前处于" + stageLabel + "阶段，AI状态探测为" + aiStatus + "。");
-        if (detail.getContacts() != null && !detail.getContacts().isEmpty()) {
-            ContactVO primaryContact = detail.getContacts().stream()
-                    .filter(contact -> contact.getIsPrimary() != null && contact.getIsPrimary() == 1)
-                    .findFirst()
-                    .orElse(detail.getContacts().get(0));
-            insightParts.add("当前主要联系人为" + StrUtil.blankToDefault(primaryContact.getName(), "未明确")
-                    + "，建议围绕其职责进一步确认需求与决策节奏。");
-        } else {
-            insightParts.add("当前联系人信息较少，建议优先补齐关键决策人和业务使用方。");
-        }
-        if (latestFollowUp != null && StrUtil.isNotBlank(latestFollowUp.getContent())) {
-            insightParts.add("最近一次跟进显示：" + truncateText(latestFollowUp.getContent(), 70) + "。");
-        } else if (StrUtil.isNotBlank(detail.getRemark())) {
-            insightParts.add("现有备注显示：" + truncateText(detail.getRemark(), 70) + "。");
-        }
-        insightParts.add(buildAiInsightSuggestion(aiStatus));
-        report.setAiInsight(String.join("", insightParts));
+        report.setAiInsight(buildCompactAiInsight(detail, recentFollowUps, aiStatus));
         return report;
+    }
+
+    private String buildCompactAiInsight(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps, String aiStatus) {
+        FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
+        boolean hasContact = detail.getContacts() != null && !detail.getContacts().isEmpty();
+        boolean demandUnknown = detail.getQuotation() == null
+                && (latestFollowUp == null || StrUtil.isBlank(latestFollowUp.getContent()))
+                && StrUtil.isBlank(detail.getRemark());
+
+        String summary = buildStagePhrase(detail.getStage()) + "，"
+                + buildCommunicationPhrase(detail, latestFollowUp) + "，"
+                + buildDemandPhrase(detail, latestFollowUp) + "，"
+                + (hasContact ? "联系人已明确" : "无联系人") + "。"
+                + buildCompactAiInsightSuggestion(aiStatus, hasContact, demandUnknown);
+        return compactAiReportText(summary);
+    }
+
+    private String buildStagePhrase(String stage) {
+        String stageLabel = getStageLabel(stage);
+        return stageLabel.endsWith("阶段") ? stageLabel : stageLabel + "阶段";
+    }
+
+    private String buildCommunicationPhrase(CustomerDetailVO detail, FollowUpVO latestFollowUp) {
+        long daysSinceLastContact = getDaysSinceNow(detail.getLastContactTime());
+        long daysSinceLatestFollowUp = latestFollowUp != null && latestFollowUp.getFollowTime() != null
+                ? getDaysSinceNow(latestFollowUp.getFollowTime())
+                : Long.MAX_VALUE;
+        long daysSinceCommunication = Math.min(daysSinceLastContact, daysSinceLatestFollowUp);
+        if (daysSinceCommunication <= 7) {
+            return "近期已沟通";
+        }
+        if (daysSinceCommunication <= 30 || latestFollowUp != null) {
+            return "已沟通";
+        }
+        if (daysSinceCommunication < Long.MAX_VALUE) {
+            return "沟通间隔较长";
+        }
+        return "未沟通";
+    }
+
+    private String buildDemandPhrase(CustomerDetailVO detail, FollowUpVO latestFollowUp) {
+        if (detail.getQuotation() != null) {
+            return "预算初步明确";
+        }
+        if ((latestFollowUp != null && StrUtil.isNotBlank(latestFollowUp.getContent()))
+                || StrUtil.isNotBlank(detail.getRemark())) {
+            return "需求待确认";
+        }
+        return "需求不明";
+    }
+
+    private String buildCompactAiInsightSuggestion(String aiStatus, boolean hasContact, boolean demandUnknown) {
+        if (!hasContact || demandUnknown) {
+            return "建议尽快触达并完善信息，避免流失。";
+        }
+        return switch (aiStatus) {
+            case "高意向" -> "建议尽快确认成交条件，推动下一步商务动作。";
+            case "活跃状态" -> "建议保持沟通节奏并明确下次行动，避免热度回落。";
+            case "休眠" -> "建议评估沉默原因并重新激活，避免继续流失。";
+            default -> "建议尽快安排明确跟进，避免商机降温。";
+        };
     }
 
     private String normalizeAiStatusDetection(String value, CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
@@ -1263,9 +1303,38 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         if (StrUtil.isBlank(value)) {
             return null;
         }
-        return StrUtil.trim(value)
-                .replace("\r\n", "\n")
-                .replace('\r', '\n');
+        return compactAiReportText(value);
+    }
+
+    private String compactAiReportText(String value) {
+        String normalized = StrUtil.trimToEmpty(value)
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .replaceAll("\\s+", " ");
+        int maxLength = 76;
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+
+        String[] sentences = normalized.split("(?<=[。！？!?；;])");
+        StringBuilder builder = new StringBuilder();
+        for (String sentence : sentences) {
+            String part = StrUtil.trim(sentence);
+            if (StrUtil.isBlank(part)) {
+                continue;
+            }
+            if (builder.length() > 0 && builder.length() + part.length() > maxLength) {
+                break;
+            }
+            if (builder.length() == 0 && part.length() > maxLength) {
+                return part.substring(0, maxLength) + "...";
+            }
+            builder.append(part);
+        }
+        if (builder.length() > 0) {
+            return builder.toString();
+        }
+        return normalized.substring(0, maxLength) + "...";
     }
 
     private String formatNullableDateTime(Date value) {

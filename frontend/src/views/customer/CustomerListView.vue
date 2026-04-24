@@ -243,7 +243,7 @@
                         >
                           <template #content>
                             <div class="wk-ai-insight-tooltip__content">
-                              {{ row.aiInsight }}
+                              {{ getAiInsightPreview(row.aiInsight) }}
                             </div>
                           </template>
                           <p class="wk-ai-insight-text text-sm text-slate-600">
@@ -528,7 +528,7 @@ import CustomerImportDialog from '@/views/customer/components/CustomerImportDial
 import CustomerInsightSidebar from '@/views/customer/components/CustomerInsightSidebar.vue'
 import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDialog.vue'
 import { appEvents, APP_EVENT } from '@/utils/events'
-import { getCustomerAiStatusMeta } from '@/utils/customerAi'
+import { compactCustomerAiInsight, getCustomerAiStatusMeta } from '@/utils/customerAi'
 import { formatCustomFieldValue, getCustomFieldCheckboxState } from '@/utils/customFieldDisplay'
 
 const router = useRouter()
@@ -1013,8 +1013,7 @@ function getAiStatusMeta(value: string | undefined | null) {
 }
 
 function getAiInsightPreview(value: string | undefined | null): string {
-  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
-  return normalized || '-'
+  return compactCustomerAiInsight(value) || '-'
 }
 
 function getPinnedFieldOrder(fieldName: string): number {

@@ -27,19 +27,20 @@ public class IndexController {
 
     @GetMapping(path = {"/", "/index"})
     public void index(HttpServletResponse response) throws Exception {
-        String base_path = SystemUtil.get("BASE_PATH", "/");
-        response.sendRedirect(base_path + "index.html");
+        String basePath = SystemUtil.get("BASE_PATH", "/");
+        response.sendRedirect(basePath + "index.html");
     }
 
     /**
-     * 调用spring-security退出方法
+     * 调用 spring-security 退出方法
      */
     @PostMapping("/logout")
     @Operation(summary = "退出")
     public Result<String> logout(HttpServletRequest request) {
         LoginUser loginUser = tokenService.getLoginUser(request);
-        tokenService.delLoginUser(loginUser.getToken());
+        if (loginUser != null) {
+            tokenService.delLoginUser(loginUser.getToken());
+        }
         return Result.ok();
     }
-
 }
