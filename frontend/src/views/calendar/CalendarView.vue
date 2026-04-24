@@ -22,7 +22,7 @@
               >{{ mode.label }}</button>
             </div>
             <button
-              @click="showAddDialog = true"
+              @click="openCreateScheduleDialog"
               class="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2"
             >
               <span class="material-symbols-outlined wk-plus-button-icon">add</span>
@@ -253,7 +253,8 @@
       v-if="!isMobile"
       v-model="showScheduleDetailDrawer"
       :schedule="selectedEvent"
-      @deleted="loadSchedules"
+      @edit="handleEditScheduleFromDetail"
+      @deleted="handleScheduleDeleted"
     />
 
     <TaskDetailDrawer
@@ -285,7 +286,9 @@
 
     <ScheduleFormDialog
       v-model="showAddDialog"
-      @created="loadSchedules"
+      :editing-schedule="editingSchedule"
+      @created="handleScheduleCreated"
+      @updated="handleScheduleUpdated"
     />
   </div>
 </template>
@@ -343,6 +346,7 @@ const showCalendarTaskDetail = computed({
 
 const viewMode = ref<'grid' | 'month' | 'list'>('grid')
 const selectedEvent = ref<ScheduleVO | null>(null)
+const editingSchedule = ref<ScheduleVO | null>(null)
 const selectedTask = ref<Task | null>(null)
 const schedules = ref<ScheduleVO[]>([])
 const tasks = ref<Task[]>([])
@@ -399,6 +403,7 @@ const todayTaskCount = computed(() => {
 async function loadSchedules() {
   try {
     schedules.value = await getMySchedules('all')
+    syncSelectedSchedule()
   } catch (e) {
     console.error('加载日程失败', e)
   }
@@ -504,6 +509,11 @@ function syncSelectedTask() {
   selectedTask.value = tasks.value.find(task => task.taskId === selectedTask.value?.taskId) || null
 }
 
+function syncSelectedSchedule() {
+  if (!selectedEvent.value) return
+  selectedEvent.value = schedules.value.find(schedule => schedule.scheduleId === selectedEvent.value?.scheduleId) || null
+}
+
 function formatDueDate(dueDate: string): string {
   if (!dueDate) return ''
   const d = new Date(dueDate)
@@ -511,6 +521,36 @@ function formatDueDate(dueDate: string): string {
 }
 
 const showAddDialog = ref(false)
+
+watch(showAddDialog, value => {
+  if (!value) {
+    editingSchedule.value = null
+  }
+})
+
+function openCreateScheduleDialog() {
+  editingSchedule.value = null
+  showAddDialog.value = true
+}
+
+function handleEditScheduleFromDetail(schedule: ScheduleVO) {
+  editingSchedule.value = schedule
+  showAddDialog.value = true
+}
+
+async function handleScheduleCreated() {
+  await loadSchedules()
+}
+
+async function handleScheduleUpdated(scheduleId: string) {
+  await loadSchedules()
+  selectedEvent.value = schedules.value.find(schedule => schedule.scheduleId === scheduleId) || selectedEvent.value
+}
+
+async function handleScheduleDeleted() {
+  await loadSchedules()
+  selectedEvent.value = null
+}
 
 async function searchCustomers(query: string) {
   if (!query) {

@@ -18,6 +18,16 @@
         <div class="flex items-center gap-2">
           <button
             :disabled="deleting"
+            class="size-9 rounded-full text-slate-400 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+            type="button"
+            aria-label="编辑日程"
+            title="编辑日程"
+            @click="handleEditSchedule"
+          >
+            <span class="material-symbols-outlined text-[18px] leading-none">edit</span>
+          </button>
+          <button
+            :disabled="deleting"
             class="size-9 rounded-full text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
             type="button"
             aria-label="删除日程"
@@ -140,6 +150,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
+  (e: 'edit', schedule: ScheduleVO): void
   (e: 'deleted', scheduleId: string): void
 }>()
 
@@ -180,6 +191,11 @@ function handleGoToCustomerDetail() {
   if (!props.schedule?.customerId) return
   const href = router.resolve({ path: `/customer/${props.schedule.customerId}` }).href
   window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+function handleEditSchedule() {
+  if (!props.schedule || deleting.value) return
+  emit('edit', props.schedule)
 }
 
 async function handleDeleteSchedule() {

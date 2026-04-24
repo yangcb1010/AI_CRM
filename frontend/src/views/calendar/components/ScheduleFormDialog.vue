@@ -15,8 +15,8 @@
             <span class="material-symbols-outlined text-[22px] text-primary">calendar_month</span>
           </div>
           <div>
-            <h2 class="text-lg font-bold text-slate-900">新增日程</h2>
-            <p class="text-xs text-slate-500 mt-0.5">手动填写更高效，也支持 AI 智能解析</p>
+            <h2 class="text-lg font-bold text-slate-900">{{ isEdit ? '编辑日程' : '新增日程' }}</h2>
+            <p class="text-xs text-slate-500 mt-0.5">{{ isEdit ? '调整日程信息，保存后同步日程安排' : '手动填写更高效，也支持 AI 智能解析' }}</p>
           </div>
         </div>
         <button
@@ -210,7 +210,7 @@
           type="button"
           @click="handleSaveSchedule"
         >
-          {{ saving ? '保存中...' : '确认创建' }}
+          {{ saving ? '保存中...' : (isEdit ? '确认更新' : '确认创建') }}
         </button>
       </div>
     </template>
@@ -225,9 +225,12 @@ import { queryCustomerList } from '@/api/customer'
 import {
   addSchedule,
   aiParseSchedule,
+  updateSchedule,
   type ScheduleAddBO,
   type ScheduleAiParseVO,
-  type ScheduleParticipantUser
+  type ScheduleParticipantUser,
+  type ScheduleUpdateBO,
+  type ScheduleVO
 } from '@/api/schedule'
 import WkIcon from '@/components/common/WkIcon.vue'
 import { useResponsive } from '@/composables/useResponsive'
@@ -243,17 +246,20 @@ type ScheduleFormState = {
   endTime: string
   type: string
   customerId: string
+  contactId: string
   location: string
   description: string
 }
 
 const props = defineProps<{
   modelValue: boolean
+  editingSchedule?: ScheduleVO | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'created'): void
+  (e: 'updated', scheduleId: string): void
 }>()
 
 const { isMobile } = useResponsive()
@@ -265,6 +271,7 @@ function createDefaultFormState(): ScheduleFormState {
     endTime: '',
     type: 'meeting',
     customerId: '',
+    contactId: '',
     location: '',
     description: ''
   }
@@ -286,6 +293,8 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 })
 
+const isEdit = computed(() => !!props.editingSchedule?.scheduleId)
+
 const canSave = computed(() =>
   !!scheduleForm.title.trim() && !!scheduleForm.startTime && !saving.value
 )
@@ -293,8 +302,19 @@ const canSave = computed(() =>
 watch(
   () => props.modelValue,
   value => {
-    if (!value) {
+    if (value) {
+      initScheduleForm()
+    } else {
       resetScheduleForm()
+    }
+  }
+)
+
+watch(
+  () => props.editingSchedule?.scheduleId,
+  () => {
+    if (visible.value) {
+      initScheduleForm()
     }
   }
 )
@@ -306,6 +326,38 @@ function resetScheduleForm() {
   selectedParticipantUserIds.value = []
   customerOptions.value = []
   userOptions.value = []
+}
+
+function initScheduleForm() {
+  resetScheduleForm()
+  const schedule = props.editingSchedule
+  if (!schedule) return
+
+  Object.assign(scheduleForm, {
+    title: schedule.title || '',
+    startTime: parseAiDateTime(schedule.startTime) || schedule.startTime || '',
+    endTime: schedule.endTime ? (parseAiDateTime(schedule.endTime) || schedule.endTime) : '',
+    type: normalizeScheduleType(schedule.type),
+    customerId: schedule.customerId ? String(schedule.customerId) : '',
+    contactId: schedule.contactId ? String(schedule.contactId) : '',
+    location: schedule.location || '',
+    description: schedule.description || ''
+  })
+
+  if (schedule.customerId) {
+    customerOptions.value = [{
+      value: String(schedule.customerId),
+      label: schedule.customerName || String(schedule.customerId)
+    }]
+  }
+
+  if (schedule.participantUsers?.length) {
+    const options = schedule.participantUsers.map(user => buildUserOption(user))
+    mergeUserOptions(options)
+    selectedParticipantUserIds.value = schedule.participantUsers.map(user => String(user.userId))
+  } else if (schedule.participantUserIds?.length) {
+    selectedParticipantUserIds.value = schedule.participantUserIds.map(userId => String(userId))
+  }
 }
 
 function normalizeScheduleType(type?: string): string {
@@ -498,7 +550,7 @@ async function handleAiParse() {
     if (participantAiWarning.value) {
       ElMessage.warning('部分参与人未匹配到系统员工，请手动确认')
     } else {
-      ElMessage.success('智能解析完成，请确认后再创建')
+      ElMessage.success(`智能解析完成，请确认后再${isEdit.value ? '保存' : '创建'}`)
     }
   } catch (error) {
     console.error('AI 解析日程失败', error)
@@ -526,17 +578,28 @@ async function handleSaveSchedule() {
       endTime,
       type: scheduleForm.type,
       customerId: scheduleForm.customerId || undefined,
+      contactId: scheduleForm.contactId || undefined,
       location: scheduleForm.location || undefined,
       description: scheduleForm.description || undefined,
       participantUserIds: selectedParticipantUserIds.value.length ? selectedParticipantUserIds.value : undefined
     }
 
-    await addSchedule(data)
-    ElMessage.success('日程创建成功')
-    emit('created')
+    if (isEdit.value && props.editingSchedule) {
+      const updateData: ScheduleUpdateBO = {
+        scheduleId: props.editingSchedule.scheduleId,
+        ...data
+      }
+      await updateSchedule(updateData)
+      ElMessage.success('日程更新成功')
+      emit('updated', props.editingSchedule.scheduleId)
+    } else {
+      await addSchedule(data)
+      ElMessage.success('日程创建成功')
+      emit('created')
+    }
     visible.value = false
   } catch (error) {
-    console.error('Create schedule failed:', error)
+    console.error(`${isEdit.value ? 'Update' : 'Create'} schedule failed:`, error)
   } finally {
     saving.value = false
   }

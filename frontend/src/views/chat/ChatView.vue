@@ -172,7 +172,7 @@
               <div
                 v-for="message in chatStore.messages"
                 :key="message.id"
-                class="max-w-3xl mx-auto message-enter"
+                class="w-full max-w-4xl mx-auto message-enter"
               >
                 <div
                   v-if="getDocumentAttachments(message).length > 0"

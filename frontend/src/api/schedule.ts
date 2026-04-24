@@ -40,6 +40,10 @@ export interface ScheduleAddBO {
   participantUserIds?: string[]
 }
 
+export interface ScheduleUpdateBO extends ScheduleAddBO {
+  scheduleId: string
+}
+
 export interface ScheduleQueryBO {
   scheduleId?: string
   keyword?: string
@@ -71,6 +75,13 @@ export interface ScheduleAiParseVO {
  */
 export function addSchedule(data: ScheduleAddBO): Promise<string> {
   return post('/schedule/add', data)
+}
+
+/**
+ * 更新日程
+ */
+export function updateSchedule(data: ScheduleUpdateBO): Promise<void> {
+  return post('/schedule/update', data)
 }
 
 /**
