@@ -6,6 +6,7 @@ import com.kakarote.ai_crm.entity.BO.CustomerAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerAiParseBO;
 import com.kakarote.ai_crm.entity.BO.CustomerAiSearchParseBO;
 import com.kakarote.ai_crm.entity.BO.CustomerExportBO;
+import com.kakarote.ai_crm.entity.BO.CustomerFieldUpdateBO;
 import com.kakarote.ai_crm.entity.BO.CustomerImportBO;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
 import com.kakarote.ai_crm.entity.BO.CustomerTransferBO;
@@ -32,6 +33,8 @@ public interface ICustomerService extends IService<Customer> {
     Long addCustomer(CustomerAddBO customerAddBO);
 
     void updateCustomer(CustomerUpdateBO customerUpdateBO);
+
+    CustomerDetailVO updateCustomerField(CustomerFieldUpdateBO fieldUpdateBO);
 
     void deleteCustomer(Long customerId);
 

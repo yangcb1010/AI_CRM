@@ -393,6 +393,30 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateCustomFieldValue(String entityType, Long entityId, String fieldName, Object value) {
+        if (entityId == null || StrUtil.isBlank(fieldName)) {
+            return;
+        }
+
+        CustomFieldVO field = getEnabledCustomFieldVOs(entityType).stream()
+                .filter(item -> fieldName.equals(item.getFieldName()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Custom field not found"));
+
+        String tableName = dynamicSchemaService.getTableName(entityType);
+        String idColumn = dynamicSchemaService.getIdColumnName(entityType);
+        if (!dynamicSchemaService.columnExists(tableName, field.getColumnName())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Custom field column not found");
+        }
+
+        Object jdbcValue = "".equals(value) ? null : convertValueForJdbc(field.getFieldType(), value, fieldName);
+        Map<String, Object> columnValues = new HashMap<>();
+        columnValues.put(field.getColumnName(), jdbcValue);
+        baseMapper.updateCustomFieldValues(tableName, idColumn, entityId, columnValues);
+    }
+
+    @Override
     public Map<Long, Map<String, Object>> getBatchCustomFieldValues(String entityType, List<Long> entityIds) {
         if (entityIds == null || entityIds.isEmpty()) {
             return Collections.emptyMap();

@@ -5,6 +5,7 @@ import {
   getCustomerDetail,
   addCustomer,
   updateCustomer,
+  updateCustomerField,
   deleteCustomer,
   getCustomerStatistics
 } from '@/api/customer'
@@ -14,6 +15,7 @@ import type {
   CustomerQueryBO,
   CustomerAddBO,
   CustomerUpdateBO,
+  CustomerFieldUpdateBO,
   CustomerAiSearchParseVO
 } from '@/types/customer'
 
@@ -110,6 +112,17 @@ export const useCustomerStore = defineStore('customer', () => {
     }
   }
 
+  async function editCustomerField(data: CustomerFieldUpdateBO, options: { refreshList?: boolean } = {}): Promise<CustomerDetailVO> {
+    const detail = await updateCustomerField(data)
+    if (options.refreshList ?? true) {
+      await fetchCustomerList(false)
+    }
+    if (currentCustomer.value?.customerId === data.customerId) {
+      currentCustomer.value = detail
+    }
+    return detail
+  }
+
   async function removeCustomer(customerId: string): Promise<void> {
     await deleteCustomer(customerId)
     await fetchCustomerList(true)
@@ -169,6 +182,7 @@ export const useCustomerStore = defineStore('customer', () => {
     fetchCustomerDetail,
     createCustomer,
     editCustomer,
+    editCustomerField,
     removeCustomer,
     fetchStatistics,
     setQueryParams,

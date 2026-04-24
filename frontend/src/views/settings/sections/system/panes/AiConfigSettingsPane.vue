@@ -91,7 +91,7 @@
 
       <el-form :model="aiConfigForm" label-position="top" class="max-w-3xl">
         <el-form-item label="AI 服务商">
-          <el-select v-model="aiConfigForm.provider" class="w-full" @change="handleProviderChange">
+          <el-select :model-value="aiConfigForm.provider" class="w-full" @change="handleProviderChange">
             <el-option
               v-for="preset in providerOptions"
               :key="preset.value"
@@ -455,6 +455,7 @@ function applyProviderDraft(provider: AiProvider) {
 }
 
 function handleProviderChange(provider: AiProvider) {
+  // The select is controlled so this still stores the previous provider's draft.
   syncCurrentFormToDraft()
   applyProviderDraft(provider)
 }

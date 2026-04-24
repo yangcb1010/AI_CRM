@@ -1073,48 +1073,121 @@
 
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">公司全称</p>
-              <p class="text-sm text-slate-900 font-medium">{{ customer.companyName }}</p>
+              <InlineEditableField
+                :model-value="customer.companyName"
+                :field="customerInlineFields.companyName"
+                :display-value="customer.companyName || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('companyName', value)"
+              >
+                <p class="text-sm text-slate-900 font-medium">{{ customer.companyName }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">所属行业</p>
-              <p class="text-sm text-slate-900 font-medium">{{ customer.industry || '-' }}</p>
+              <InlineEditableField
+                :model-value="customer.industry"
+                :field="customerInlineFields.industry"
+                :display-value="customer.industry || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('industry', value)"
+              >
+                <p class="text-sm text-slate-900 font-medium">{{ customer.industry || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客户来源</p>
-              <p class="text-sm text-slate-900 font-medium">{{ customer.source || '-' }}</p>
+              <InlineEditableField
+                :model-value="customer.source"
+                :field="customerInlineFields.source"
+                :display-value="customer.source || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('source', value)"
+              >
+                <p class="text-sm text-slate-900 font-medium">{{ customer.source || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">主要联系人</p>
-              <p class="text-sm text-slate-900 font-medium">{{ primaryContact?.name || '-' }}</p>
+              <InlineEditableField
+                :model-value="primaryContact?.name"
+                :field="primaryContactInlineFields.primaryContactName"
+                :display-value="primaryContact?.name || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactName', value, 'contact')"
+              >
+                <p class="text-sm text-slate-900 font-medium">{{ primaryContact?.name || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">联系电话</p>
-              <p class="text-sm text-slate-900 font-medium font-mono">{{ primaryContact?.phone || '-' }}</p>
+              <InlineEditableField
+                :model-value="primaryContact?.phone"
+                :field="primaryContactInlineFields.primaryContactPhone"
+                :display-value="primaryContact?.phone || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactPhone', value, 'contact')"
+              >
+                <p class="text-sm text-slate-900 font-medium font-mono">{{ primaryContact?.phone || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">电子邮箱</p>
-              <p class="text-sm text-slate-900 font-medium break-all">{{ primaryContact?.email || '-' }}</p>
+              <InlineEditableField
+                :model-value="primaryContact?.email"
+                :field="primaryContactInlineFields.primaryContactEmail"
+                :display-value="primaryContact?.email || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactEmail', value, 'contact')"
+              >
+                <p class="text-sm text-slate-900 font-medium break-all">{{ primaryContact?.email || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客户地址</p>
-              <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ customer.address || '-' }}</p>
+              <InlineEditableField
+                :model-value="customer.address"
+                :field="customerInlineFields.address"
+                :display-value="customer.address || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('address', value)"
+              >
+                <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ customer.address || '-' }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">公司网站</p>
-              <a
-                v-if="customer.website"
-                :href="customer.website"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-sm font-medium text-primary hover:underline break-all"
+              <InlineEditableField
+                :model-value="customer.website"
+                :field="customerInlineFields.website"
+                :display-value="customer.website || '-'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('website', value)"
               >
-                {{ customer.website }}
-              </a>
-              <p v-else class="text-sm text-slate-900 font-medium">-</p>
+                <a
+                  v-if="customer.website"
+                  :href="customer.website"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm font-medium text-primary hover:underline break-all"
+                  data-row-action="true"
+                >
+                  {{ customer.website }}
+                </a>
+                <p v-else class="text-sm text-slate-900 font-medium">-</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">预计成交金额</p>
-              <p class="text-sm text-slate-900 font-medium">{{ formatAmount(customer.quotation) }}</p>
+              <InlineEditableField
+                :model-value="customer.quotation"
+                :field="customerInlineFields.quotation"
+                :display-value="formatAmount(customer.quotation)"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('quotation', value)"
+              >
+                <p class="text-sm text-slate-900 font-medium">{{ formatAmount(customer.quotation) }}</p>
+              </InlineEditableField>
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">负责人</p>
@@ -1134,11 +1207,27 @@
             </div>
             <div>
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">备注</p>
-              <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">{{ customer.remark || '暂无备注' }}</p>
+              <InlineEditableField
+                :model-value="customer.remark"
+                :field="customerInlineFields.remark"
+                :display-value="customer.remark || '暂无备注'"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave('remark', value)"
+              >
+                <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">{{ customer.remark || '暂无备注' }}</p>
+              </InlineEditableField>
             </div>
             <div v-for="field in customFields" :key="`drawer-${field.fieldId}`">
               <p class="text-xs font-bold text-slate-400 tracking-wider mb-1">{{ field.fieldLabel }}</p>
-              <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName]) }}</p>
+              <InlineEditableField
+                :model-value="customer.customFields?.[field.fieldName]"
+                :field="field"
+                :display-value="formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName])"
+                :editable="canEditCustomer"
+                :save-handler="(value) => handleInlineDetailFieldSave(field.fieldName, value, 'custom')"
+              >
+                <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName]) }}</p>
+              </InlineEditableField>
             </div>
           </div>
         </div>
@@ -1252,6 +1341,7 @@ import ContactDetailDrawer from '@/views/contact/components/ContactDetailDrawer.
 import TaskDetailDrawer from '@/views/task/components/TaskDetailDrawer.vue'
 import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
 import KnowledgeDetailModal from '@/components/knowledge/KnowledgeDetailModal.vue'
+import InlineEditableField from '@/components/common/InlineEditableField.vue'
 import { appEvents, APP_EVENT } from '@/utils/events'
 
 const route = useRoute()
@@ -1298,6 +1388,20 @@ const uploadingKnowledgeFile = ref<File | null>(null)
 const selectedKnowledgeId = ref('')
 const showKnowledgeDetailModal = ref(false)
 const customFields = ref<CustomField[]>([])
+const customerInlineFields: Record<string, Partial<CustomField>> = {
+  companyName: { fieldName: 'companyName', fieldLabel: '公司全称', fieldType: 'text', isRequired: true },
+  industry: { fieldName: 'industry', fieldLabel: '所属行业', fieldType: 'text' },
+  source: { fieldName: 'source', fieldLabel: '客户来源', fieldType: 'text' },
+  address: { fieldName: 'address', fieldLabel: '客户地址', fieldType: 'textarea' },
+  website: { fieldName: 'website', fieldLabel: '公司网站', fieldType: 'text' },
+  quotation: { fieldName: 'quotation', fieldLabel: '预计成交金额', fieldType: 'number' },
+  remark: { fieldName: 'remark', fieldLabel: '备注', fieldType: 'textarea' }
+}
+const primaryContactInlineFields: Record<string, Partial<CustomField>> = {
+  primaryContactName: { fieldName: 'primaryContactName', fieldLabel: '主要联系人', fieldType: 'text' },
+  primaryContactPhone: { fieldName: 'primaryContactPhone', fieldLabel: '联系电话', fieldType: 'text' },
+  primaryContactEmail: { fieldName: 'primaryContactEmail', fieldLabel: '电子邮箱', fieldType: 'text' }
+}
 const generatingAiReport = ref(false)
 const latestAiReport = ref<CustomerAiReportVO | null>(null)
 const ownerSearch = ref('')
@@ -1983,6 +2087,23 @@ async function handleEditSuccess(payload: { mode: 'create' | 'edit'; customerId?
   if (customer.value?.customerId) {
     await customerStore.fetchCustomerDetail(customer.value.customerId)
   }
+}
+
+async function handleInlineDetailFieldSave(fieldName: string, value: any, fieldSource: 'system' | 'custom' | 'contact' = 'system') {
+  if (!customer.value) return
+  const customerId = customer.value.customerId
+  const detail = await customerStore.editCustomerField({
+    customerId,
+    fieldName,
+    fieldSource,
+    value
+  }, { refreshList: false })
+
+  if (fieldSource === 'contact') {
+    contacts.value = detail.contacts || []
+    syncCurrentContact(customerId)
+  }
+  ElMessage.success('保存成功')
 }
 
 async function handleDeleteCustomer() {

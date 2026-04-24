@@ -104,6 +104,16 @@ public interface ICustomFieldService extends IService<CustomField> {
     void updateCustomFieldValues(String entityType, Long entityId, Map<String, Object> values);
 
     /**
+     * Update one custom field value. Unlike batch update, this method supports clearing a value.
+     *
+     * @param entityType entity type
+     * @param entityId   entity ID
+     * @param fieldName  custom field name
+     * @param value      custom field value
+     */
+    void updateCustomFieldValue(String entityType, Long entityId, String fieldName, Object value);
+
+    /**
      * 批量获取实体的自定义字段值
      *
      * @param entityType 实体类型

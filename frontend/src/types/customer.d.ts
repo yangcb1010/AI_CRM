@@ -38,6 +38,7 @@ export interface CustomerListVO extends Customer {
   // Primary contact info
   primaryContactName?: string
   primaryContactPhone?: string
+  primaryContactEmail?: string
   primaryContactPosition?: string
   // Team & source
   teamMemberNames?: string[]
@@ -116,6 +117,13 @@ export interface CustomerAddBO {
 
 export interface CustomerUpdateBO extends CustomerAddBO {
   customerId: string
+}
+
+export interface CustomerFieldUpdateBO {
+  customerId: string
+  fieldName: string
+  fieldSource?: 'system' | 'custom' | 'contact'
+  value: any
 }
 
 export interface CustomerQueryBO {

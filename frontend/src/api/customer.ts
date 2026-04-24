@@ -5,6 +5,7 @@ import type {
   CustomerDetailVO,
   CustomerAddBO,
   CustomerUpdateBO,
+  CustomerFieldUpdateBO,
   CustomerQueryBO,
   CustomerExportBO,
   CustomerImportPreview,
@@ -27,6 +28,13 @@ export function addCustomer(data: CustomerAddBO): Promise<string> {
  */
 export function updateCustomer(data: CustomerUpdateBO): Promise<void> {
   return post('/customer/update', data)
+}
+
+/**
+ * Update a single customer field
+ */
+export function updateCustomerField(data: CustomerFieldUpdateBO): Promise<CustomerDetailVO> {
+  return post('/customer/updateField', data)
 }
 
 /**

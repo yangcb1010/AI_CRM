@@ -177,6 +177,13 @@
                     <span class="normal-case tracking-normal">{{ getListFieldLabel(field) }}</span>
                   </template>
                   <template #default="{ row }">
+                    <InlineEditableField
+                      :model-value="getListFieldRawValue(field, row)"
+                      :field="field"
+                      :display-value="getListFieldDisplayValue(field, row)"
+                      :editable="isCustomerListFieldEditable(field)"
+                      :save-handler="(value) => handleInlineCustomerFieldSave(row, field, value)"
+                    >
                     <template v-if="field.fieldSource === 'custom'">
                       <template v-if="field.fieldType === 'checkbox'">
                         <span
@@ -281,22 +288,39 @@
                     >
                       {{ getListFieldDisplayValue(field, row) }}
                     </span>
+                    </InlineEditableField>
                   </template>
                 </el-table-column>
 
                 <el-table-column v-if="field.fieldName === 'companyName'" :key="`${field.fieldId}-contact`" label="联系人" min-width="140">
                   <template #default="{ row }">
-                    <div v-if="row.primaryContactName" class="text-sm text-slate-600 whitespace-nowrap">
-                      <div>{{ row.primaryContactName }}</div>
-                      <div v-if="row.primaryContactPosition" class="text-xs text-slate-400">{{ row.primaryContactPosition }}</div>
-                    </div>
-                    <span v-else class="text-sm text-slate-300">-</span>
+                    <InlineEditableField
+                      :model-value="row.primaryContactName"
+                      :field="primaryContactNameInlineField"
+                      :display-value="row.primaryContactName || '-'"
+                      :editable="canEditCustomer"
+                      :save-handler="(value) => handleInlinePrimaryContactFieldSave(row, 'primaryContactName', value)"
+                    >
+                      <div v-if="row.primaryContactName" class="text-sm text-slate-600 whitespace-nowrap">
+                        <div>{{ row.primaryContactName }}</div>
+                        <div v-if="row.primaryContactPosition" class="text-xs text-slate-400">{{ row.primaryContactPosition }}</div>
+                      </div>
+                      <span v-else class="text-sm text-slate-300">-</span>
+                    </InlineEditableField>
                   </template>
                 </el-table-column>
 
                 <el-table-column v-if="field.fieldName === 'companyName'" :key="`${field.fieldId}-phone`" label="电话" min-width="140">
                   <template #default="{ row }">
-                    <span class="text-sm text-slate-600 font-mono whitespace-nowrap">{{ row.primaryContactPhone || '-' }}</span>
+                    <InlineEditableField
+                      :model-value="row.primaryContactPhone"
+                      :field="primaryContactPhoneInlineField"
+                      :display-value="row.primaryContactPhone || '-'"
+                      :editable="canEditCustomer"
+                      :save-handler="(value) => handleInlinePrimaryContactFieldSave(row, 'primaryContactPhone', value)"
+                    >
+                      <span class="text-sm text-slate-600 font-mono whitespace-nowrap">{{ row.primaryContactPhone || '-' }}</span>
+                    </InlineEditableField>
                   </template>
                 </el-table-column>
               </template>
@@ -508,6 +532,7 @@ import { storeToRefs } from 'pinia'
 import { ref, computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
+import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type {
@@ -521,8 +546,9 @@ import type {
 } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { getListFieldsByEntity } from '@/api/customField'
-import { aiParseCustomerSearch, transferCustomer, exportCustomers } from '@/api/customer'
+import { aiParseCustomerSearch, transferCustomer, exportCustomers, updateCustomerStage } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
+import InlineEditableField from '@/components/common/InlineEditableField.vue'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import CustomerImportDialog from '@/views/customer/components/CustomerImportDialog.vue'
 import CustomerInsightSidebar from '@/views/customer/components/CustomerInsightSidebar.vue'
@@ -534,6 +560,7 @@ import { formatCustomFieldValue, getCustomFieldCheckboxState } from '@/utils/cus
 const router = useRouter()
 const route = useRoute()
 const customerStore = useCustomerStore()
+const userStore = useUserStore()
 const { aiSearchState } = storeToRefs(customerStore)
 const { isMobile } = useResponsive()
 const pageRootRef = ref<HTMLElement | null>(null)
@@ -578,6 +605,28 @@ const AI_CUSTOMER_LIST_FIELDS: CustomField[] = [
   }
 ]
 const PINNED_LIST_FIELD_ORDER = ['companyName', 'aiStatusDetection', 'aiInsight'] as const
+const INLINE_EDITABLE_SYSTEM_FIELDS = new Set([
+  'companyName',
+  'industry',
+  'level',
+  'source',
+  'website',
+  'quotation',
+  'address',
+  'nextFollowTime',
+  'remark'
+])
+const READONLY_LIST_FIELDS = new Set(['aiStatusDetection', 'aiInsight', 'lastContactTime'])
+const primaryContactNameInlineField: Partial<CustomField> = {
+  fieldName: 'primaryContactName',
+  fieldLabel: '联系人',
+  fieldType: 'text'
+}
+const primaryContactPhoneInlineField: Partial<CustomField> = {
+  fieldName: 'primaryContactPhone',
+  fieldLabel: '电话',
+  fieldType: 'text'
+}
 
 // Import/Export state
 const exporting = ref(false)
@@ -901,6 +950,9 @@ function getMobileLevelText(row: CustomerListVO): string {
 }
 
 // Computed
+const canEditCustomer = computed(() => userStore.hasPermission('customer:edit'))
+const canChangeStage = computed(() => userStore.hasPermission('customer:change_stage'))
+
 const closedCount = computed(() => {
   return customerStore.customerList.filter(c => c.stage === 'closed').length
 })
@@ -1004,6 +1056,38 @@ function getListFieldDisplayValue(field: CustomField, row: CustomerListVO): stri
   }
 
   return formatCustomFieldValue(field, rawValue)
+}
+
+function isCustomerListFieldEditable(field: CustomField): boolean {
+  if (READONLY_LIST_FIELDS.has(field.fieldName)) return false
+  if (field.fieldSource === 'custom') return canEditCustomer.value
+  if (field.fieldName === 'stage') return canChangeStage.value
+  return canEditCustomer.value && INLINE_EDITABLE_SYSTEM_FIELDS.has(field.fieldName)
+}
+
+async function handleInlineCustomerFieldSave(row: CustomerListVO, field: CustomField, value: any) {
+  if (field.fieldName === 'stage') {
+    await updateCustomerStage(row.customerId, String(value || ''))
+    await customerStore.fetchCustomerList(false)
+  } else {
+    await customerStore.editCustomerField({
+      customerId: row.customerId,
+      fieldName: field.fieldName,
+      fieldSource: field.fieldSource,
+      value
+    })
+  }
+  ElMessage.success('保存成功')
+}
+
+async function handleInlinePrimaryContactFieldSave(row: CustomerListVO, fieldName: string, value: any) {
+  await customerStore.editCustomerField({
+    customerId: row.customerId,
+    fieldName,
+    fieldSource: 'contact',
+    value
+  })
+  ElMessage.success('保存成功')
 }
 
 function getAiStatusMeta(value: string | undefined | null) {

@@ -76,6 +76,27 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     private static final String AI_ANALYSIS_STATUS_RUNNING = "running";
     private static final String AI_ANALYSIS_STATUS_SUCCESS = "success";
     private static final String AI_ANALYSIS_STATUS_FAILED = "failed";
+    private static final Set<String> INLINE_EDITABLE_SYSTEM_FIELDS = Set.of(
+            "companyName",
+            "industry",
+            "level",
+            "source",
+            "address",
+            "website",
+            "quotation",
+            "nextFollowTime",
+            "remark"
+    );
+    private static final Set<String> INLINE_EDITABLE_CONTACT_FIELDS = Set.of(
+            "primaryContactName",
+            "primaryContactPhone",
+            "primaryContactEmail",
+            "primaryContactPosition",
+            "contactName",
+            "contactPhone",
+            "contactEmail",
+            "contactPosition"
+    );
 
     @Autowired
     private ContactMapper contactMapper;
@@ -353,6 +374,33 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public CustomerDetailVO updateCustomerField(CustomerFieldUpdateBO fieldUpdateBO) {
+        Long customerId = fieldUpdateBO.getCustomerId();
+        Customer customer = getById(customerId);
+        if (ObjectUtil.isNull(customer)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Customer not found");
+        }
+
+        String fieldName = StrUtil.trim(fieldUpdateBO.getFieldName());
+        String fieldSource = StrUtil.trimToEmpty(fieldUpdateBO.getFieldSource()).toLowerCase(Locale.ROOT);
+        if (StrUtil.isBlank(fieldName)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Field name cannot be blank");
+        }
+
+        if ("contact".equals(fieldSource) || INLINE_EDITABLE_CONTACT_FIELDS.contains(fieldName)) {
+            updatePrimaryContactField(customer, fieldName, fieldUpdateBO.getValue());
+        } else if ("custom".equals(fieldSource) || isEnabledCustomCustomerField(fieldName)) {
+            customFieldService.updateCustomFieldValue("customer", customerId, fieldName, normalizeBlankToNull(fieldUpdateBO.getValue()));
+            refreshCustomerAfterInlineUpdate(customerId, true);
+        } else {
+            updateSystemCustomerField(customer, fieldName, fieldUpdateBO.getValue());
+        }
+
+        return getCustomerDetail(customerId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteCustomer(Long customerId) {
         Customer customer = getById(customerId);
         if (ObjectUtil.isNull(customer)) {
@@ -573,6 +621,191 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         if (val == null) return null;
         if (val instanceof Number n) return n.intValue();
         try { return Integer.valueOf(val.toString()); } catch (NumberFormatException e) { return null; }
+    }
+
+    private Object normalizeBlankToNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String text && StrUtil.isBlank(text)) {
+            return null;
+        }
+        return value;
+    }
+
+    private String normalizeStringValue(Object value) {
+        Object normalized = normalizeBlankToNull(value);
+        return normalized == null ? null : normalized.toString().trim();
+    }
+
+    private BigDecimal parseFieldBigDecimal(Object value) {
+        Object normalized = normalizeBlankToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (normalized instanceof Number number) {
+            return new BigDecimal(number.toString());
+        }
+        try {
+            return new BigDecimal(normalized.toString().replace(",", ""));
+        } catch (NumberFormatException exception) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Invalid number value");
+        }
+    }
+
+    private Date parseFieldDate(Object value) {
+        Object normalized = normalizeBlankToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized instanceof Date date) {
+            return date;
+        }
+        if (normalized instanceof java.sql.Timestamp timestamp) {
+            return new Date(timestamp.getTime());
+        }
+        try {
+            return DateUtil.parse(normalized.toString());
+        } catch (Exception exception) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Invalid date value");
+        }
+    }
+
+    private boolean isEnabledCustomCustomerField(String fieldName) {
+        return customFieldService.getEnabledFieldsByEntity("customer").stream()
+                .anyMatch(field -> "custom".equalsIgnoreCase(field.getFieldSource())
+                        && fieldName.equals(field.getFieldName()));
+    }
+
+    private void updateSystemCustomerField(Customer customer, String fieldName, Object value) {
+        if (!INLINE_EDITABLE_SYSTEM_FIELDS.contains(fieldName)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Field is not editable");
+        }
+
+        if ("companyName".equals(fieldName) && StrUtil.isBlank(normalizeStringValue(value))) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Company name cannot be blank");
+        }
+
+        Long customerId = customer.getCustomerId();
+        Date updateTime = new Date();
+        LambdaUpdateWrapper<Customer> wrapper = Wrappers.lambdaUpdate(Customer.class)
+                .eq(Customer::getCustomerId, customerId)
+                .set(Customer::getUpdateTime, updateTime)
+                .set(Customer::getUpdateUserId, UserUtil.getUserId());
+
+        boolean websiteChanged = false;
+        String previousLogo = customer.getLogo();
+
+        switch (fieldName) {
+            case "companyName" -> wrapper.set(Customer::getCompanyName, normalizeStringValue(value));
+            case "industry" -> wrapper.set(Customer::getIndustry, normalizeStringValue(value));
+            case "level" -> wrapper.set(Customer::getLevel, normalizeStringValue(value));
+            case "source" -> wrapper.set(Customer::getSource, normalizeStringValue(value));
+            case "address" -> wrapper.set(Customer::getAddress, normalizeStringValue(value));
+            case "website" -> {
+                String normalizedWebsite = customerLogoService.normalizeWebsite(normalizeStringValue(value));
+                websiteChanged = !Objects.equals(normalizedWebsite, customer.getWebsite());
+                wrapper.set(Customer::getWebsite, normalizedWebsite);
+                if (websiteChanged) {
+                    wrapper.set(Customer::getLogo, "");
+                }
+            }
+            case "quotation" -> wrapper.set(Customer::getQuotation, parseFieldBigDecimal(value));
+            case "nextFollowTime" -> wrapper.set(Customer::getNextFollowTime, parseFieldDate(value));
+            case "remark" -> wrapper.set(Customer::getRemark, normalizeStringValue(value));
+            default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Field is not editable");
+        }
+
+        update(wrapper);
+        if (websiteChanged) {
+            deleteCustomerLogoAfterCommit(previousLogo);
+        }
+        refreshCustomerAfterInlineUpdate(customerId, "quotation".equals(fieldName));
+    }
+
+    private void updatePrimaryContactField(Customer customer, String fieldName, Object value) {
+        String normalizedFieldName = normalizePrimaryContactFieldName(fieldName);
+        String textValue = normalizeStringValue(value);
+        Contact contact = findPrimaryContactEntity(customer.getCustomerId());
+
+        if (contact == null) {
+            if (StrUtil.isBlank(textValue)) {
+                return;
+            }
+            contact = new Contact();
+            contact.setCustomerId(customer.getCustomerId());
+            contact.setName("name".equals(normalizedFieldName)
+                    ? textValue
+                    : StrUtil.blankToDefault(customer.getPrimaryContactName(), "Primary Contact"));
+            contact.setIsPrimary(1);
+            contact.setStatus(1);
+            applyPrimaryContactValue(contact, normalizedFieldName, textValue);
+            contactMapper.insert(contact);
+        } else {
+            LambdaUpdateWrapper<Contact> wrapper = Wrappers.lambdaUpdate(Contact.class)
+                    .eq(Contact::getContactId, contact.getContactId())
+                    .set(Contact::getUpdateTime, new Date())
+                    .set(Contact::getUpdateUserId, UserUtil.getUserId());
+            switch (normalizedFieldName) {
+                case "name" -> wrapper.set(Contact::getName, textValue);
+                case "phone" -> wrapper.set(Contact::getPhone, textValue);
+                case "email" -> wrapper.set(Contact::getEmail, textValue);
+                case "position" -> wrapper.set(Contact::getPosition, textValue);
+                default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Contact field is not editable");
+            }
+            contactMapper.update(null, wrapper);
+        }
+
+        syncContactCache(customer.getCustomerId());
+        refreshCustomerAfterInlineUpdate(customer.getCustomerId(), false);
+        if (contact.getContactId() != null) {
+            globalSearchIndexService.refreshContactIndex(contact.getContactId());
+        }
+    }
+
+    private Contact findPrimaryContactEntity(Long customerId) {
+        List<Contact> contacts = contactMapper.selectList(
+                new LambdaQueryWrapper<Contact>()
+                        .eq(Contact::getCustomerId, customerId)
+                        .eq(Contact::getStatus, 1)
+                        .orderByDesc(Contact::getIsPrimary)
+                        .orderByAsc(Contact::getCreateTime)
+                        .orderByAsc(Contact::getContactId)
+                        .last("LIMIT 1")
+        );
+        return contacts.isEmpty() ? null : contacts.get(0);
+    }
+
+    private String normalizePrimaryContactFieldName(String fieldName) {
+        return switch (fieldName) {
+            case "primaryContactName", "contactName" -> "name";
+            case "primaryContactPhone", "contactPhone" -> "phone";
+            case "primaryContactEmail", "contactEmail" -> "email";
+            case "primaryContactPosition", "contactPosition" -> "position";
+            default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Contact field is not editable");
+        };
+    }
+
+    private void applyPrimaryContactValue(Contact contact, String normalizedFieldName, String value) {
+        switch (normalizedFieldName) {
+            case "name" -> contact.setName(value);
+            case "phone" -> contact.setPhone(value);
+            case "email" -> contact.setEmail(value);
+            case "position" -> contact.setPosition(value);
+            default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Contact field is not editable");
+        }
+    }
+
+    private void refreshCustomerAfterInlineUpdate(Long customerId, boolean refreshTaskPriority) {
+        refreshCustomerSearchText(customerId);
+        globalSearchIndexService.refreshCustomerIndex(customerId);
+        globalSearchIndexService.refreshCustomerRelatedIndexes(customerId);
+        if (refreshTaskPriority) {
+            taskService.refreshValuePriorityByCustomerId(customerId);
+        }
     }
 
     @Override

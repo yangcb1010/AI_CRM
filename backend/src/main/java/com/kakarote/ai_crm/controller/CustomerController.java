@@ -7,6 +7,7 @@ import com.kakarote.ai_crm.entity.BO.CustomerAddBO;
 import com.kakarote.ai_crm.entity.BO.CustomerAiParseBO;
 import com.kakarote.ai_crm.entity.BO.CustomerAiSearchParseBO;
 import com.kakarote.ai_crm.entity.BO.CustomerExportBO;
+import com.kakarote.ai_crm.entity.BO.CustomerFieldUpdateBO;
 import com.kakarote.ai_crm.entity.BO.CustomerImportBO;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
 import com.kakarote.ai_crm.entity.BO.CustomerTransferBO;
@@ -62,6 +63,13 @@ public class CustomerController {
     public Result<String> update(@Valid @RequestBody CustomerUpdateBO customerUpdateBO) {
         customerService.updateCustomer(customerUpdateBO);
         return Result.ok();
+    }
+
+    @PostMapping("/updateField")
+    @Operation(summary = "更新客户单个字段")
+    @RequirePermission("customer:edit")
+    public Result<CustomerDetailVO> updateField(@Valid @RequestBody CustomerFieldUpdateBO fieldUpdateBO) {
+        return Result.ok(customerService.updateCustomerField(fieldUpdateBO));
     }
 
     @PostMapping("/delete/{id}")
