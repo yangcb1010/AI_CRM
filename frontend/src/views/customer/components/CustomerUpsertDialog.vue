@@ -279,7 +279,7 @@ const customerFieldValues = ref<Record<string, any>>({})
 const formData = reactive<CustomerAddBO>({
   companyName: '',
   industry: '',
-  level: 'B',
+  level: undefined,
   stage: 'lead',
   source: '',
   website: '',
@@ -360,7 +360,7 @@ function buildCustomerFieldValues(c: CustomerLike): Record<string, any> {
   return {
     companyName: c.companyName || '',
     industry: c.industry || '',
-    level: (c.level || 'B') as CustomerLevel,
+    level: (c.level || null) as CustomerLevel | null,
     stage: (c.stage || 'lead') as CustomerStage,
     source: anyCustomer.source || '',
     website: anyCustomer.website || '',
@@ -430,7 +430,7 @@ function hydrateFromCustomer() {
   Object.assign(formData, {
     companyName: c?.companyName || '',
     industry: c?.industry || '',
-    level: (c?.level || 'B') as CustomerLevel,
+    level: (c?.level || undefined) as CustomerLevel | undefined,
     stage: (c?.stage || 'lead') as CustomerStage,
     source: (c?.source || '') as any,
     website: (c?.website || '') as any,
@@ -458,7 +458,7 @@ function resetAll() {
   Object.assign(formData, {
     companyName: '',
     industry: '',
-    level: 'B',
+    level: undefined,
     stage: 'lead',
     source: '',
     website: '',
@@ -471,7 +471,7 @@ function resetAll() {
     contactPhone: '',
     contactEmail: ''
   })
-  customerFieldValues.value = {}
+  customerFieldValues.value = { level: null }
   aiInputText.value = ''
   aiParsing.value = false
   aiParseResult.value = null

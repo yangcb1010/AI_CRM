@@ -232,11 +232,11 @@
                             v-if="item.payload.priority"
                             class="text-xs px-2 py-0.5 rounded-full font-bold"
                             :class="{
-                              'bg-red-50 text-red-500': item.payload.priority === 'HIGH',
-                              'bg-amber-50 text-amber-500': item.payload.priority === 'MEDIUM',
-                              'bg-slate-100 text-slate-500': item.payload.priority === 'LOW',
+                              'bg-red-50 text-red-500': normalizeTaskPriority(item.payload.priority) === 'HIGH',
+                              'bg-amber-50 text-amber-500': normalizeTaskPriority(item.payload.priority) === 'MEDIUM',
+                              'bg-slate-100 text-slate-500': normalizeTaskPriority(item.payload.priority) === 'LOW',
                             }"
-                          >{{ item.payload.priority === 'HIGH' ? '高' : item.payload.priority === 'MEDIUM' ? '中' : '低' }}</span>
+                          >{{ getTaskPriorityLabel(item.payload.priority) }}</span>
                         </div>
                       </div>
                     </div>
@@ -304,6 +304,7 @@ import { queryCustomerList } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import type { ScheduleVO } from '@/api/schedule'
 import type { Task, TaskAddBO, TaskStatus, TaskUpdateBO } from '@/types/common'
+import { normalizeTaskPriority } from '@/utils/taskPriority'
 import TaskDetailDrawer from '@/views/task/components/TaskDetailDrawer.vue'
 import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
 import ScheduleDetailDrawer from './components/ScheduleDetailDrawer.vue'
@@ -597,7 +598,7 @@ function handleEdit(task: Task) {
   Object.assign(formData, {
     title: task.title,
     description: task.description || '',
-    priority: task.priority,
+    priority: normalizeTaskPriority(task.priority),
     dueDate: task.dueDate ? formatDateTimeLocal(task.dueDate) : undefined,
     status: task.status,
     taskType: task.taskType || '',
@@ -641,7 +642,7 @@ async function handleSubmitTask() {
       taskId: editingTask.value.taskId,
       title: formData.title,
       description: formData.description,
-      priority: formData.priority,
+      priority: normalizeTaskPriority(formData.priority),
       dueDate: formData.dueDate,
       taskType: formData.taskType,
       participantNames: selectedParticipants.value.join(', '),
@@ -683,7 +684,7 @@ async function handleAiParse() {
     const result = await aiParseTask(aiParseInput.value)
     if (result.title) formData.title = result.title
     if (result.dueDate) formData.dueDate = result.dueDate
-    if (result.priority) formData.priority = result.priority.toUpperCase() as any
+    if (result.priority) formData.priority = normalizeTaskPriority(result.priority)
     if (result.taskType) formData.taskType = result.taskType
     if (result.customerName) {
       const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
@@ -769,6 +770,11 @@ function getDayHeader(dateStr: string): string {
   const dayName = dayNames[d.getDay()] ?? ''
   const isToday = toDateStr(d) === toDateStr(now)
   return `${y}年${m}月${day}日，${dayName}${isToday ? ' (今天)' : ''}`
+}
+
+function getTaskPriorityLabel(priority: Task['priority']): string {
+  const normalized = normalizeTaskPriority(priority)
+  return normalized === 'HIGH' ? '高' : normalized === 'MEDIUM' ? '中' : '低'
 }
 
 const listGroups = computed(() => {

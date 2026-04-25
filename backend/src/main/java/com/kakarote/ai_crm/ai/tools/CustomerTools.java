@@ -48,7 +48,7 @@ public class CustomerTools {
     public String createCustomer(
             @ToolParam(description = "公司名称，必填") String companyName,
             @ToolParam(description = "行业，如互联网、金融、制造业等", required = false) String industry,
-            @ToolParam(description = "客户级别：A（重要客户）、B（普通客户）、C（一般客户），默认B", required = false) String level,
+            @ToolParam(description = "客户级别：A（重要客户）、B（普通客户）、C（一般客户），可不填", required = false) String level,
             @ToolParam(description = "联系人姓名", required = false) String contactName,
             @ToolParam(description = "联系人电话", required = false) String contactPhone,
             @ToolParam(description = "联系人邮箱", required = false) String contactEmail,
@@ -403,7 +403,7 @@ public class CustomerTools {
         CustomerAddBO bo = new CustomerAddBO();
         bo.setCompanyName(companyName);
         bo.setIndustry(normalizeOptionalText(industry));
-        bo.setLevel(StrUtil.blankToDefault(normalizeOptionalText(level), "B"));
+        bo.setLevel(normalizeOptionalText(level));
         bo.setContactName(normalizeOptionalText(contactName));
         bo.setContactPhone(normalizeOptionalText(contactPhone));
         bo.setContactEmail(normalizeOptionalText(contactEmail));

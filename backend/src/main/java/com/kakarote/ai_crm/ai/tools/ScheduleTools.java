@@ -6,8 +6,10 @@ import com.kakarote.ai_crm.ai.tools.support.AiCustomerMatcher;
 import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.entity.BO.ScheduleAddBO;
 import com.kakarote.ai_crm.entity.PO.Contact;
+import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.VO.ScheduleVO;
 import com.kakarote.ai_crm.service.IContactService;
+import com.kakarote.ai_crm.service.ICustomerService;
 import com.kakarote.ai_crm.service.IScheduleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -34,11 +36,15 @@ public class ScheduleTools {
     @Autowired
     private IContactService contactService;
 
+    @Autowired
+    private ICustomerService customerService;
+
     private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
     @Tool(description = "创建日程安排。仅当用户提到具体时间点时调用。没有具体执行时间点、只有截止日期的应使用 createTask。直接传入客户名称和联系人姓名即可，无需先查询ID。如果传入客户名称但系统中不存在该客户，工具会中止创建并提示先创建客户。")
     @AiToolPermission(value = "schedule:create", action = "创建日程")
     public String createSchedule(
+            @ToolParam(description = "Optional CRM customer ID returned by createCustomer or confirmPendingCustomerCreation. For a newly created customer, pass this ID to avoid name rematching.", required = false) String customerIdStr,
             @ToolParam(description = "日程标题，必填") String title,
             @ToolParam(description = "开始时间，格式：yyyy-MM-dd HH:mm，必填") String startTime,
             @ToolParam(description = "结束时间，格式：yyyy-MM-dd HH:mm", required = false) String endTime,
@@ -78,7 +84,16 @@ public class ScheduleTools {
 
             String matchedCompanyName = null;
             Long customerId = null;
-            if (hasTextValue(customerName)) {
+            CustomerResolveResult customerResolve = resolveCustomerById(customerIdStr, "createSchedule");
+            if (customerResolve.errorMessage() != null) {
+                return customerResolve.errorMessage();
+            }
+            if (customerResolve.customer() != null) {
+                customerId = customerResolve.customer().getCustomerId();
+                matchedCompanyName = customerResolve.customer().getCompanyName();
+                bo.setCustomerId(customerId);
+            }
+            if (customerResolve.customer() == null && hasTextValue(customerName)) {
                 AiCustomerMatcher.CustomerMatchResult customerMatch = aiCustomerMatcher.match(customerName);
                 if (customerMatch.isAmbiguous()) {
                     return "创建日程失败: 客户名称「" + customerName + "」无法唯一匹配，可能是：" + customerMatch.formatCandidateNames() + "。请提供更完整的客户名称。";
@@ -112,6 +127,9 @@ public class ScheduleTools {
             }
             if (matchedCompanyName != null) {
                 result.append(String.format("\n- 公司名称: %s", matchedCompanyName));
+            }
+            if (customerId != null) {
+                result.append("\n- customerId: ").append(customerId);
             }
             if (hasTextValue(location)) {
                 result.append(String.format("\n- 地点: %s", location));
@@ -197,6 +215,35 @@ public class ScheduleTools {
         }
 
         return null;
+    }
+
+    private CustomerResolveResult resolveCustomerById(String customerIdStr, String actionName) {
+        String normalizedCustomerId = normalizeOptionalText(customerIdStr);
+        if (normalizedCustomerId == null) {
+            return new CustomerResolveResult(null, null);
+        }
+
+        try {
+            Long customerId = Long.parseLong(normalizedCustomerId);
+            Customer customer = customerService.getById(customerId);
+            if (customer == null || Integer.valueOf(0).equals(customer.getStatus())) {
+                return new CustomerResolveResult(null, actionName + " failed: customerId " + customerId + " was not found or is inactive.");
+            }
+            return new CustomerResolveResult(customer, null);
+        } catch (NumberFormatException e) {
+            return new CustomerResolveResult(null, actionName + " failed: customerId must be a number.");
+        }
+    }
+
+    private String normalizeOptionalText(String value) {
+        String normalized = StrUtil.trim(value);
+        if (StrUtil.isBlank(normalized) || "null".equalsIgnoreCase(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private record CustomerResolveResult(Customer customer, String errorMessage) {
     }
 
     private boolean hasTextValue(String value) {

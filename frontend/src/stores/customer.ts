@@ -18,6 +18,7 @@ import type {
   CustomerFieldUpdateBO,
   CustomerAiSearchParseVO
 } from '@/types/customer'
+import { normalizeTaskList } from '@/utils/taskPriority'
 
 const DEFAULT_CUSTOMER_PAGE_SIZE = 10
 
@@ -92,7 +93,11 @@ export const useCustomerStore = defineStore('customer', () => {
   async function fetchCustomerDetail(customerId: string) {
     loading.value = true
     try {
-      currentCustomer.value = await getCustomerDetail(customerId)
+      const detail = await getCustomerDetail(customerId)
+      currentCustomer.value = {
+        ...detail,
+        tasks: normalizeTaskList(detail.tasks)
+      }
     } finally {
       loading.value = false
     }
@@ -118,7 +123,10 @@ export const useCustomerStore = defineStore('customer', () => {
       await fetchCustomerList(false)
     }
     if (currentCustomer.value?.customerId === data.customerId) {
-      currentCustomer.value = detail
+      currentCustomer.value = {
+        ...detail,
+        tasks: normalizeTaskList(detail.tasks)
+      }
     }
     return detail
   }

@@ -309,6 +309,7 @@ import { aiParseTask } from '@/api/task'
 import { queryCustomerList } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import type { Task, TaskAddBO, TaskStatus } from '@/types/common'
+import { normalizeTaskPriority } from '@/utils/taskPriority'
 import TaskDetailDrawer from './components/TaskDetailDrawer.vue'
 import TaskEditDialog from './components/TaskEditDialog.vue'
 
@@ -548,7 +549,7 @@ function handleEdit(task: Task) {
   Object.assign(formData, {
     title: task.title,
     description: task.description || '',
-    priority: task.priority,
+    priority: normalizeTaskPriority(task.priority),
     dueDate: task.dueDate ? formatDateTimeLocal(task.dueDate) : undefined,
     status: task.status,
     taskType: task.taskType || '',
@@ -593,7 +594,7 @@ async function handleSubmit() {
     const submitData: any = {
       title: formData.title,
       description: formData.description,
-      priority: formData.priority,
+      priority: normalizeTaskPriority(formData.priority),
       dueDate: formData.dueDate,
       taskType: formData.taskType,
       participantNames: selectedParticipants.value.join(', '),
@@ -632,7 +633,7 @@ async function handleAiParse() {
     const result = await aiParseTask(aiParseInput.value)
     if (result.title) formData.title = result.title
     if (result.dueDate) formData.dueDate = result.dueDate
-    if (result.priority) formData.priority = result.priority.toUpperCase() as any
+    if (result.priority) formData.priority = normalizeTaskPriority(result.priority)
     if (result.taskType) formData.taskType = result.taskType
     if (result.customerName) {
       // AI parsed a customer name - search and try to match
@@ -662,7 +663,8 @@ function getAiScore(task: Task): number {
   if (typeof task.valuePriorityScore === 'number') {
     return task.valuePriorityScore
   }
-  const base = task.priority === 'HIGH' ? 90 : task.priority === 'MEDIUM' ? 60 : 30
+  const priority = normalizeTaskPriority(task.priority)
+  const base = priority === 'HIGH' ? 90 : priority === 'MEDIUM' ? 60 : 30
   const offset = Number(task.taskId) % 10
   return Math.min(99, base + offset)
 }
@@ -671,8 +673,9 @@ function getAiScore(task: Task): number {
 function getAiInsight(task: Task): string {
   if (task.valuePriorityReason) return task.valuePriorityReason
   if (task.description) return task.description
-  if (task.priority === 'HIGH') return '此任务优先级较高，建议尽快处理以推进业务进展。'
-  if (task.priority === 'MEDIUM') return '常规跟进任务，按计划执行即可。'
+  const priority = normalizeTaskPriority(task.priority)
+  if (priority === 'HIGH') return '此任务优先级较高，建议尽快处理以推进业务进展。'
+  if (priority === 'MEDIUM') return '常规跟进任务，按计划执行即可。'
   return '低优先级任务，可在空闲时间处理。'
 }
 

@@ -55,6 +55,7 @@ public class Customer implements Serializable {
      * 客户等级: A, B, C
      */
     @Schema(description = "客户等级: A, B, C")
+    @TableField(insertStrategy = FieldStrategy.ALWAYS)
     private String level;
 
     /**

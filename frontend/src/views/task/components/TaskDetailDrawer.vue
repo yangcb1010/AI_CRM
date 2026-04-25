@@ -266,6 +266,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useTaskStore } from '@/stores/task'
 import type { Task, TaskPriority, TaskStatus } from '@/types/common'
 import { getTaskAiInsightText } from '@/utils/taskAiInsight'
+import { normalizeTaskPriority } from '@/utils/taskPriority'
 
 const router = useRouter()
 const taskStore = useTaskStore()
@@ -351,11 +352,13 @@ function isOverdue(task: Task): boolean {
 }
 
 function getPriorityLabel(p: TaskPriority): string {
-  return p === 'HIGH' ? '高' : p === 'MEDIUM' ? '中' : '低'
+  const priority = normalizeTaskPriority(p)
+  return priority === 'HIGH' ? '高' : priority === 'MEDIUM' ? '中' : '低'
 }
 
 function getPriorityColor(p: TaskPriority): string {
-  return p === 'HIGH' ? 'text-red-500' : p === 'MEDIUM' ? 'text-amber-500' : 'text-slate-500'
+  const priority = normalizeTaskPriority(p)
+  return priority === 'HIGH' ? 'text-red-500' : priority === 'MEDIUM' ? 'text-amber-500' : 'text-slate-500'
 }
 
 function getStatusLabel(s: TaskStatus): string {

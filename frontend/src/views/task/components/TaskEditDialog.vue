@@ -94,7 +94,7 @@
           <div>
             <label class="text-xs font-bold text-slate-500 mb-1.5 block">优先级</label>
             <el-select
-              v-model="formData.priority"
+              v-model="priority"
               class="w-full wk-crm-el-field-select"
               size="large"
             >
@@ -222,6 +222,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Task, TaskAddBO, TaskStatus } from '@/types/common'
+import { normalizeTaskPriority } from '@/utils/taskPriority'
 
 type Option = { value: string; label: string }
 
@@ -258,6 +259,13 @@ const open = computed({
 const aiParseInput = computed({
   get: () => props.aiParseInput,
   set: (v: string) => emit('update:aiParseInput', v)
+})
+
+const priority = computed({
+  get: () => normalizeTaskPriority(props.formData.priority),
+  set: (v: string) => {
+    props.formData.priority = normalizeTaskPriority(v)
+  }
 })
 
 const participants = computed({

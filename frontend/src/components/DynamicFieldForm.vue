@@ -249,7 +249,8 @@ function parseDefaultValue(field: CustomField): any {
 
 function applyFieldDefaults() {
   fields.value.forEach(field => {
-    if (localValues.value[field.fieldName] === undefined || localValues.value[field.fieldName] === null) {
+    const hasExplicitValue = Object.prototype.hasOwnProperty.call(localValues.value, field.fieldName)
+    if (!hasExplicitValue || localValues.value[field.fieldName] === undefined) {
       if (field.fieldType === 'multiselect') {
         localValues.value[field.fieldName] = []
       } else if (field.fieldType === 'checkbox') {

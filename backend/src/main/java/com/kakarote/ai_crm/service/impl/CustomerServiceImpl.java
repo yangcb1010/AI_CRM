@@ -299,8 +299,8 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         if (StrUtil.isEmpty(customer.getStage())) {
             customer.setStage("lead");
         }
-        if (StrUtil.isEmpty(customer.getLevel())) {
-            customer.setLevel("B");
+        if (StrUtil.isBlank(customer.getLevel())) {
+            customer.setLevel(null);
         }
         save(customer);
 

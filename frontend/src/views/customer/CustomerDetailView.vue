@@ -1330,6 +1330,7 @@ import type { Contact, CustomerAiReportVO, CustomerTag, FollowUp, FollowUpAddBO,
 import type { CustomField } from '@/types/customField'
 import { compactCustomerAiInsight, getCustomerAiStatusMeta } from '@/utils/customerAi'
 import { formatCustomFieldValue as formatCustomFieldDisplayValue } from '@/utils/customFieldDisplay'
+import { normalizeTaskPriority } from '@/utils/taskPriority'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import FollowUpUpsertDialog from '@/components/customer/FollowUpUpsertDialog.vue'
 import type { FollowUpUpsertSubmitPayload } from '@/components/customer/FollowUpUpsertDialog.vue'
@@ -2340,7 +2341,7 @@ async function handleCustomerTaskAiParse() {
     const result = await aiParseTask(taskAiParseInput.value)
     if (result.title) taskFormData.title = result.title
     if (result.dueDate) taskFormData.dueDate = result.dueDate
-    if (result.priority) taskFormData.priority = result.priority.toUpperCase() as Task['priority']
+    if (result.priority) taskFormData.priority = normalizeTaskPriority(result.priority)
     if (result.taskType) taskFormData.taskType = result.taskType
     if (result.customerName) {
       const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
@@ -2428,7 +2429,7 @@ function handleEditCustomerTask(task: Task) {
   Object.assign(taskFormData, {
     title: task.title,
     description: task.description || '',
-    priority: task.priority,
+    priority: normalizeTaskPriority(task.priority),
     dueDate: task.dueDate ? formatTaskDateTimeLocal(task.dueDate) : undefined,
     status: task.status,
     taskType: task.taskType || '',
@@ -2462,7 +2463,7 @@ async function handleTaskDialogSubmit() {
     const submitData = {
       title: taskFormData.title,
       description: taskFormData.description,
-      priority: taskFormData.priority,
+      priority: normalizeTaskPriority(taskFormData.priority),
       dueDate: taskFormData.dueDate,
       taskType: taskFormData.taskType,
       participantNames: taskSelectedParticipants.value.join(', '),

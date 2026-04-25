@@ -69,7 +69,7 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
                             option("closed", "已成交"),
                             option("lost", "已流失")
                     ), 30),
-                    systemField("level", "客户级别", "select", "level", "CHAR(1)", "B", null, false, false, true, List.of(
+                    systemField("level", "客户级别", "select", "level", "CHAR(1)", null, null, false, false, true, List.of(
                             option("A", "A级客户"),
                             option("B", "B级客户"),
                             option("C", "C级客户")
