@@ -24,7 +24,7 @@ CREATE TABLE crm_customer (
     industry VARCHAR(100),
     stage VARCHAR(50) NOT NULL DEFAULT 'lead',
     owner_id BIGINT NOT NULL,
-    level CHAR(1) DEFAULT 'C',
+    level CHAR(1),
     source VARCHAR(100),
     address VARCHAR(500),
     website VARCHAR(255),

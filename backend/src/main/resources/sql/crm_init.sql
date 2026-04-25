@@ -15,7 +15,7 @@ CREATE TABLE `crm_customer` (
     `industry` VARCHAR(100) COMMENT '行业',
     `stage` VARCHAR(50) NOT NULL DEFAULT 'lead' COMMENT '阶段: lead, qualified, proposal, negotiation, closed, lost',
     `owner_id` BIGINT NOT NULL COMMENT '负责人ID',
-    `level` CHAR(1) DEFAULT 'C' COMMENT '客户等级: A, B, C',
+    `level` CHAR(1) COMMENT '客户等级: A, B, C',
     `source` VARCHAR(100) COMMENT '客户来源',
     `address` VARCHAR(500) COMMENT '地址',
     `website` VARCHAR(255) COMMENT '网站',
