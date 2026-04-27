@@ -22,6 +22,9 @@ public class ManagerDeptController {
     @Autowired
     private IManagerDeptService managerDeptService;
 
+    /**
+     * 查询部门树。
+     */
     @PostMapping("/queryDeptTree")
     @Operation(summary = "Query department tree")
     @RequirePermission("dept")
@@ -29,6 +32,9 @@ public class ManagerDeptController {
         return Result.ok(managerDeptService.queryDeptTree());
     }
 
+    /**
+     * 新增管理部门。
+     */
     @PostMapping("/add")
     @Operation(summary = "Add department")
     @RequirePermission("dept:create")
@@ -37,6 +43,9 @@ public class ManagerDeptController {
         return Result.ok();
     }
 
+    /**
+     * 更新管理部门。
+     */
     @PostMapping("/update")
     @Operation(summary = "Update department")
     @RequirePermission("dept:edit")
@@ -45,6 +54,9 @@ public class ManagerDeptController {
         return Result.ok();
     }
 
+    /**
+     * 删除管理部门。
+     */
     @PostMapping("/delete")
     @Operation(summary = "Delete department")
     @RequirePermission("dept:delete")

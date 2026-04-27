@@ -204,9 +204,15 @@ public final class AiProviderRegistry {
                 .build());
     }
 
+    /**
+     * 初始化AI 服务商实例。
+     */
     private AiProviderRegistry() {
     }
 
+    /**
+     * 获取AI 服务商。
+     */
     public static AiProviderDescriptor get(String providerCode) {
         if (StrUtil.isBlank(providerCode)) {
             return PROVIDERS.get(DEFAULT_PROVIDER);
@@ -214,6 +220,9 @@ public final class AiProviderRegistry {
         return PROVIDERS.getOrDefault(providerCode.trim().toLowerCase(), PROVIDERS.get(DEFAULT_PROVIDER));
     }
 
+    /**
+     * 解析AI 服务商。
+     */
     public static AiProviderDescriptor resolve(String providerCode, String apiUrl) {
         if (StrUtil.isNotBlank(providerCode) && PROVIDERS.containsKey(providerCode.trim().toLowerCase())) {
             return get(providerCode);
@@ -231,18 +240,30 @@ public final class AiProviderRegistry {
         return get(DEFAULT_PROVIDER);
     }
 
+    /**
+     * 查询AI 服务商。
+     */
     public static List<AiProviderDescriptor> list() {
         return List.copyOf(PROVIDERS.values());
     }
 
+    /**
+     * 完成用户注册。
+     */
     private static void register(AiProviderDescriptor descriptor) {
         PROVIDERS.put(descriptor.getCode(), descriptor);
     }
 
+    /**
+     * 生成默认能力。
+     */
     private static AiModelCapabilities defaultCapabilities() {
         return defaultCapabilities(false);
     }
 
+    /**
+     * 生成默认能力。
+     */
     private static AiModelCapabilities defaultCapabilities(boolean supportsAudioTranscription) {
         return AiModelCapabilities.builder()
                 .supportsStream(true)

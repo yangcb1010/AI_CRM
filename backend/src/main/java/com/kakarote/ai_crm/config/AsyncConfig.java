@@ -15,6 +15,9 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AsyncConfig {
 
+    /**
+     * 处理customerAiAnalysisExecutor方法逻辑。
+     */
     @Bean(name = "customerAiAnalysisExecutor")
     public Executor customerAiAnalysisExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

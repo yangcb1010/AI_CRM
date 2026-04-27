@@ -47,5 +47,8 @@ public interface IContactService extends IService<Contact> {
      */
     BasePage<ContactVO> queryPageList(ContactQueryBO queryBO);
 
+    /**
+     * 使用 AI 解析联系人。
+     */
     CustomerAiParseVO aiParseContact(CustomerAiParseBO parseBO);
 }

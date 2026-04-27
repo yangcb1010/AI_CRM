@@ -24,6 +24,9 @@ import java.io.Serializable;
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint, Serializable {
     private static final long serialVersionUID = -8970718410437077606L;
 
+    /**
+     * 处理commence方法逻辑。
+     */
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException e) {
         log.error("Current request authentication failed, uri={}", request.getRequestURI(), e);

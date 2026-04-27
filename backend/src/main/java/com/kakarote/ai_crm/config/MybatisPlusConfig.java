@@ -26,9 +26,6 @@ import java.util.Set;
 @MapperScan(basePackages = {"com.kakarote.ai_crm.mapper"})
 public class MybatisPlusConfig {
 
-    /**
-     * 不需要租户隔离的表（全局共享数据）
-     */
     private static final Set<String> IGNORE_TENANT_TABLES = Set.of(
             "manager_menu",            // 菜单定义全局共享
             "manager_role_menu",       // 跟随 role 隔离，role 已按租户隔离
@@ -36,6 +33,12 @@ public class MybatisPlusConfig {
             "crm_custom_field_pool"    // 字段池全局共享，跨租户复用物理列
     );
 
+    /**
+     * 处理mybatisPlusInterceptor方法逻辑。
+     */
+    /**
+     * 不需要租户隔离的表（全局共享数据）
+     */
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor(GlobalDataPermissionHandler dataPermissionHandler) {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
@@ -43,6 +46,9 @@ public class MybatisPlusConfig {
         // 先拼 tenant_id，再叠加数据权限和分页；如果把分页提前，count/sql 重写可能拿不到完整的隔离条件。
         TenantLineInnerInterceptor tenantInterceptor = new TenantLineInnerInterceptor();
         tenantInterceptor.setTenantLineHandler(new TenantLineHandler() {
+            /**
+             * 获取租户ID。
+             */
             @Override
             public Expression getTenantId() {
                 Long tenantId = TenantContextHolder.getTenantId();
@@ -54,11 +60,17 @@ public class MybatisPlusConfig {
                 return new LongValue(tenantId);
             }
 
+            /**
+             * 获取租户ID列。
+             */
             @Override
             public String getTenantIdColumn() {
                 return "tenant_id";
             }
 
+            /**
+             * 处理ignoreTable方法逻辑。
+             */
             @Override
             public boolean ignoreTable(String tableName) {
                 return IGNORE_TENANT_TABLES.contains(tableName);

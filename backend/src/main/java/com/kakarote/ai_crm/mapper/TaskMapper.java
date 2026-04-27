@@ -25,6 +25,9 @@ public interface TaskMapper extends BaseMapper<Task> {
      */
     IPage<TaskVO> queryPageList(IPage<TaskVO> page, @Param("query") TaskQueryBO query);
 
+    /**
+     * 查询列表。
+     */
     List<TaskVO> queryList(@Param("query") TaskQueryBO query);
 
     /**
@@ -45,14 +48,23 @@ public interface TaskMapper extends BaseMapper<Task> {
                                      @Param("today") Date today,
                                      @Param("weekEnd") Date weekEnd);
 
+    /**
+     * 查询按ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_task WHERE task_id = #{taskId}")
     Task selectByIdIgnoreDataPermission(@Param("taskId") Long taskId);
 
+    /**
+     * 查询按客户ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_task WHERE customer_id = #{customerId}")
     List<Task> selectByCustomerIdIgnoreDataPermission(@Param("customerId") Long customerId);
 
+    /**
+     * 更新值优先级按ID。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Update("""
         UPDATE crm_task

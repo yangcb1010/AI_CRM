@@ -54,6 +54,9 @@ public class FollowUpController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    /**
+     * 添加跟进记录。
+     */
     @PostMapping("/add")
     @Operation(summary = "添加跟进记录")
     @RequirePermission("followup:create")
@@ -62,6 +65,9 @@ public class FollowUpController {
         return Result.ok(followUpId);
     }
 
+    /**
+     * 更新跟进记录。
+     */
     @PostMapping("/update")
     @Operation(summary = "更新跟进记录")
     @RequirePermission("followup:edit")
@@ -70,6 +76,9 @@ public class FollowUpController {
         return Result.ok();
     }
 
+    /**
+     * 分页查询跟进记录。
+     */
     @PostMapping("/queryPageList")
     @Operation(summary = "分页查询跟进记录")
     @RequirePermission("followup:view")
@@ -77,6 +86,9 @@ public class FollowUpController {
         return Result.ok(followUpService.queryPageList(queryBO));
     }
 
+    /**
+     * 按客户查询跟进记录。
+     */
     @PostMapping("/queryByCustomer")
     @Operation(summary = "按客户查询跟进记录")
     @RequirePermission("followup:view")
@@ -85,6 +97,9 @@ public class FollowUpController {
         return Result.ok(followUpService.queryByCustomer(customerId));
     }
 
+    /**
+     * 删除跟进记录。
+     */
     @PostMapping("/delete/{id}")
     @Operation(summary = "删除跟进记录")
     @RequirePermission("followup:delete")
@@ -93,6 +108,9 @@ public class FollowUpController {
         return Result.ok();
     }
 
+    /**
+     * AI 解析跟进内容。
+     */
     @PostMapping("/ai-parse")
     @Operation(summary = "AI 解析跟进内容")
     @RequirePermission("followup:create")
@@ -100,6 +118,9 @@ public class FollowUpController {
         return Result.ok(followUpService.aiParseFollowUp(parseBO));
     }
 
+    /**
+     * 使用 AI 分析附件。
+     */
     @PostMapping("/attachment/{attachmentId}/ai-analyze")
     @Operation(summary = "AI analyze follow-up attachment")
     @RequirePermission("followup:view")
@@ -107,6 +128,9 @@ public class FollowUpController {
         return Result.ok(followUpService.analyzeAttachment(attachmentId));
     }
 
+    /**
+     * 处理aiTranscribe方法逻辑。
+     */
     @PostMapping("/ai-transcribe")
     @Operation(summary = "AI audio transcription")
     @RequirePermission("followup:create")
@@ -114,6 +138,9 @@ public class FollowUpController {
         return Result.ok(aiAudioTranscriptionService.transcribe(file));
     }
 
+    /**
+     * 预览附件HTML。
+     */
     @GetMapping("/attachment/{attachmentId}/preview-html")
     @Operation(summary = "Preview follow-up .doc attachment as HTML")
     @RequirePermission("followup:view")
@@ -134,6 +161,9 @@ public class FollowUpController {
         }
     }
 
+    /**
+     * 下载附件。
+     */
     @GetMapping("/attachment/{attachmentId}/download")
     @Operation(summary = "Download follow-up attachment")
     @RequirePermission("followup:view")

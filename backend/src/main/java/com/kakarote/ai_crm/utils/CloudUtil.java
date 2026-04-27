@@ -26,6 +26,9 @@ public class CloudUtil {
 
     private IAcsClient client;
 
+    /**
+     * 初始化客户端。
+     */
     @PostConstruct
     public void initClient() {
         if (!cloudMailProperties.hasRequiredConfig()) {
@@ -79,6 +82,9 @@ public class CloudUtil {
         return false;
     }
 
+    /**
+     * 构建校验邮箱内容。
+     */
     private String buildVerificationEmailBody(String code, String sceneName) {
         return """
                 <!DOCTYPE html>

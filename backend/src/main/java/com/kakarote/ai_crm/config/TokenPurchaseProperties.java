@@ -24,6 +24,9 @@ public class TokenPurchaseProperties {
 
     private Alipay alipay = new Alipay();
 
+    /**
+     * 获取ResolvedPlans。
+     */
     public List<Plan> getResolvedPlans() {
         List<Plan> resolved = new ArrayList<>();
         if (plans != null) {
@@ -90,6 +93,9 @@ public class TokenPurchaseProperties {
         private String notifyUrl;
         private Integer qrcodeWidth = 200;
 
+        /**
+         * 判断是否就绪。
+         */
         public boolean isReady() {
             return enabled
                     && StrUtil.isNotBlank(appId)

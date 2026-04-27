@@ -19,6 +19,9 @@ public class MyMetaObjectHandler implements MetaObjectHandler {
 
     private static final Logger log = LoggerFactory.getLogger(MyMetaObjectHandler.class);
 
+    /**
+     * 插入Fill。
+     */
     @Override
     public void insertFill(MetaObject metaObject) {
         // 填充创建时间
@@ -46,6 +49,9 @@ public class MyMetaObjectHandler implements MetaObjectHandler {
         }
     }
 
+    /**
+     * 更新Fill。
+     */
     @Override
     public void updateFill(MetaObject metaObject) {
         // 填充更新时间

@@ -15,10 +15,16 @@ public interface CrmTenantMapper extends BaseMapper<CrmTenant> {
             SET gift_token_used = LEAST(COALESCE(gift_token_total, 0), COALESCE(gift_token_used, 0) + #{consumeTokens}),
                 update_time = CURRENT_TIMESTAMP
             WHERE tenant_id = #{tenantId}
+    /**
+     * 消耗赠送Tokens。
+     */
               AND COALESCE(gift_token_total, 0) > COALESCE(gift_token_used, 0)
             """)
     int consumeGiftTokens(@Param("tenantId") Long tenantId, @Param("consumeTokens") Long consumeTokens);
 
+    /**
+     * 查询按ID并锁定更新。
+     */
     @Select("""
             SELECT *
             FROM crm_tenant
@@ -27,6 +33,9 @@ public interface CrmTenantMapper extends BaseMapper<CrmTenant> {
             """)
     CrmTenant selectByIdForUpdate(@Param("tenantId") Long tenantId);
 
+    /**
+     * 新增PurchasedTokens。
+     */
     @Update("""
             UPDATE crm_tenant
             SET purchased_token_total = COALESCE(purchased_token_total, 0) + #{tokenAmount},

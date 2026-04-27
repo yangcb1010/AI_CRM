@@ -49,6 +49,9 @@ public interface IKnowledgeService extends IService<Knowledge> {
      */
     void addTag(Long knowledgeId, String tagName);
 
+    /**
+     * 更新客户。
+     */
     void updateCustomer(Long knowledgeId, Long customerId);
 
     /**

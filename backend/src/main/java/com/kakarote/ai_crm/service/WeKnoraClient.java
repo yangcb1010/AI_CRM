@@ -53,6 +53,9 @@ public class WeKnoraClient {
             "问题", "搜索", "检索", "文档", "资料", "内容", "这个", "那个", "哪些", "哪个"
     );
 
+    /**
+     * 初始化WEKnora客户端实例。
+     */
     @Autowired
     public WeKnoraClient(WeKnoraConfig config, CrmTenantMapper crmTenantMapper) {
         this(config, crmTenantMapper, new RestTemplate(), new ObjectMapper());
@@ -65,16 +68,25 @@ public class WeKnoraClient {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 判断是否Supported文件类型。
+     */
     public boolean isSupportedFileType(String filename) {
         if (filename == null || !filename.contains(".")) return false;
         String ext = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
         return SUPPORTED_EXTENSIONS.contains(ext);
     }
 
+    /**
+     * 获取SupportedExtensions。
+     */
     public Set<String> getSupportedExtensions() {
         return SUPPORTED_EXTENSIONS;
     }
 
+    /**
+     * 判断是否启用项。
+     */
     public boolean isEnabled() {
         return config.isEnabled();
     }
@@ -223,6 +235,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 创建租户包含全局API Key。
+     */
     private String createTenantWithGlobalApiKey(String tenantName) {
         String url = config.getBaseUrl() + "/tenants";
 
@@ -252,6 +267,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 处理registerUser方法逻辑。
+     */
     private void registerUser(String email, String password, String username) throws IOException {
         String url = config.getBaseUrl() + "/auth/register";
 
@@ -280,6 +298,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 处理loginAndGetTenantApiKey方法逻辑。
+     */
     private String loginAndGetTenantApiKey(String email, String password) throws IOException {
         String url = config.getBaseUrl() + "/auth/login";
 
@@ -319,6 +340,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 获取当前租户API Key。
+     */
     private String getCurrentTenantApiKey(String token) throws IOException {
         String url = config.getBaseUrl() + "/auth/me";
 
@@ -334,6 +358,9 @@ public class WeKnoraClient {
         return null;
     }
 
+    /**
+     * 处理containsAlreadyExists方法逻辑。
+     */
     private boolean containsAlreadyExists(String responseBody) {
         if (StrUtil.isBlank(responseBody)) {
             return false;
@@ -342,6 +369,9 @@ public class WeKnoraClient {
         return normalized.contains("already exists") || normalized.contains("已存在");
     }
 
+    /**
+     * 处理extractApiKey方法逻辑。
+     */
     private String extractApiKey(JsonNode root) {
         return firstNonBlank(
                 readText(root, "data", "api_key"),
@@ -351,6 +381,9 @@ public class WeKnoraClient {
         );
     }
 
+    /**
+     * 读取文本。
+     */
     private String readText(JsonNode root, String... path) {
         JsonNode node = root;
         for (String name : path) {
@@ -366,6 +399,9 @@ public class WeKnoraClient {
         return StrUtil.isBlank(value) ? null : value;
     }
 
+    /**
+     * 处理firstNonBlank方法逻辑。
+     */
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (StrUtil.isNotBlank(value)) {
@@ -375,6 +411,9 @@ public class WeKnoraClient {
         return null;
     }
 
+    /**
+     * 确保默认RAGModels。
+     */
     private RagModelContext ensureDefaultRagModels(String tenantApiKey) {
         List<TenantModelInfo> models = listModels(tenantApiKey);
 
@@ -398,6 +437,9 @@ public class WeKnoraClient {
         return new RagModelContext(summaryModelId, embeddingModelId);
     }
 
+    /**
+     * 查询Models。
+     */
     private List<TenantModelInfo> listModels(String tenantApiKey) {
         String url = config.getBaseUrl() + "/models";
 
@@ -432,6 +474,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 查找模型ID。
+     */
     private String findModelId(List<TenantModelInfo> models, String type, String modelName) {
         if (StrUtil.isBlank(modelName)) {
             return null;
@@ -444,6 +489,9 @@ public class WeKnoraClient {
                 .orElse(null);
     }
 
+    /**
+     * 查找首个模型ID按类型。
+     */
     private String findFirstModelIdByType(List<TenantModelInfo> models, String type) {
         return models.stream()
                 .filter(model -> type.equalsIgnoreCase(model.getType()))
@@ -452,6 +500,9 @@ public class WeKnoraClient {
                 .orElse(null);
     }
 
+    /**
+     * 创建知识QA模型。
+     */
     private String createKnowledgeQaModel(String tenantApiKey) {
         WeKnoraConfig.InitModels.ChatModel chatCfg = config.getInitModels().getChat();
 
@@ -470,6 +521,9 @@ public class WeKnoraClient {
         );
     }
 
+    /**
+     * 创建模型。
+     */
     private String createModel(String tenantApiKey, String name, String type, String source,
                                String description, Map<String, Object> parameters) {
         String url = config.getBaseUrl() + "/models";
@@ -504,10 +558,16 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 解析Init模型API Key。
+     */
     private String resolveInitModelApiKey(String configuredApiKey) {
         return firstNonBlank(configuredApiKey, System.getenv("DASHSCOPE_API_KEY"));
     }
 
+    /**
+     * 处理registerWeKnoraTenantLegacy方法逻辑。
+     */
     private String registerWeKnoraTenantLegacy(String email, String password, String username) {
         String url = config.getBaseUrl() + "/auth/register";
 
@@ -562,6 +622,9 @@ public class WeKnoraClient {
         return modelId;
     }
 
+    /**
+     * 创建Embedding模型旧版。
+     */
     private String createEmbeddingModelLegacy(String tenantApiKey) {
         String url = config.getBaseUrl() + "/models";
 
@@ -658,6 +721,9 @@ public class WeKnoraClient {
         return uploadDocument(fileBytes, originalFilename, knowledgeBaseId, tenantApiKey);
     }
 
+    /**
+     * 上传文档。
+     */
     public WeKnoraKnowledge uploadDocument(byte[] fileBytes, String originalFilename, String knowledgeBaseId, String tenantApiKey) throws IOException {
         if (!isEnabled()) {
             log.debug("WeKnora 未启用，跳过上传");
@@ -671,6 +737,9 @@ public class WeKnoraClient {
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new ByteArrayResource(fileBytes) {
+            /**
+             * 获取Filename。
+             */
             @Override
             public String getFilename() {
                 return originalFilename;
@@ -784,6 +853,9 @@ public class WeKnoraClient {
                 .toList();
     }
 
+    /**
+     * 判断是否RelevantChunk。
+     */
     private boolean isRelevantChunk(WeKnoraChunk chunk, String query, double threshold) {
         if (chunk == null) {
             return false;
@@ -798,6 +870,9 @@ public class WeKnoraClient {
         return matchesQueryText(chunk, query);
     }
 
+    /**
+     * 处理matchesQueryText方法逻辑。
+     */
     private boolean matchesQueryText(WeKnoraChunk chunk, String query) {
         List<String> terms = extractQueryTerms(query);
         if (terms.isEmpty()) {
@@ -819,6 +894,9 @@ public class WeKnoraClient {
         return hits >= Math.min(2, terms.size());
     }
 
+    /**
+     * 处理extractQueryTerms方法逻辑。
+     */
     private List<String> extractQueryTerms(String query) {
         String normalized = normalizeReferenceText(query);
         if (StrUtil.isBlank(normalized)) {
@@ -844,6 +922,9 @@ public class WeKnoraClient {
         return new ArrayList<>(terms);
     }
 
+    /**
+     * 标准化Reference文本。
+     */
     private String normalizeReferenceText(String text) {
         if (StrUtil.isBlank(text)) {
             return "";
@@ -854,10 +935,16 @@ public class WeKnoraClient {
                 .trim();
     }
 
+    /**
+     * 发起问答知识Question。
+     */
     public WeKnoraChatResult askKnowledgeQuestion(Long tenantId, Long conversationId, String query) {
         return askKnowledgeQuestion(tenantId, conversationId, query, Collections.emptyList());
     }
 
+    /**
+     * 发起问答知识Question。
+     */
     public WeKnoraChatResult askKnowledgeQuestion(Long tenantId, Long conversationId,
                                                   String query, List<String> knowledgeIds) {
         if (!isEnabled() || StrUtil.isBlank(query)) {
@@ -899,6 +986,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 清理Conversation会话。
+     */
     public void clearConversationSession(Long tenantId, Long conversationId) {
         if (tenantId == null || conversationId == null) {
             return;
@@ -906,6 +996,9 @@ public class WeKnoraClient {
         conversationSessionCache.remove(buildConversationSessionKey(tenantId, conversationId));
     }
 
+    /**
+     * 处理hybridSearch方法逻辑。
+     */
     public List<WeKnoraChunk> hybridSearch(String query, String knowledgeBaseId, String tenantApiKey) {
         if (!isEnabled()) return Collections.emptyList();
 
@@ -960,6 +1053,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 获取ORCreateConversation会话。
+     */
     private String getOrCreateConversationSession(Long tenantId, Long conversationId, TenantWeKnoraContext ctx) {
         String cacheKey = buildConversationSessionKey(tenantId, conversationId);
         String cachedSessionId = conversationSessionCache.get(cacheKey);
@@ -982,6 +1078,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 处理recreateConversationSession方法逻辑。
+     */
     private String recreateConversationSession(Long tenantId, Long conversationId, TenantWeKnoraContext ctx) {
         String cacheKey = buildConversationSessionKey(tenantId, conversationId);
         synchronized (conversationSessionCache) {
@@ -993,6 +1092,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 创建Conversation会话。
+     */
     private String createConversationSession(String knowledgeBaseId, String tenantApiKey) {
         String url = config.getBaseUrl() + "/sessions";
 
@@ -1024,6 +1126,9 @@ public class WeKnoraClient {
         }
     }
 
+    /**
+     * 解析聊天结果。
+     */
     private WeKnoraChatResult parseChatResult(String responseBody) {
         if (StrUtil.isBlank(responseBody)) {
             return new WeKnoraChatResult("", Collections.emptyList(), false);
@@ -1088,6 +1193,9 @@ public class WeKnoraClient {
         return new WeKnoraChatResult(answer.trim(), uniqueReferences, completed);
     }
 
+    /**
+     * 处理executeKnowledgeChat方法逻辑。
+     */
     private WeKnoraChatResult executeKnowledgeChat(TenantWeKnoraContext ctx, String sessionId,
                                                    String query, List<String> knowledgeIds,
                                                    boolean useAgentChat) {
@@ -1117,6 +1225,9 @@ public class WeKnoraClient {
         return parseChatResult(response.getBody());
     }
 
+    /**
+     * 判断是否Unavailable聊天结果。
+     */
     private boolean isUnavailableChatResult(WeKnoraChatResult result) {
         if (result == null || StrUtil.isBlank(result.getAnswer())) {
             return true;
@@ -1124,6 +1235,9 @@ public class WeKnoraClient {
         return result.getAnswer().contains("NO_MATCH");
     }
 
+    /**
+     * 处理abbreviateForLog方法逻辑。
+     */
     private String abbreviateForLog(String text) {
         if (StrUtil.isBlank(text)) {
             return "";
@@ -1132,6 +1246,9 @@ public class WeKnoraClient {
         return normalized.length() > 120 ? normalized.substring(0, 120) + "..." : normalized;
     }
 
+    /**
+     * 处理append答案方法逻辑。
+     */
     private String appendAnswer(String currentAnswer, JsonNode node) {
         if (node == null || node.isMissingNode()) {
             return currentAnswer;
@@ -1163,6 +1280,9 @@ public class WeKnoraClient {
         return currentAnswer;
     }
 
+    /**
+     * 处理extractReferences方法逻辑。
+     */
     private List<WeKnoraChunk> extractReferences(JsonNode node) {
         if (node == null || node.isMissingNode()) {
             return Collections.emptyList();
@@ -1180,10 +1300,16 @@ public class WeKnoraClient {
         return Collections.emptyList();
     }
 
+    /**
+     * 构建Conversation会话键。
+     */
     private String buildConversationSessionKey(Long tenantId, Long conversationId) {
         return tenantId + ":" + (conversationId != null ? conversationId : 0L);
     }
 
+    /**
+     * 创建请求头。
+     */
     private HttpHeaders createHeaders(String apiKey) {
         HttpHeaders headers = new HttpHeaders();
         if (StrUtil.isNotBlank(apiKey)) {

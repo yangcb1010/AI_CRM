@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant> implements ICrmTenantService {
 
+    /**
+     * 获取赠送TokenTotal。
+     */
     @Override
     public long getGiftTokenTotal(Long tenantId) {
         CrmTenant tenant = tenantId != null ? getById(tenantId) : null;
@@ -21,6 +24,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return total != null && total > 0 ? total : DEFAULT_GIFT_TOKEN_TOTAL;
     }
 
+    /**
+     * 获取赠送TokenUsed。
+     */
     @Override
     public long getGiftTokenUsed(Long tenantId) {
         CrmTenant tenant = tenantId != null ? getById(tenantId) : null;
@@ -30,6 +36,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return Math.max(tenant.getGiftTokenUsed(), 0L);
     }
 
+    /**
+     * 获取赠送Token剩余。
+     */
     @Override
     public long getGiftTokenRemaining(Long tenantId) {
         long total = getGiftTokenTotal(tenantId);
@@ -37,11 +46,17 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return Math.max(total - used, 0L);
     }
 
+    /**
+     * 判断是否存在可用赠送Tokens。
+     */
     @Override
     public boolean hasAvailableGiftTokens(Long tenantId) {
         return getGiftTokenRemaining(tenantId) > 0;
     }
 
+    /**
+     * 获取PurchasedTokenTotal。
+     */
     @Override
     public long getPurchasedTokenTotal(Long tenantId) {
         CrmTenant tenant = tenantId != null ? getById(tenantId) : null;
@@ -51,6 +66,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return Math.max(tenant.getPurchasedTokenTotal(), 0L);
     }
 
+    /**
+     * 获取PurchasedTokenUsed。
+     */
     @Override
     public long getPurchasedTokenUsed(Long tenantId) {
         CrmTenant tenant = tenantId != null ? getById(tenantId) : null;
@@ -60,6 +78,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return Math.max(tenant.getPurchasedTokenUsed(), 0L);
     }
 
+    /**
+     * 获取PurchasedToken剩余。
+     */
     @Override
     public long getPurchasedTokenRemaining(Long tenantId) {
         long total = getPurchasedTokenTotal(tenantId);
@@ -67,16 +88,25 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         return Math.max(total - used, 0L);
     }
 
+    /**
+     * 获取TotalToken剩余。
+     */
     @Override
     public long getTotalTokenRemaining(Long tenantId) {
         return getGiftTokenRemaining(tenantId) + getPurchasedTokenRemaining(tenantId);
     }
 
+    /**
+     * 判断是否存在可用Tokens。
+     */
     @Override
     public boolean hasAvailableTokens(Long tenantId) {
         return getTotalTokenRemaining(tenantId) > 0;
     }
 
+    /**
+     * 消耗赠送Tokens。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void consumeGiftTokens(Long tenantId, long consumeTokens) {
@@ -86,6 +116,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         baseMapper.consumeGiftTokens(tenantId, consumeTokens);
     }
 
+    /**
+     * 消耗Tokens。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void consumeTokens(Long tenantId, long consumeTokens) {
@@ -118,6 +151,9 @@ public class CrmTenantServiceImpl extends ServiceImpl<CrmTenantMapper, CrmTenant
         updateById(tenant);
     }
 
+    /**
+     * 新增PurchasedTokens。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void addPurchasedTokens(Long tenantId, long tokenAmount) {

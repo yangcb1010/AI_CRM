@@ -107,6 +107,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
     @Value("${weknora.init-models.chat.name:}")
     private String giftModel;
 
+    /**
+     * 构建缓存键。
+     */
     private String buildCacheKey(String configKey) {
         Long tenantId = TenantContextHolder.getTenantId();
         if (tenantId != null) {
@@ -115,11 +118,17 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return CACHE_KEY_PREFIX + configKey;
     }
 
+    /**
+     * 获取配置值。
+     */
     @Override
     public String getConfigValue(String configKey) {
         return getConfigValue(configKey, null);
     }
 
+    /**
+     * 获取配置值。
+     */
     @Override
     public String getConfigValue(String configKey, String defaultValue) {
         String cacheKey = buildCacheKey(configKey);
@@ -141,6 +150,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return defaultValue;
     }
 
+    /**
+     * 获取配置按类型。
+     */
     @Override
     public Map<String, String> getConfigsByType(String configType) {
         List<SystemConfig> configs = lambdaQuery()
@@ -155,6 +167,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 ));
     }
 
+    /**
+     * 更新配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateConfig(String configKey, String configValue) {
@@ -176,22 +191,34 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         redisTemplate.delete(buildCacheKey(configKey));
     }
 
+    /**
+     * 更新配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateConfigs(Map<String, String> configs) {
         configs.forEach(this::updateConfig);
     }
 
+    /**
+     * 获取AI 配置。
+     */
     @Override
     public AiConfigVO getAiConfig() {
         return buildAiConfig(false, false);
     }
 
+    /**
+     * 获取AI 配置详情。
+     */
     @Override
     public AiConfigVO getAiConfigDetail() {
         return buildAiConfig(true, true);
     }
 
+    /**
+     * 更新AI 配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateAiConfig(AiConfigUpdateBO updateBO) {
@@ -237,6 +264,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 capabilities.isSupportsToolCall(), capabilities.isSupportsVision());
     }
 
+    /**
+     * 激活AI 服务商。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void activateAiProvider(String provider) {
@@ -252,6 +282,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 UserUtil.getTenantId(), targetConfig.providerCode(), targetConfig.model());
     }
 
+    /**
+     * 切换使用赠送AI 配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void useGiftAiConfig() {
@@ -260,6 +293,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         log.info("AI 模式已切换为赠送额度: tenantId={}", UserUtil.getTenantId());
     }
 
+    /**
+     * 切换使用自定义AI 配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void useCustomAiConfig() {
@@ -277,6 +313,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 UserUtil.getTenantId(), targetConfig.providerCode(), targetConfig.model());
     }
 
+    /**
+     * 处理testAiConnection方法逻辑。
+     */
     @Override
     public AiConnectionTestVO testAiConnection(AiConfigUpdateBO configBO) {
         AiConnectionTestVO result = new AiConnectionTestVO();
@@ -334,6 +373,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return result;
     }
 
+    /**
+     * 清理配置缓存。
+     */
     @Override
     public void clearConfigCache() {
         Set<String> keys = redisTemplate.keys(CACHE_KEY_PREFIX + "*");
@@ -343,6 +385,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 获取企业配置。
+     */
     @Override
     public EnterpriseConfigVO getEnterpriseConfig() {
         Map<String, String> configs = getConfigsByType(ENTERPRISE_CONFIG_TYPE);
@@ -371,6 +416,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return vo;
     }
 
+    /**
+     * 更新企业配置。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateEnterpriseConfig(EnterpriseConfigUpdateBO updateBO) {
@@ -392,6 +440,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 解析当前租户名称。
+     */
     private String resolveCurrentTenantName() {
         Long tenantId = TenantContextHolder.getTenantId();
         if (tenantId == null) {
@@ -402,6 +453,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return tenant != null ? StrUtil.nullToEmpty(tenant.getTenantName()).trim() : null;
     }
 
+    /**
+     * 更新配置包含类型。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void updateConfigsWithType(Map<String, String> configs, String configType) {
         for (Map.Entry<String, String> entry : configs.entrySet()) {
@@ -427,6 +481,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 构建AI 配置。
+     */
     private AiConfigVO buildAiConfig(boolean includeSensitiveExtraHeaders, boolean detailView) {
         Map<String, String> configs = getConfigsByType(AI_CONFIG_TYPE);
         Map<String, SavedProviderConfigSnapshot> savedProviderConfigs = loadSavedProviderConfigs(configs);
@@ -487,6 +544,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return vo;
     }
 
+    /**
+     * 解析有效AI快照。
+     */
     private EffectiveAiConfigSnapshot resolveEffectiveAiSnapshot(Map<String, String> configs,
                                                                  SavedProviderConfigSnapshot selectedSavedProvider) {
         AiMode requestedMode = AiMode.resolve(configs.get(AI_MODE_KEY));
@@ -521,6 +581,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         );
     }
 
+    /**
+     * 解析详情Display快照。
+     */
     private DisplayAiConfigSnapshot resolveDetailDisplaySnapshot(SavedProviderConfigSnapshot selectedSavedProvider,
                                                                  EffectiveAiConfigSnapshot effectiveSnapshot) {
         if (selectedSavedProvider != null) {
@@ -537,10 +600,16 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return DisplayAiConfigSnapshot.fromEffective(effectiveSnapshot);
     }
 
+    /**
+     * 判断是否AI就绪。
+     */
     private boolean isAiReady(AiMode mode, String apiKey, long tokenRemaining) {
         return StrUtil.isNotBlank(apiKey) && tokenRemaining > 0;
     }
 
+    /**
+     * 构建服务商选项。
+     */
     private List<AiConfigVO.ProviderOptionVO> buildProviderOptions(Map<String, SavedProviderConfigSnapshot> savedProviderConfigs,
                                                                   boolean includeSensitiveExtraHeaders,
                                                                   String activeProviderCode) {
@@ -579,6 +648,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 转换为能力VO。
+     */
     private AiConfigVO.CapabilitiesVO toCapabilitiesVO(AiModelCapabilities capabilities) {
         AiConfigVO.CapabilitiesVO vo = new AiConfigVO.CapabilitiesVO();
         vo.setSupportsStream(capabilities.isSupportsStream());
@@ -588,6 +660,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return vo;
     }
 
+    /**
+     * 校验AI 配置。
+     */
     private AiModelCapabilities validateAiConfig(AiProviderDescriptor descriptor, AiConfigUpdateBO updateBO) {
         if (StrUtil.isBlank(updateBO.getApiUrl())) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "API 地址不能为空");
@@ -609,6 +684,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return capabilities;
     }
 
+    /**
+     * 解析API Key用于Save。
+     */
     private String resolveApiKeyForSave(String providerCode, String inputApiKey,
                                         Map<String, StoredProviderConfig> providerConfigs) {
         String normalizedApiKey = StrUtil.nullToEmpty(inputApiKey).trim();
@@ -623,6 +701,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return StrUtil.nullToEmpty(savedConfig.apiKey()).trim();
     }
 
+    /**
+     * 校验Extra请求头JSON。
+     */
     private void validateExtraHeadersJson(String extraHeadersJson) {
         if (StrUtil.isBlank(extraHeadersJson)) {
             return;
@@ -651,10 +732,16 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 判断是否存在已保存自定义AI 配置。
+     */
     private boolean hasSavedCustomAiConfig(Map<String, String> configs) {
         return !loadSavedProviderConfigs(configs).isEmpty();
     }
 
+    /**
+     * 解析服务商TOActivate。
+     */
     private SavedProviderConfigSnapshot resolveProviderToActivate(Map<String, String> configs, String provider) {
         Map<String, SavedProviderConfigSnapshot> savedProviderConfigs = loadSavedProviderConfigs(configs);
         if (savedProviderConfigs.isEmpty()) {
@@ -668,6 +755,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return resolveSelectedSavedProvider(configs, savedProviderConfigs);
     }
 
+    /**
+     * 解析Selected已保存服务商。
+     */
     private SavedProviderConfigSnapshot resolveSelectedSavedProvider(Map<String, String> configs,
                                                                     Map<String, SavedProviderConfigSnapshot> savedProviderConfigs) {
         if (savedProviderConfigs.isEmpty()) {
@@ -685,6 +775,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return savedProviderConfigs.values().stream().findFirst().orElse(null);
     }
 
+    /**
+     * 加载已保存服务商配置。
+     */
     private Map<String, SavedProviderConfigSnapshot> loadSavedProviderConfigs(Map<String, String> configs) {
         Map<String, SavedProviderConfigSnapshot> savedConfigs = new HashMap<>();
         parseStoredProviderConfigs(configs.get(AI_PROVIDER_CONFIGS_KEY)).forEach((providerCode, storedConfig) -> {
@@ -701,6 +794,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return savedConfigs;
     }
 
+    /**
+     * 加载可写服务商配置。
+     */
     private Map<String, StoredProviderConfig> loadWritableProviderConfigs(Map<String, String> configs) {
         Map<String, StoredProviderConfig> storedConfigs = new HashMap<>(parseStoredProviderConfigs(configs.get(AI_PROVIDER_CONFIGS_KEY)));
         SavedProviderConfigSnapshot legacySnapshot = buildLegacyProviderSnapshot(configs);
@@ -710,6 +806,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return storedConfigs;
     }
 
+    /**
+     * 解析已存储服务商配置。
+     */
     private Map<String, StoredProviderConfig> parseStoredProviderConfigs(String providerConfigsJson) {
         if (StrUtil.isBlank(providerConfigsJson)) {
             return new HashMap<>();
@@ -728,6 +827,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 处理serializeProviderConfigs方法逻辑。
+     */
     private String serializeProviderConfigs(Map<String, StoredProviderConfig> providerConfigs) {
         try {
             return objectMapper.writeValueAsString(providerConfigs);
@@ -736,6 +838,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 构建旧版服务商快照。
+     */
     private SavedProviderConfigSnapshot buildLegacyProviderSnapshot(Map<String, String> configs) {
         String apiUrl = DynamicChatClientProvider.normalizeCompatibleBaseUrl(configs.get(AI_API_URL_KEY));
         String apiKey = StrUtil.nullToEmpty(configs.get(AI_API_KEY_KEY)).trim();
@@ -756,6 +861,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         );
     }
 
+    /**
+     * 转换为已保存服务商配置快照。
+     */
     private SavedProviderConfigSnapshot toSavedProviderConfigSnapshot(String fallbackProviderCode, StoredProviderConfig storedConfig) {
         if (storedConfig == null) {
             return null;
@@ -784,6 +892,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         );
     }
 
+    /**
+     * 转换为已存储服务商配置。
+     */
     private StoredProviderConfig toStoredProviderConfig(SavedProviderConfigSnapshot snapshot) {
         return new StoredProviderConfig(
                 snapshot.providerCode(),
@@ -796,6 +907,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         );
     }
 
+    /**
+     * 构建Activation配置MAP。
+     */
     private Map<String, String> buildActivationConfigMap(SavedProviderConfigSnapshot snapshot, boolean includeMode) {
         Map<String, String> configs = new HashMap<>();
         if (includeMode) {
@@ -811,6 +925,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return configs;
     }
 
+    /**
+     * 获取最新AI 配置Update时间。
+     */
     private Date getLatestAiConfigUpdateTime() {
         SystemConfig anyConfig = lambdaQuery()
                 .eq(SystemConfig::getConfigType, AI_CONFIG_TYPE)
@@ -820,6 +937,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return anyConfig != null ? anyConfig.getUpdateTime() : null;
     }
 
+    /**
+     * 脱敏API Key。
+     */
     private String maskApiKey(String apiKey) {
         if (StrUtil.isBlank(apiKey)) {
             return "";
@@ -830,6 +950,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return apiKey.substring(0, 3) + "****" + apiKey.substring(apiKey.length() - 4);
     }
 
+    /**
+     * 解析Double。
+     */
     private double parseDouble(String value, double defaultValue) {
         if (StrUtil.isBlank(value)) {
             return defaultValue;
@@ -841,6 +964,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 解析Int。
+     */
     private int parseInt(String value, int defaultValue) {
         if (StrUtil.isBlank(value)) {
             return defaultValue;
@@ -852,6 +978,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
     }
 
+    /**
+     * 处理extractErrorMessage方法逻辑。
+     */
     private String extractErrorMessage(Exception e) {
         String message = e.getMessage();
         if (message == null) {
@@ -899,6 +1028,9 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
             Integer maxTokens,
             String extraHeadersJson
     ) {
+        /**
+         * 处理from有效方法逻辑。
+         */
         private static DisplayAiConfigSnapshot fromEffective(EffectiveAiConfigSnapshot snapshot) {
             String apiKey = snapshot.mode() == AiMode.CUSTOM ? snapshot.apiKey() : "";
             String extraHeadersJson = snapshot.mode() == AiMode.CUSTOM ? snapshot.extraHeadersJson() : null;

@@ -56,13 +56,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-@Slf4j
-@Service
 /**
  * Token 购买服务。
  * 这里统一编排购买选项、订单创建、第三方下单、回调处理和到账入账逻辑，
  * 让前端购买弹窗只围绕订单状态做展示和轮询。
  */
+@Slf4j
+@Service
 public class TokenPurchaseServiceImpl extends ServiceImpl<TokenPurchaseOrderMapper, TokenPurchaseOrder>
         implements ITokenPurchaseService {
 
@@ -84,6 +84,9 @@ public class TokenPurchaseServiceImpl extends ServiceImpl<TokenPurchaseOrderMapp
     private final TokenPurchaseProperties properties;
     private final ICrmTenantService tenantService;
 
+    /**
+     * 初始化Token 购买实例。
+     */
     public TokenPurchaseServiceImpl(TokenPurchaseProperties properties, ICrmTenantService tenantService) {
         this.properties = properties;
         this.tenantService = tenantService;

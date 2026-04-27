@@ -49,6 +49,9 @@ public class CustomerController {
     @Autowired
     private ICustomerService customerService;
 
+    /**
+     * 创建客户。
+     */
     @PostMapping("/add")
     @Operation(summary = "创建客户")
     @RequirePermission("customer:create")
@@ -57,6 +60,9 @@ public class CustomerController {
         return Result.ok(customerId);
     }
 
+    /**
+     * 更新客户。
+     */
     @PostMapping("/update")
     @Operation(summary = "更新客户")
     @RequirePermission("customer:edit")
@@ -65,6 +71,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 更新客户单个字段。
+     */
     @PostMapping("/updateField")
     @Operation(summary = "更新客户单个字段")
     @RequirePermission("customer:edit")
@@ -72,6 +81,9 @@ public class CustomerController {
         return Result.ok(customerService.updateCustomerField(fieldUpdateBO));
     }
 
+    /**
+     * 删除客户。
+     */
     @PostMapping("/delete/{id}")
     @Operation(summary = "删除客户")
     @RequirePermission("customer:delete")
@@ -80,6 +92,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 分页查询客户。
+     */
     @PostMapping("/queryPageList")
     @Operation(summary = "分页查询客户")
     @RequirePermission("customer:view")
@@ -87,6 +102,9 @@ public class CustomerController {
         return Result.ok(customerService.queryPageList(queryBO));
     }
 
+    /**
+     * 获取客户详情。
+     */
     @GetMapping("/detail/{id}")
     @Operation(summary = "获取客户详情")
     @RequirePermission("customer:view")
@@ -94,6 +112,9 @@ public class CustomerController {
         return Result.ok(customerService.getCustomerDetail(id));
     }
 
+    /**
+     * 更新商机阶段。
+     */
     @PostMapping("/updateStage")
     @Operation(summary = "更新商机阶段")
     @RequirePermission("customer:change_stage")
@@ -104,6 +125,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 添加客户标签。
+     */
     @PostMapping("/addTag")
     @Operation(summary = "添加客户标签")
     @RequirePermission("customer:edit")
@@ -115,6 +139,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 删除客户标签。
+     */
     @PostMapping("/removeTag")
     @Operation(summary = "删除客户标签")
     @RequirePermission("customer:edit")
@@ -125,6 +152,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 变更客户负责人。
+     */
     @PostMapping("/transfer")
     @Operation(summary = "变更客户负责人")
     @RequirePermission("customer:transfer")
@@ -133,6 +163,9 @@ public class CustomerController {
         return Result.ok();
     }
 
+    /**
+     * 获取客户统计信息。
+     */
     @GetMapping("/statistics")
     @Operation(summary = "获取客户统计信息")
     @RequirePermission("customer:view")
@@ -140,6 +173,9 @@ public class CustomerController {
         return Result.ok(customerService.getStatistics());
     }
 
+    /**
+     * 导出客户 Excel。
+     */
     @PostMapping("/export")
     @Operation(summary = "导出客户 Excel")
     @RequirePermission("customer:export")
@@ -147,6 +183,9 @@ public class CustomerController {
         customerService.exportCustomers(exportBO, response);
     }
 
+    /**
+     * 下载导入模板。
+     */
     @GetMapping("/import/template")
     @Operation(summary = "下载导入模板")
     @RequirePermission("customer:import")
@@ -154,6 +193,9 @@ public class CustomerController {
         customerService.downloadImportTemplate(response);
     }
 
+    /**
+     * 导入预览。
+     */
     @PostMapping("/import/preview")
     @Operation(summary = "导入预览")
     @RequirePermission("customer:import")
@@ -161,6 +203,9 @@ public class CustomerController {
         return Result.ok(customerService.importPreview(file));
     }
 
+    /**
+     * 确认导入。
+     */
     @PostMapping("/import/confirm")
     @Operation(summary = "确认导入")
     @RequirePermission("customer:import")
@@ -168,6 +213,9 @@ public class CustomerController {
         return Result.ok(customerService.confirmImport(rows));
     }
 
+    /**
+     * AI 智能录入解析客户信息。
+     */
     @PostMapping("/ai-parse")
     @Operation(summary = "AI 智能录入解析客户信息")
     @RequirePermission("customer:create")
@@ -175,12 +223,18 @@ public class CustomerController {
         return Result.ok(customerService.aiParseCustomer(parseBO));
     }
 
+    /**
+     * AI 解析客户搜索场景。
+     */
     @PostMapping("/ai-search/parse")
     @Operation(summary = "AI 解析客户搜索场景")
     @RequirePermission("customer:view")
     public Result<CustomerAiSearchParseVO> aiSearchParse(@Valid @RequestBody CustomerAiSearchParseBO parseBO) {
         return Result.ok(customerService.aiParseSearch(parseBO));
     }
+    /**
+     * 生成客户 AI 分析报告。
+     */
     @PostMapping("/{id}/ai-report")
     @Operation(summary = "生成客户 AI 分析报告")
     @RequirePermission("customer:edit")

@@ -42,12 +42,18 @@ public class SystemConfigController {
     @Value("${minio.enabled:false}")
     private boolean minioEnabled;
 
+    /**
+     * 获取AI 配置。
+     */
     @GetMapping("/ai")
     @Operation(summary = "Get AI config")
     public Result<AiConfigVO> getAiConfig() {
         return Result.ok(systemConfigService.getAiConfig());
     }
 
+    /**
+     * 获取AI 配置详情。
+     */
     @GetMapping("/ai/detail")
     @Operation(summary = "Get AI config detail")
     @RequirePermission("config:ai")
@@ -55,6 +61,9 @@ public class SystemConfigController {
         return Result.ok(systemConfigService.getAiConfigDetail());
     }
 
+    /**
+     * 更新AI 配置。
+     */
     @PostMapping("/ai/update")
     @Operation(summary = "Update AI config")
     @RequirePermission("config:ai")
@@ -63,6 +72,9 @@ public class SystemConfigController {
         return Result.ok();
     }
 
+    /**
+     * 激活AI 服务商。
+     */
     @PostMapping("/ai/activate")
     @Operation(summary = "Activate saved AI provider")
     @RequirePermission("config:ai")
@@ -71,6 +83,9 @@ public class SystemConfigController {
         return Result.ok();
     }
 
+    /**
+     * 切换使用赠送AI 配置。
+     */
     @PostMapping("/ai/useGift")
     @Operation(summary = "Use gift AI quota")
     @RequirePermission("config:ai")
@@ -79,6 +94,9 @@ public class SystemConfigController {
         return Result.ok();
     }
 
+    /**
+     * 切换使用自定义AI 配置。
+     */
     @PostMapping("/ai/useCustom")
     @Operation(summary = "Use saved custom AI config")
     @RequirePermission("config:ai")
@@ -87,6 +105,9 @@ public class SystemConfigController {
         return Result.ok();
     }
 
+    /**
+     * 处理testAiConnection方法逻辑。
+     */
     @PostMapping("/ai/test")
     @Operation(summary = "Test AI connection")
     @RequirePermission("config:ai")
@@ -94,6 +115,9 @@ public class SystemConfigController {
         return Result.ok(systemConfigService.testAiConnection(configBO));
     }
 
+    /**
+     * 获取配置按类型。
+     */
     @GetMapping("/byType/{type}")
     @Operation(summary = "Get config by type")
     @RequirePermission("config")
@@ -102,6 +126,9 @@ public class SystemConfigController {
         return Result.ok(systemConfigService.getConfigsByType(type));
     }
 
+    /**
+     * 清理缓存。
+     */
     @PostMapping("/clearCache")
     @Operation(summary = "Clear config cache")
     @RequirePermission("config")
@@ -110,6 +137,9 @@ public class SystemConfigController {
         return Result.ok();
     }
 
+    /**
+     * 获取MinioConsole地址。
+     */
     @GetMapping("/minio/consoleUrl")
     @Operation(summary = "Get MinIO console url")
     @RequirePermission("config:storage")
@@ -121,6 +151,9 @@ public class SystemConfigController {
         return Result.ok(result);
     }
 
+    /**
+     * 获取MinioSSO地址。
+     */
     @GetMapping("/minio/ssoUrl")
     @Operation(summary = "Get MinIO SSO url")
     @RequirePermission("config:storage")
@@ -142,12 +175,18 @@ public class SystemConfigController {
         return Result.ok(result);
     }
 
+    /**
+     * 获取企业配置。
+     */
     @GetMapping("/enterprise")
     @Operation(summary = "Get enterprise config")
     public Result<EnterpriseConfigVO> getEnterpriseConfig() {
         return Result.ok(systemConfigService.getEnterpriseConfig());
     }
 
+    /**
+     * 更新企业配置。
+     */
     @PostMapping("/enterprise/update")
     @Operation(summary = "Update enterprise config")
     @RequirePermission("config:storage")

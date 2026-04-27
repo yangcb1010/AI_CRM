@@ -10,6 +10,9 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface TokenPurchaseOrderMapper extends BaseMapper<TokenPurchaseOrder> {
 
+    /**
+     * 查询全局按订单编号。
+     */
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
             SELECT *
@@ -19,6 +22,9 @@ public interface TokenPurchaseOrderMapper extends BaseMapper<TokenPurchaseOrder>
             """)
     TokenPurchaseOrder selectGlobalByOrderNo(@Param("orderNo") String orderNo);
 
+    /**
+     * 查询全局按订单编号并锁定更新。
+     */
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
             SELECT *

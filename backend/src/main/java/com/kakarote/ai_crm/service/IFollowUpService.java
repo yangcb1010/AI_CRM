@@ -23,6 +23,9 @@ public interface IFollowUpService extends IService<FollowUp> {
      */
     Long addFollowUp(FollowUpAddBO followUpAddBO);
 
+    /**
+     * 更新跟进。
+     */
     void updateFollowUp(FollowUpUpdateBO followUpUpdateBO);
 
     /**
@@ -45,7 +48,13 @@ public interface IFollowUpService extends IService<FollowUp> {
      */
     FollowUpAiParseVO aiParseFollowUp(FollowUpAiParseBO parseBO);
 
+    /**
+     * 处理analyzeAttachment方法逻辑。
+     */
     FollowUpAttachmentVO analyzeAttachment(Long attachmentId);
 
+    /**
+     * 获取附件。
+     */
     FollowUpAttachmentVO getAttachment(Long attachmentId);
 }

@@ -49,6 +49,9 @@ public class TokenService {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    /**
+     * 获取Login用户。
+     */
     public LoginUser getLoginUser(HttpServletRequest request) {
         String token = getToken(request);
         if (StrUtil.isEmpty(token)) {
@@ -81,12 +84,18 @@ public class TokenService {
         }
     }
 
+    /**
+     * 设置Login用户。
+     */
     public void setLoginUser(LoginUser loginUser) {
         if (ObjectUtil.isNotNull(loginUser) && StrUtil.isNotEmpty(loginUser.getToken())) {
             refreshToken(loginUser);
         }
     }
 
+    /**
+     * 处理delLoginUser方法逻辑。
+     */
     public void delLoginUser(String token) {
         if (StrUtil.isEmpty(token)) {
             return;
@@ -105,10 +114,16 @@ public class TokenService {
         clearUserTokenMapping(loginUser, token);
     }
 
+    /**
+     * 创建Token。
+     */
     public String createToken(LoginUser loginUser) {
         return createToken(loginUser, null);
     }
 
+    /**
+     * 创建Token。
+     */
     public String createToken(LoginUser loginUser, String loginIp) {
         String token = IdUtil.fastUUID();
         loginUser.setToken(token);
@@ -121,6 +136,9 @@ public class TokenService {
         return createToken(claims);
     }
 
+    /**
+     * 校验Token。
+     */
     public void verifyToken(LoginUser loginUser) {
         long expireAt = loginUser.getExpireTime();
         long currentTime = System.currentTimeMillis();
@@ -129,6 +147,9 @@ public class TokenService {
         }
     }
 
+    /**
+     * 刷新Token。
+     */
     public void refreshToken(LoginUser loginUser) {
         loginUser.setLoginTime(System.currentTimeMillis());
         loginUser.setExpireTime(loginUser.getLoginTime() + expireTime * MILLIS_MINUTE);
@@ -149,11 +170,17 @@ public class TokenService {
         }
     }
 
+    /**
+     * 获取UsernameToken。
+     */
     public String getUsernameFromToken(String token) {
         Claims claims = parseToken(token);
         return claims.getSubject();
     }
 
+    /**
+     * 解析LoginIP。
+     */
     public String resolveLoginIp(HttpServletRequest request) {
         if (request == null) {
             return null;
@@ -161,6 +188,9 @@ public class TokenService {
         return StrUtil.nullToEmpty(JakartaServletUtil.getClientIP(request)).trim();
     }
 
+    /**
+     * 创建Token。
+     */
     private String createToken(Map<String, Object> claims) {
         return Jwts.builder()
                 .setClaims(claims)
@@ -168,6 +198,9 @@ public class TokenService {
                 .compact();
     }
 
+    /**
+     * 解析Token。
+     */
     private Claims parseToken(String token) {
         return Jwts.parser()
                 .setSigningKey(secret)
@@ -175,6 +208,9 @@ public class TokenService {
                 .getBody();
     }
 
+    /**
+     * 获取Token。
+     */
     private String getToken(HttpServletRequest request) {
         if (request == null) {
             return null;
@@ -186,18 +222,30 @@ public class TokenService {
         return token;
     }
 
+    /**
+     * 获取Token键。
+     */
     private String getTokenKey(String uuid) {
         return Const.LOGIN_TOKEN_KEY + uuid;
     }
 
+    /**
+     * 获取用户Token键。
+     */
     private String getUserTokenKey(Long userId) {
         return Const.LOGIN_USER_TOKEN_KEY + userId;
     }
 
+    /**
+     * 获取Kickout键。
+     */
     private String getKickoutKey(String token) {
         return Const.LOGIN_KICKOUT_KEY + token;
     }
 
+    /**
+     * 判断是否TokenReplaced。
+     */
     private boolean isTokenReplaced(LoginUser loginUser, String token) {
         if (multiLoginEnabled || loginUser == null || loginUser.getUser() == null || loginUser.getUser().getUserId() == null) {
             return false;
@@ -207,6 +255,9 @@ public class TokenService {
         return StrUtil.isNotBlank(latestToken) && !StrUtil.equals(latestToken, token);
     }
 
+    /**
+     * 处理SingleLogin。
+     */
     private void handleSingleLogin(LoginUser loginUser, String newToken, String loginIp) {
         if (multiLoginEnabled || loginUser == null || loginUser.getUser() == null || loginUser.getUser().getUserId() == null) {
             return;
@@ -226,6 +277,9 @@ public class TokenService {
         redisTemplate.delete(getTokenKey(oldToken));
     }
 
+    /**
+     * 清理用户Token映射。
+     */
     private void clearUserTokenMapping(LoginUser loginUser, String token) {
         if (loginUser == null || loginUser.getUser() == null || loginUser.getUser().getUserId() == null) {
             return;
@@ -238,6 +292,9 @@ public class TokenService {
         }
     }
 
+    /**
+     * 处理attachKickoutMessage方法逻辑。
+     */
     private void attachKickoutMessage(HttpServletRequest request, String token) {
         if (request == null || StrUtil.isBlank(token)) {
             return;
@@ -249,6 +306,9 @@ public class TokenService {
         }
     }
 
+    /**
+     * 构建Kickout消息。
+     */
     private String buildKickoutMessage(String loginIp) {
         String time = LocalDateTime.now().format(KICKOUT_TIME_FORMATTER);
         if (StrUtil.isBlank(loginIp)) {

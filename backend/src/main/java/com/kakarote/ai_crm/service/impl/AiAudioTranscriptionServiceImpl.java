@@ -50,6 +50,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WebClient webClient = WebClient.builder().build();
 
+    /**
+     * 处理transcribe方法逻辑。
+     */
     @Override
     public String transcribe(MultipartFile audioFile) {
         if (audioFile == null || audioFile.isEmpty()) {
@@ -66,6 +69,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         }
     }
 
+    /**
+     * 处理transcribe方法逻辑。
+     */
     @Override
     public String transcribe(byte[] audioBytes, String filename, String contentType) {
         if (audioBytes == null || audioBytes.length == 0) {
@@ -106,6 +112,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         }
     }
 
+    /**
+     * 处理transcribe包含OpenAi方法逻辑。
+     */
     private String transcribeWithOpenAi(DynamicChatClientProvider.AiRuntimeConfigSnapshot runtimeConfig,
                                         byte[] audioBytes,
                                         String filename,
@@ -140,6 +149,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         return transcript;
     }
 
+    /**
+     * 处理transcribe包含Dashscope方法逻辑。
+     */
     private String transcribeWithDashscope(DynamicChatClientProvider.AiRuntimeConfigSnapshot runtimeConfig,
                                            byte[] audioBytes,
                                            String contentType) {
@@ -177,9 +189,15 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         return parseDashscopeTranscript(response);
     }
 
+    /**
+     * 处理asResource方法逻辑。
+     */
     private ByteArrayResource asResource(byte[] data, String filename) {
         String actualFilename = StrUtil.blankToDefault(filename, "followup-audio.webm");
         return new ByteArrayResource(data) {
+            /**
+             * 获取Filename。
+             */
             @Override
             public String getFilename() {
                 return actualFilename;
@@ -187,6 +205,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         };
     }
 
+    /**
+     * 解析媒体类型。
+     */
     private MediaType resolveMediaType(String contentType) {
         if (StrUtil.isBlank(contentType)) {
             return MediaType.APPLICATION_OCTET_STREAM;
@@ -198,12 +219,18 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         }
     }
 
+    /**
+     * 处理applyRequestHeaders方法逻辑。
+     */
     private void applyRequestHeaders(HttpHeaders headers,
                                      DynamicChatClientProvider.AiRuntimeConfigSnapshot runtimeConfig) {
         headers.setBearerAuth(runtimeConfig.apiKey());
         parseExtraHeaders(runtimeConfig.extraHeadersJson()).forEach(headers::set);
     }
 
+    /**
+     * 解析Extra请求头。
+     */
     private Map<String, String> parseExtraHeaders(String extraHeadersJson) {
         if (StrUtil.isBlank(extraHeadersJson)) {
             return Map.of();
@@ -227,6 +254,9 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         }
     }
 
+    /**
+     * 解析DashscopeTranscript。
+     */
     private String parseDashscopeTranscript(String responseBody) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
@@ -257,11 +287,17 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "语音识别结果为空，请重试");
     }
 
+    /**
+     * 转换为Business异常。
+     */
     private BusinessException toBusinessException(String responseBody) {
         String message = extractErrorMessage(responseBody);
         return new BusinessException(SystemCodeEnum.SYSTEM_ERROR, message);
     }
 
+    /**
+     * 处理extractErrorMessage方法逻辑。
+     */
     private String extractErrorMessage(String responseBody) {
         if (StrUtil.isBlank(responseBody)) {
             return "语音识别失败，请稍后重试";

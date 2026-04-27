@@ -188,6 +188,9 @@ public class ChatServiceImpl implements IChatService {
         """;
     }
 
+    /**
+     * 构建Week日历。
+     */
     private String buildWeekCalendar(LocalDate today) {
         LocalDate monday = today.with(DayOfWeek.MONDAY);
         StringBuilder sb = new StringBuilder();
@@ -204,6 +207,9 @@ public class ChatServiceImpl implements IChatService {
         return sb.toString();
     }
 
+    /**
+     * 创建会话。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createSession(SessionCreateBO sessionCreateBO) {
@@ -218,6 +224,9 @@ public class ChatServiceImpl implements IChatService {
         return session.getSessionId();
     }
 
+    /**
+     * 获取会话列表。
+     */
     @Override
     public List<ChatSessionVO> getSessionList() {
         Long userId = UserUtil.getUserId();
@@ -229,6 +238,9 @@ public class ChatServiceImpl implements IChatService {
         return BeanUtil.copyToList(sessions, ChatSessionVO.class);
     }
 
+    /**
+     * 删除会话。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteSession(Long sessionId) {
@@ -249,6 +261,9 @@ public class ChatServiceImpl implements IChatService {
         AiContextHolder.clearSession(sessionId);
     }
 
+    /**
+     * 获取消息列表。
+     */
     @Override
     public List<ChatMessageVO> getMessageList(Long sessionId) {
         List<ChatMessage> messages = chatMessageMapper.selectList(
@@ -291,6 +306,9 @@ public class ChatServiceImpl implements IChatService {
         return voList;
     }
 
+    /**
+     * 流式返回聊天。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Flux<String> streamChat(ChatSendBO sendBO) {
@@ -461,6 +479,9 @@ public class ChatServiceImpl implements IChatService {
             });
     }
 
+    /**
+     * 处理chat方法逻辑。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String chat(ChatSendBO sendBO) {
@@ -660,6 +681,9 @@ public class ChatServiceImpl implements IChatService {
         return mediaList;
     }
 
+    /**
+     * 处理containsImageAttachment方法逻辑。
+     */
     private boolean containsImageAttachment(List<ChatSendBO.AttachmentDTO> attachments) {
         if (CollUtil.isEmpty(attachments)) {
             return false;
@@ -667,6 +691,9 @@ public class ChatServiceImpl implements IChatService {
         return attachments.stream().anyMatch(att -> att.getMimeType() != null && att.getMimeType().startsWith("image/"));
     }
 
+    /**
+     * 判断是否文本文件。
+     */
     private boolean isTextFile(String mimeType, String fileName) {
         if (mimeType != null && (mimeType.startsWith("text/") || "application/json".equals(mimeType))) {
             return true;
@@ -680,6 +707,9 @@ public class ChatServiceImpl implements IChatService {
         return false;
     }
 
+    /**
+     * 判断是否文档文件。
+     */
     private boolean isDocumentFile(String mimeType, String fileName) {
         if (mimeType != null) {
             if (mimeType.equals("application/pdf")
@@ -701,6 +731,9 @@ public class ChatServiceImpl implements IChatService {
         return false;
     }
 
+    /**
+     * 处理extractFileText方法逻辑。
+     */
     private String extractFileText(String filePath) {
         try (InputStream is = fileStorageService.getFileStream(filePath)) {
             if (is == null) return null;
@@ -716,6 +749,9 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    /**
+     * 处理extractDocumentText方法逻辑。
+     */
     private String extractDocumentText(String filePath) {
         try (InputStream is = fileStorageService.getFileStream(filePath)) {
             if (is == null) return null;
@@ -731,6 +767,9 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    /**
+     * 构建消息History。
+     */
     private List<Message> buildMessageHistory(Long sessionId) {
         List<ChatMessage> dbMessages = chatMessageMapper.selectList(
             new LambdaQueryWrapper<ChatMessage>()
@@ -756,6 +795,9 @@ public class ChatServiceImpl implements IChatService {
         return messages;
     }
 
+    /**
+     * 保存消息。
+     */
     private Long saveMessage(Long sessionId, String role, String content) {
         ChatMessage message = new ChatMessage();
         message.setSessionId(sessionId);
@@ -771,6 +813,9 @@ public class ChatServiceImpl implements IChatService {
         return message.getMessageId();
     }
 
+    /**
+     * 保存消息。
+     */
     private Long saveMessage(Long sessionId, String role, String content,
                              Integer promptTokens, Integer completionTokens,
                              Integer totalTokens, String modelName) {
@@ -792,6 +837,9 @@ public class ChatServiceImpl implements IChatService {
         return message.getMessageId();
     }
 
+    /**
+     * 更新会话TitleIFNeeded。
+     */
     private void updateSessionTitleIfNeeded(Long sessionId, String userContent) {
         ChatSession session = chatSessionMapper.selectById(sessionId);
         if (session != null && ("新对话".equals(session.getTitle()) || session.getTitle() == null || session.getTitle().isEmpty())) {
@@ -804,6 +852,9 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    /**
+     * 更新会话时间。
+     */
     private void updateSessionTime(Long sessionId) {
         ChatSession session = chatSessionMapper.selectById(sessionId);
         if (session != null) {
@@ -812,6 +863,9 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    /**
+     * 处理tryHandleKnowledgeQuestion方法逻辑。
+     */
     private String tryHandleKnowledgeQuestion(String content, List<ChatSendBO.AttachmentDTO> attachments, boolean ragEnabled) {
         Long sessionId = AiContextHolder.getCurrentSessionId();
         Long tenantId = AiContextHolder.getCurrentTenantId();
@@ -875,6 +929,9 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    /**
+     * 判断是否Prefer知识答案。
+     */
     private boolean shouldPreferKnowledgeAnswer(String content) {
         if (StrUtil.isBlank(content)) {
             return false;
@@ -885,12 +942,18 @@ public class ChatServiceImpl implements IChatService {
         return looksLikeKnowledgeQuestion(content);
     }
 
+    /**
+     * 判断是否存在Explicit知识搜索Intent。
+     */
     private boolean hasExplicitKnowledgeSearchIntent(String content) {
         return StrUtil.containsAnyIgnoreCase(content,
                 "原文", "出处", "片段", "摘录", "节选", "第几页", "哪一页", "页码",
                 "全文", "原句", "原话", "命中文档", "相关文档", "原始内容");
     }
 
+    /**
+     * 处理looks模糊KnowledgeQuestion方法逻辑。
+     */
     private boolean looksLikeKnowledgeQuestion(String content) {
         return StrUtil.containsAny(content, "?", "？")
                 || StrUtil.containsAnyIgnoreCase(content,
@@ -899,6 +962,9 @@ public class ChatServiceImpl implements IChatService {
                 "哪些", "几类", "几种", "几次", "谁", "何时", "啥");
     }
 
+    /**
+     * 判断是否Usable知识答案响应。
+     */
     private boolean isUsableKnowledgeAnswerResponse(String response) {
         if (StrUtil.isBlank(response)) {
             return false;
@@ -910,6 +976,9 @@ public class ChatServiceImpl implements IChatService {
                 && !response.contains("无法确定当前租户");
     }
 
+    /**
+     * 判断是否Usable知识搜索响应。
+     */
     private boolean isUsableKnowledgeSearchResponse(String response) {
         if (StrUtil.isBlank(response)) {
             return false;
@@ -919,6 +988,9 @@ public class ChatServiceImpl implements IChatService {
                 && !response.contains("功能未启用");
     }
 
+    /**
+     * 解析AIUnavailableTIP。
+     */
     private String resolveAiUnavailableTip(Long tenantId) {
         if (!chatClientProvider.isApiKeyConfigured()) {
             return "请先在系统设置中配置 AI 服务，或切换到赠送额度模式。";
@@ -929,6 +1001,9 @@ public class ChatServiceImpl implements IChatService {
         return null;
     }
 
+    /**
+     * 构建知识ToolPrompt。
+     */
     private String buildKnowledgeToolPrompt(boolean ragEnabled) {
         if (!ragEnabled) {
             log.debug("跳过知识库工具提示: RAG 开关未开启");
@@ -945,6 +1020,9 @@ public class ChatServiceImpl implements IChatService {
                 """;
     }
 
+    /**
+     * 处理abbreviateForLog方法逻辑。
+     */
     private String abbreviateForLog(String text) {
         if (StrUtil.isBlank(text)) {
             return "";

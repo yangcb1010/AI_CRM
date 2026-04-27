@@ -102,6 +102,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
     @Autowired
     private DataPermissionService dataPermissionService;
 
+    /**
+     * 分页查询全局搜索索引列表。
+     */
     @Override
     public BasePage<GlobalSearchResultVO> queryPageList(GlobalSearchQueryBO queryBO) {
         queryBO.setTenantId(UserUtil.getTenantId());
@@ -132,6 +135,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return page;
     }
 
+    /**
+     * 刷新客户索引。
+     */
     @Override
     public void refreshCustomerIndex(Long customerId) {
         if (customerId == null) {
@@ -180,6 +186,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.upsert(fillSearchFallback(index));
     }
 
+    /**
+     * 刷新客户关联索引。
+     */
     @Override
     public void refreshCustomerRelatedIndexes(Long customerId) {
         if (customerId == null) {
@@ -196,6 +205,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
                 .forEach(knowledge -> refreshKnowledgeIndex(knowledge.getKnowledgeId()));
     }
 
+    /**
+     * 刷新联系人索引。
+     */
     @Override
     public void refreshContactIndex(Long contactId) {
         if (contactId == null) {
@@ -240,6 +252,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.upsert(fillSearchFallback(index));
     }
 
+    /**
+     * 刷新任务索引。
+     */
     @Override
     public void refreshTaskIndex(Long taskId) {
         if (taskId == null) {
@@ -282,6 +297,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.upsert(fillSearchFallback(index));
     }
 
+    /**
+     * 刷新日程索引。
+     */
     @Override
     public void refreshScheduleIndex(Long scheduleId) {
         if (scheduleId == null) {
@@ -334,6 +352,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.upsert(fillSearchFallback(index));
     }
 
+    /**
+     * 刷新知识索引。
+     */
     @Override
     public void refreshKnowledgeIndex(Long knowledgeId) {
         if (knowledgeId == null) {
@@ -375,6 +396,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.upsert(fillSearchFallback(index));
     }
 
+    /**
+     * 删除按Entity。
+     */
     @Override
     public void deleteByEntity(String entityType, Long entityId) {
         if (StrUtil.isBlank(entityType) || entityId == null || UserUtil.getTenantId() == null) {
@@ -383,6 +407,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.deleteByEntity(UserUtil.getTenantId(), entityType, entityId);
     }
 
+    /**
+     * 删除联系人索引按客户ID。
+     */
     @Override
     public void deleteContactIndexesByCustomerId(Long customerId) {
         if (customerId == null || UserUtil.getTenantId() == null) {
@@ -391,6 +418,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         baseMapper.deleteByCustomerIdAndEntityType(UserUtil.getTenantId(), customerId, ENTITY_CONTACT);
     }
 
+    /**
+     * 处理applyPermissionScope方法逻辑。
+     */
     private void applyPermissionScope(GlobalSearchQueryBO queryBO) {
         applyScopedModule(queryBO, ENTITY_CUSTOMER, "customer:view");
         applyScopedModule(queryBO, ENTITY_CONTACT, "contact:view");
@@ -399,6 +429,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         applyScopedModule(queryBO, ENTITY_KNOWLEDGE, "knowledge:view");
     }
 
+    /**
+     * 处理apply范围内模块方法逻辑。
+     */
     private void applyScopedModule(GlobalSearchQueryBO queryBO, String module, String permission) {
         boolean enabled = permissionService.hasPermission(permission);
         DataPermissionContext context = enabled ? dataPermissionService.createContext(module) : DataPermissionContext.none();
@@ -431,6 +464,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         }
     }
 
+    /**
+     * 处理applyScheduleScope方法逻辑。
+     */
     private void applyScheduleScope(GlobalSearchQueryBO queryBO) {
         boolean enabled = permissionService.hasPermission("schedule:view");
         DataPermissionContext context = enabled ? dataPermissionService.createContextByPermission("schedule:view") : DataPermissionContext.none();
@@ -439,6 +475,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         queryBO.setScheduleUserIds(enabled && context.getUserIds() != null ? context.getUserIds() : Collections.emptyList());
     }
 
+    /**
+     * 判断是否存在ANY启用项模块。
+     */
     private boolean hasAnyEnabledModule(GlobalSearchQueryBO queryBO) {
         return Boolean.TRUE.equals(queryBO.getCustomerEnabled())
                 || Boolean.TRUE.equals(queryBO.getContactEnabled())
@@ -447,6 +486,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
                 || Boolean.TRUE.equals(queryBO.getKnowledgeEnabled());
     }
 
+    /**
+     * 判断是否DisabledRequestedEntity。
+     */
     private boolean isDisabledRequestedEntity(GlobalSearchQueryBO queryBO) {
         if (StrUtil.isBlank(queryBO.getEntityType())) {
             return false;
@@ -461,6 +503,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 获取用户Display名称。
+     */
     private Map<Long, String> getUserDisplayNames(Collection<Long> userIds) {
         Set<Long> ids = userIds == null
                 ? Collections.emptySet()
@@ -478,6 +523,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
                 ));
     }
 
+    /**
+     * 处理collectUserIds方法逻辑。
+     */
     private Set<Long> collectUserIds(Long... userIds) {
         Set<Long> result = new LinkedHashSet<>();
         if (userIds == null) {
@@ -491,6 +539,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return result;
     }
 
+    /**
+     * 获取用户Display名称。
+     */
     private String getUserDisplayName(ManagerUser user) {
         if (user == null) {
             return null;
@@ -498,6 +549,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return firstNonBlank(user.getRealname(), user.getUsername());
     }
 
+    /**
+     * 处理extractSearchableCustomFieldText方法逻辑。
+     */
     private String extractSearchableCustomFieldText(String entityType, Map<String, Object> customFields) {
         if (customFields == null || customFields.isEmpty()) {
             return null;
@@ -524,6 +578,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return joinFragments(fragments);
     }
 
+    /**
+     * 解析参与人用户ID。
+     */
     private Set<Long> parseParticipantUserIds(String participantUserIds) {
         if (StrUtil.isBlank(participantUserIds)) {
             return new LinkedHashSet<>();
@@ -544,20 +601,32 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return result;
     }
 
+    /**
+     * 填充搜索兜底。
+     */
     private GlobalSearchIndex fillSearchFallback(GlobalSearchIndex index) {
         index.setSearchText(firstNonBlank(index.getSearchText(), normalizeSearchText(joinFragments(index.getTitle(), index.getSubtitle(), index.getSummary()))));
         index.setSortTime(firstNonNull(index.getSortTime(), new Date()));
         return index;
     }
 
+    /**
+     * 构建Subtitle。
+     */
     private String buildSubtitle(String entityLabel, String context) {
         return StrUtil.isBlank(context) ? entityLabel : entityLabel + " • " + context;
     }
 
+    /**
+     * 获取阶段Label。
+     */
     private String getStageLabel(String stage) {
         return CustomerStageEnum.getNameByCode(stage);
     }
 
+    /**
+     * 获取LevelLabel。
+     */
     private String getLevelLabel(String level) {
         if (StrUtil.isBlank(level)) {
             return null;
@@ -570,6 +639,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 获取任务优先级Label。
+     */
     private String getTaskPriorityLabel(String priority) {
         if (StrUtil.isBlank(priority)) {
             return null;
@@ -582,6 +654,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 获取任务状态Label。
+     */
     private String getTaskStatusLabel(String status) {
         if (StrUtil.isBlank(status)) {
             return null;
@@ -595,6 +670,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 获取日程类型Label。
+     */
     private String getScheduleTypeLabel(String type) {
         if (StrUtil.isBlank(type)) {
             return null;
@@ -608,6 +686,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 获取知识类型Label。
+     */
     private String getKnowledgeTypeLabel(String type) {
         if (StrUtil.isBlank(type)) {
             return null;
@@ -623,6 +704,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         };
     }
 
+    /**
+     * 处理joinFragments方法逻辑。
+     */
     private String joinFragments(Object... values) {
         List<String> fragments = new ArrayList<>();
         if (values != null) {
@@ -633,6 +717,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return String.join(" ", fragments);
     }
 
+    /**
+     * 处理appendFragment方法逻辑。
+     */
     private void appendFragment(List<String> fragments, Object value) {
         if (value == null) {
             return;
@@ -653,6 +740,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         fragments.add(text);
     }
 
+    /**
+     * 标准化搜索文本。
+     */
     private String normalizeSearchText(String text) {
         if (StrUtil.isBlank(text)) {
             return null;
@@ -671,6 +761,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return StrUtil.emptyToNull(normalized);
     }
 
+    /**
+     * 处理truncate摘要方法逻辑。
+     */
     private String truncateSummary(String text) {
         String normalized = StrUtil.trim(text);
         if (StrUtil.isBlank(normalized)) {
@@ -679,6 +772,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return truncateText(normalized, SUMMARY_LIMIT);
     }
 
+    /**
+     * 处理truncateText方法逻辑。
+     */
     private String truncateText(String text, int maxLength) {
         if (StrUtil.isBlank(text) || maxLength <= 0 || text.length() <= maxLength) {
             return text;
@@ -686,6 +782,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return text.substring(0, maxLength);
     }
 
+    /**
+     * 处理firstNonNull方法逻辑。
+     */
     @SafeVarargs
     private final <T> T firstNonNull(T... values) {
         if (values == null) {
@@ -699,6 +798,9 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
         return null;
     }
 
+    /**
+     * 处理firstNonBlank方法逻辑。
+     */
     private String firstNonBlank(String... values) {
         if (values == null) {
             return null;

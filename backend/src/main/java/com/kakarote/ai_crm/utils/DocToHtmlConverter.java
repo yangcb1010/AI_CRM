@@ -24,9 +24,15 @@ import java.util.Base64;
  */
 public final class DocToHtmlConverter {
 
+    /**
+     * 初始化DOCTOHTMLConverter实例。
+     */
     private DocToHtmlConverter() {
     }
 
+    /**
+     * 转换TOHTML。
+     */
     public static String convertToHtml(InputStream inputStream) throws Exception {
         HWPFDocument document = new HWPFDocument(inputStream);
 
@@ -55,6 +61,9 @@ public final class DocToHtmlConverter {
     }
 
     private static class Base64PicturesManager implements PicturesManager {
+        /**
+         * 保存Picture。
+         */
         @Override
         public String savePicture(byte[] content, PictureType pictureType,
                                   String suggestedName, float widthInches, float heightInches) {
@@ -63,6 +72,9 @@ public final class DocToHtmlConverter {
             return "data:" + mime + ";base64," + encoded;
         }
 
+        /**
+         * 解析Mime。
+         */
         private String resolveMime(PictureType type) {
             return switch (type) {
                 case JPEG -> "image/jpeg";

@@ -53,16 +53,25 @@ public class DataPermissionServiceImpl implements DataPermissionService {
     @Autowired
     private ManagerRoleMenuMapper managerRoleMenuMapper;
 
+    /**
+     * 创建上下文。
+     */
     @Override
     public DataPermissionContext createContext(String module) {
         return createContextInternal(module, false);
     }
 
+    /**
+     * 创建上下文按权限。
+     */
     @Override
     public DataPermissionContext createContextByPermission(String permission) {
         return createContextInternal(permission, true);
     }
 
+    /**
+     * 创建上下文内部。
+     */
     private DataPermissionContext createContextInternal(String scopeKey, boolean exactPermission) {
         DataPermissionContext cached = DataPermissionHolder.get(scopeKey);
         if (cached != null) {
@@ -132,6 +141,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         return context;
     }
 
+    /**
+     * 判断是否存在用户数据访问。
+     */
     @Override
     public boolean hasUserDataAccess(String module, Long targetUserId) {
         if (targetUserId == null) {
@@ -141,6 +153,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         return context.isAllData() || (context.getUserIds() != null && context.getUserIds().contains(targetUserId));
     }
 
+    /**
+     * 判断是否存在用户数据访问按权限。
+     */
     @Override
     public boolean hasUserDataAccessByPermission(String permission, Long targetUserId) {
         if (targetUserId == null) {
@@ -150,6 +165,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         return context.isAllData() || (context.getUserIds() != null && context.getUserIds().contains(targetUserId));
     }
 
+    /**
+     * 处理assertUser数据访问方法逻辑。
+     */
     @Override
     public void assertUserDataAccess(String module, Long targetUserId) {
         if (!hasUserDataAccess(module, targetUserId)) {
@@ -157,6 +175,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         }
     }
 
+    /**
+     * 处理assertUser数据访问ByPermission方法逻辑。
+     */
     @Override
     public void assertUserDataAccessByPermission(String permission, Long targetUserId) {
         if (!hasUserDataAccessByPermission(permission, targetUserId)) {
@@ -164,6 +185,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         }
     }
 
+    /**
+     * 判断是否超级管理员。
+     */
     private boolean isSuperAdmin(Long userId) {
         if (userId.equals(UserUtil.getSuperUserId())) {
             return true;
@@ -185,6 +209,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         ) > 0;
     }
 
+    /**
+     * 处理collectSubordinateUserIds方法逻辑。
+     */
     private Set<Long> collectSubordinateUserIds(Long currentUserId, List<ManagerUser> allUsers) {
         Map<Long, List<Long>> childrenByParent = allUsers.stream()
                 .filter(user -> user.getParentId() != null)
@@ -195,6 +222,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         return traverseTree(currentUserId, childrenByParent);
     }
 
+    /**
+     * 处理collectDeptIds方法逻辑。
+     */
     private Set<Long> collectDeptIds(Long deptId) {
         List<ManagerDept> allDepts = managerDeptMapper.selectList(
                 new QueryWrapper<ManagerDept>()
@@ -212,6 +242,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         return deptIds;
     }
 
+    /**
+     * 处理collectUsersByDeptIds方法逻辑。
+     */
     private Set<Long> collectUsersByDeptIds(Set<Long> deptIds, List<ManagerUser> allUsers) {
         if (deptIds == null || deptIds.isEmpty()) {
             return Collections.emptySet();
@@ -222,6 +255,9 @@ public class DataPermissionServiceImpl implements DataPermissionService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    /**
+     * 处理traverseTree方法逻辑。
+     */
     private Set<Long> traverseTree(Long rootId, Map<Long, List<Long>> childrenByParent) {
         List<Long> initialChildren = childrenByParent.get(rootId);
         if (initialChildren == null || initialChildren.isEmpty()) {

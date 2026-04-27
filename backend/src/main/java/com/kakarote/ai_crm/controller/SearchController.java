@@ -21,6 +21,9 @@ public class SearchController {
     @Autowired
     private IGlobalSearchIndexService globalSearchIndexService;
 
+    /**
+     * 处理globalSearch方法逻辑。
+     */
     @PostMapping("/global")
     @Operation(summary = "Global search across CRM modules")
     public Result<BasePage<GlobalSearchResultVO>> globalSearch(@RequestBody GlobalSearchQueryBO queryBO) {

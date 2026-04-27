@@ -35,13 +35,22 @@ public interface CustomerMapper extends BaseMapper<Customer> {
             @Param("query") CustomerQueryBO query,
             @Param("cfColumns") List<String> cfColumns);
 
+    /**
+     * 分页查询Count。
+     */
     @InterceptorIgnore(tenantLine = "true", dataPermission = "true")
     Long queryPageListCount(@Param("query") CustomerQueryBO query);
 
+    /**
+     * 查询按ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_customer WHERE customer_id = #{customerId}")
     Customer selectByIdIgnoreDataPermission(@Param("customerId") Long customerId);
 
+    /**
+     * 查询按精确公司名称忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("""
             SELECT *
@@ -52,6 +61,9 @@ public interface CustomerMapper extends BaseMapper<Customer> {
             """)
     List<Customer> selectByExactCompanyNameIgnoreDataPermission(@Param("companyName") String companyName);
 
+    /**
+     * 查询按公司名称模糊忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("""
             SELECT *

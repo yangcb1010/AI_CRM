@@ -29,6 +29,9 @@ public class UserUtil {
         }
     }
 
+    /**
+     * 获取用户ID。
+     */
     public static Long getUserId() {
         // 优先从 SecurityContext 获取（正常 HTTP 请求线程）
         try {

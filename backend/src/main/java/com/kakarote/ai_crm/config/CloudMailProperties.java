@@ -48,6 +48,9 @@ public class CloudMailProperties {
      */
     private boolean replyToAddress = false;
 
+    /**
+     * 判断是否存在Required配置。
+     */
     public boolean hasRequiredConfig() {
         return enabled
                 && hasText(accessKeyId)
@@ -55,6 +58,9 @@ public class CloudMailProperties {
                 && hasText(accountName);
     }
 
+    /**
+     * 判断是否存在文本。
+     */
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }

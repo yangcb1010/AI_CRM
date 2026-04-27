@@ -49,6 +49,9 @@ public class DynamicSchemaServiceImpl implements IDynamicSchemaService {
      */
     private static final Pattern COLUMN_NAME_PATTERN = Pattern.compile("^(cf_[a-z][a-z0-9_]*|field_[a-z0-9]{6})$");
 
+    /**
+     * 新增列。
+     */
     @Override
     public void addColumn(String tableName, String columnName, String columnType, String comment) {
         // 安全验证
@@ -78,6 +81,9 @@ public class DynamicSchemaServiceImpl implements IDynamicSchemaService {
         }
     }
 
+    /**
+     * 处理dropColumn方法逻辑。
+     */
     @Override
     public void dropColumn(String tableName, String columnName) {
         validateTableName(tableName);
@@ -91,6 +97,9 @@ public class DynamicSchemaServiceImpl implements IDynamicSchemaService {
         jdbcTemplate.execute(sql);
     }
 
+    /**
+     * 处理columnExists方法逻辑。
+     */
     @Override
     public boolean columnExists(String tableName, String columnName) {
         // PostgreSQL: 使用 current_database() 替代 DATABASE()
@@ -103,6 +112,9 @@ public class DynamicSchemaServiceImpl implements IDynamicSchemaService {
         return count != null && count > 0;
     }
 
+    /**
+     * 获取Table名称。
+     */
     @Override
     public String getTableName(String entityType) {
         String tableName = TABLE_MAPPING.get(entityType);
@@ -112,6 +124,9 @@ public class DynamicSchemaServiceImpl implements IDynamicSchemaService {
         return tableName;
     }
 
+    /**
+     * 获取ID列名称。
+     */
     @Override
     public String getIdColumnName(String entityType) {
         String idColumn = ID_COLUMN_MAPPING.get(entityType);

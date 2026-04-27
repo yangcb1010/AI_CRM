@@ -92,6 +92,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         }
         """;
 
+    /**
+     * 新增任务。
+     */
     @Override
     public Long addTask(TaskAddBO taskAddBO) {
         Task task = BeanUtil.copyProperties(taskAddBO, Task.class);
@@ -113,6 +116,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return task.getTaskId();
     }
 
+    /**
+     * 更新任务。
+     */
     @Override
     public void updateTask(TaskUpdateBO taskUpdateBO) {
         Task task = getById(taskUpdateBO.getTaskId());
@@ -125,6 +131,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         globalSearchIndexService.refreshTaskIndex(task.getTaskId());
     }
 
+    /**
+     * 删除任务。
+     */
     @Override
     public void deleteTask(Long taskId) {
         Task task = getById(taskId);
@@ -135,6 +144,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         globalSearchIndexService.deleteByEntity("task", taskId);
     }
 
+    /**
+     * 分页查询任务列表。
+     */
     @Override
     public BasePage<TaskVO> queryPageList(TaskQueryBO queryBO) {
         if (useValuePriorityMode(queryBO)) {
@@ -148,6 +160,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return page;
     }
 
+    /**
+     * 更新状态。
+     */
     @Override
     public void updateStatus(Long taskId, String status) {
         Task task = getById(taskId);
@@ -163,6 +178,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         globalSearchIndexService.refreshTaskIndex(taskId);
     }
 
+    /**
+     * 获取MY任务。
+     */
     @Override
     public List<TaskVO> getMyTasks(String filter) {
         Long userId = UserUtil.getUserId();
@@ -176,6 +194,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return tasks;
     }
 
+    /**
+     * 刷新值优先级。
+     */
     @Override
     public void refreshValuePriority(Long taskId) {
         if (taskId == null) {
@@ -189,6 +210,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         persistValuePriority(task, customer);
     }
 
+    /**
+     * 刷新值优先级按客户ID。
+     */
     @Override
     public void refreshValuePriorityByCustomerId(Long customerId) {
         if (customerId == null) {
@@ -252,11 +276,17 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         }
     }
 
+    /**
+     * 切换使用值优先级模式。
+     */
     private boolean useValuePriorityMode(TaskQueryBO queryBO) {
         return Boolean.TRUE.equals(queryBO.getHighValueOnly())
             || "value".equalsIgnoreCase(StrUtil.blankToDefault(queryBO.getSortMode(), ""));
     }
 
+    /**
+     * 查询值优先级分页列表。
+     */
     private BasePage<TaskVO> queryValuePriorityPageList(TaskQueryBO queryBO) {
         List<TaskVO> tasks = baseMapper.queryList(queryBO);
         fillTaskNames(tasks);
@@ -282,6 +312,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return page;
     }
 
+    /**
+     * 处理paginateTasks方法逻辑。
+     */
     private BasePage<TaskVO> paginateTasks(List<TaskVO> tasks, TaskQueryBO queryBO) {
         long pageNumber = Math.max(1, queryBO.getPage());
         long pageSize = Math.max(1, queryBO.getLimit());
@@ -293,6 +326,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return page;
     }
 
+    /**
+     * 构建值优先级Comparator。
+     */
     private Comparator<TaskVO> buildValuePriorityComparator() {
         return Comparator
             .comparingInt((TaskVO task) -> switch (StrUtil.blankToDefault(task.getStatus(), "")) {
@@ -305,12 +341,18 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
             .thenComparing(task -> task.getCreateTime() == null ? Long.MAX_VALUE : task.getCreateTime().getTime());
     }
 
+    /**
+     * 处理attachStatusCounts方法逻辑。
+     */
     private void attachStatusCounts(BasePage<TaskVO> page, TaskQueryBO queryBO) {
         Map<String, Object> extraData = new LinkedHashMap<>();
         extraData.put("statusCounts", buildStatusCounts(queryBO));
         page.setExtraData(extraData);
     }
 
+    /**
+     * 构建状态Counts。
+     */
     private Map<String, Long> buildStatusCounts(TaskQueryBO queryBO) {
         TaskQueryBO summaryQuery = BeanUtil.copyProperties(queryBO, TaskQueryBO.class);
         summaryQuery.setStatus(null);
@@ -346,6 +388,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return buildStatusCountMap(tasks);
     }
 
+    /**
+     * 构建状态CountMAP。
+     */
     private Map<String, Long> buildStatusCountMap(List<TaskVO> tasks) {
         long pendingCount = tasks.stream().filter(task -> "PENDING".equalsIgnoreCase(task.getStatus())).count();
         long inProgressCount = tasks.stream().filter(task -> "IN_PROGRESS".equalsIgnoreCase(task.getStatus())).count();
@@ -359,6 +404,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return statusCounts;
     }
 
+    /**
+     * 解析High值兜底限制。
+     */
     private int resolveHighValueFallbackLimit(TaskQueryBO queryBO) {
         return (int) Math.min(
             Math.max(1, ObjectUtil.defaultIfNull(queryBO.getLimit(), HIGH_VALUE_FALLBACK_LIMIT)),
@@ -366,6 +414,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         );
     }
 
+    /**
+     * 处理hydrateValue优先级方法逻辑。
+     */
     private void hydrateValuePriority(List<TaskVO> tasks, boolean persistMissing) {
         if (tasks == null || tasks.isEmpty()) {
             return;
@@ -390,6 +441,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         }
     }
 
+    /**
+     * 处理persistValue优先级方法逻辑。
+     */
     private void persistValuePriority(Task task, Customer customer) {
         if (task == null || task.getTaskId() == null) {
             return;
@@ -402,6 +456,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         task.setHighValue(result.highValue());
     }
 
+    /**
+     * 加载客户MAP。
+     */
     private Map<Long, Customer> loadCustomerMap(Set<Long> customerIds) {
         if (customerIds == null || customerIds.isEmpty()) {
             return Collections.emptyMap();
@@ -411,6 +468,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
             .collect(Collectors.toMap(Customer::getCustomerId, Function.identity(), (left, right) -> left));
     }
 
+    /**
+     * 判断是否存在Persisted值优先级。
+     */
     private boolean hasPersistedValuePriority(TaskVO task) {
         return task.getValuePriorityScore() != null
             && StrUtil.isNotBlank(task.getValuePriorityTier())
@@ -418,6 +478,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
             && task.getHighValue() != null;
     }
 
+    /**
+     * 处理applyValue优先级方法逻辑。
+     */
     private void applyValuePriority(TaskVO task, TaskValuePriorityResult result) {
         task.setValuePriorityScore(result.score());
         task.setValuePriorityTier(result.tier());
@@ -425,6 +488,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         task.setHighValue(result.highValue());
     }
 
+    /**
+     * 处理evaluateValue优先级方法逻辑。
+     */
     private TaskValuePriorityResult evaluateValuePriority(TaskPriorityInput task, Customer customer) {
         int customerValue = computeCustomerValue(customer);
         int winProbability = computeWinProbability(customer);
@@ -458,6 +524,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         );
     }
 
+    /**
+     * 处理computeCustomerValue方法逻辑。
+     */
     private int computeCustomerValue(Customer customer) {
         if (customer == null) {
             return 28;
@@ -487,6 +556,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return clamp(score, 10, 98);
     }
 
+    /**
+     * 处理computeWinProbability方法逻辑。
+     */
     private int computeWinProbability(Customer customer) {
         if (customer == null) {
             return 24;
@@ -528,6 +600,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return clamp(score, 5, 98);
     }
 
+    /**
+     * 转换为任务优先级输入。
+     */
     private TaskPriorityInput toTaskPriorityInput(TaskVO task) {
         return new TaskPriorityInput(
             task.getTaskId(),
@@ -543,6 +618,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         );
     }
 
+    /**
+     * 转换为任务优先级输入。
+     */
     private TaskPriorityInput toTaskPriorityInput(Task task) {
         return new TaskPriorityInput(
             task.getTaskId(),
@@ -558,6 +636,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         );
     }
 
+    /**
+     * 处理computeUrgency方法逻辑。
+     */
     private int computeUrgency(TaskPriorityInput task, Customer customer) {
         if ("COMPLETED".equalsIgnoreCase(task.status())) {
             return 0;
@@ -573,6 +654,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return clamp(score, 0, 100);
     }
 
+    /**
+     * 处理computeActionFit方法逻辑。
+     */
     private int computeActionFit(TaskPriorityInput task, Customer customer) {
         int score = customer != null ? 55 : 35;
         String stage = customer == null ? "" : StrUtil.blankToDefault(customer.getStage(), "").toLowerCase();
@@ -600,6 +684,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return clamp(score, 20, 95);
     }
 
+    /**
+     * 处理computeManual优先级Bonus方法逻辑。
+     */
     private int computeManualPriorityBonus(TaskPriorityInput task) {
         return switch (StrUtil.blankToDefault(task.priority(), "")) {
             case "HIGH" -> 6;
@@ -608,6 +695,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         };
     }
 
+    /**
+     * 处理computeRiskPenalty方法逻辑。
+     */
     private int computeRiskPenalty(TaskPriorityInput task, Customer customer) {
         int penalty = 0;
         if (task.customerId() == null) {
@@ -634,6 +724,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return penalty;
     }
 
+    /**
+     * 构建值优先级Reason。
+     */
     private String buildValuePriorityReason(TaskPriorityInput task,
                                             Customer customer,
                                             int score,
@@ -693,6 +786,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return summary + "，可按计划处理。";
     }
 
+    /**
+     * 处理extractSnapshotScore方法逻辑。
+     */
     private Integer extractSnapshotScore(Customer customer) {
         if (customer == null || StrUtil.isBlank(customer.getAiParseSnapshot())) {
             return null;
@@ -708,6 +804,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return null;
     }
 
+    /**
+     * 处理scoreAmount方法逻辑。
+     */
     private int scoreAmount(BigDecimal amount, int lowScore, int mediumScore, int highScore) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return 0;
@@ -721,6 +820,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return lowScore;
     }
 
+    /**
+     * 处理scoreNextFollowMomentum方法逻辑。
+     */
     private int scoreNextFollowMomentum(Date nextFollowTime) {
         if (nextFollowTime == null) {
             return -6;
@@ -738,6 +840,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return 3;
     }
 
+    /**
+     * 处理scoreDeadline方法逻辑。
+     */
     private int scoreDeadline(Date deadline,
                               int emptyScore,
                               int overdueScore,
@@ -768,6 +873,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return relaxedScore;
     }
 
+    /**
+     * 处理daysSince方法逻辑。
+     */
     private long daysSince(Date value) {
         if (value == null) {
             return -1;
@@ -775,6 +883,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return TimeUnit.MILLISECONDS.toDays(Math.max(0, System.currentTimeMillis() - value.getTime()));
     }
 
+    /**
+     * 处理hoursUntil方法逻辑。
+     */
     private long hoursUntil(Date value) {
         if (value == null) {
             return Long.MAX_VALUE;
@@ -782,10 +893,16 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return TimeUnit.MILLISECONDS.toHours(value.getTime() - System.currentTimeMillis());
     }
 
+    /**
+     * 判断是否存在CommercialSignal。
+     */
     private boolean hasCommercialSignal(Customer customer) {
         return customer != null && scoreAmount(customer.getQuotation(), 1, 1, 1) > 0;
     }
 
+    /**
+     * 判断是否阶段。
+     */
     private boolean isStage(String actualStage, String... stages) {
         if (StrUtil.isBlank(actualStage)) {
             return false;
@@ -798,6 +915,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return false;
     }
 
+    /**
+     * 处理containsAny方法逻辑。
+     */
     private boolean containsAny(String text, String... keywords) {
         if (StrUtil.isBlank(text) || keywords == null) {
             return false;
@@ -811,6 +931,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return false;
     }
 
+    /**
+     * 标准化AI状态。
+     */
     private String normalizeAiStatus(String aiStatus) {
         String normalized = StrUtil.blankToDefault(aiStatus, "").replace(" ", "");
         if (normalized.contains("高意向")) {
@@ -828,6 +951,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return normalized;
     }
 
+    /**
+     * 获取阶段Label。
+     */
     private String getStageLabel(String stage) {
         return switch (stage.toLowerCase()) {
             case "lead" -> "线索初期";
@@ -840,10 +966,16 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         };
     }
 
+    /**
+     * 处理clamp方法逻辑。
+     */
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
     }
 
+    /**
+     * 使用 AI 解析任务。
+     */
     @Override
     public TaskAiParseVO aiParseTask(TaskAiParseBO parseBO) {
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
@@ -872,6 +1004,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         }
     }
 
+    /**
+     * 解析任务AI响应。
+     */
     private TaskAiParseVO parseTaskAiResponse(String response) {
         try {
             String json = response.trim();
@@ -897,6 +1032,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         }
     }
 
+    /**
+     * 获取文本OR默认。
+     */
     private String getTextOrDefault(JsonNode root, String field, String defaultValue) {
         if (root.has(field) && !root.get(field).isNull()) {
             String value = root.get(field).asText();
@@ -905,6 +1043,9 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements IT
         return defaultValue;
     }
 
+    /**
+     * 构建兜底任务结果。
+     */
     private TaskAiParseVO buildFallbackTaskResult(String content) {
         TaskAiParseVO vo = new TaskAiParseVO();
         vo.setTitle(content.length() > 50 ? content.substring(0, 50) + "..." : content);

@@ -128,6 +128,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * 上传文件。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long uploadFile(MultipartFile file, String type, Long customerId, String summary) {
@@ -243,6 +246,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 删除知识。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteKnowledge(Long knowledgeId) {
@@ -278,6 +284,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         globalSearchIndexService.deleteByEntity("knowledge", knowledgeId);
     }
 
+    /**
+     * 分页查询知识列表。
+     */
     @Override
     public BasePage<KnowledgeVO> queryPageList(KnowledgeQueryBO queryBO) {
         BasePage<KnowledgeVO> page = queryBO.parse();
@@ -285,6 +294,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return page;
     }
 
+    /**
+     * 获取知识详情。
+     */
     @Override
     public KnowledgeVO getKnowledgeDetail(Long knowledgeId) {
         Knowledge knowledge = getById(knowledgeId);
@@ -344,6 +356,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return result;
     }
 
+    /**
+     * 生成TargetedScript。
+     */
     @Override
     public KnowledgeTargetedScriptVO generateTargetedScript(KnowledgeTargetedScriptBO scriptBO) {
         if (scriptBO == null || scriptBO.getCustomerId() == null
@@ -421,6 +436,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return result;
     }
 
+    /**
+     * 处理pollWeKnoraParseStatus方法逻辑。
+     */
     private void pollWeKnoraParseStatus(Long knowledgeId, String weKnoraKnowledgeId, String tenantApiKey) {
         int maxAttempts = 60;
         long intervalMs = 20000; // 20秒
@@ -462,6 +480,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         log.warn("WeKnora 解析状态轮询超时(20min): knowledgeId={}, weKnoraId={}", knowledgeId, weKnoraKnowledgeId);
     }
 
+    /**
+     * 重新解析知识。
+     */
     @Override
     public void reparseKnowledge(Long knowledgeId) {
         Knowledge knowledge = getById(knowledgeId);
@@ -497,6 +518,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         self.asyncUploadToWeKnora(knowledge.getKnowledgeId(), knowledge.getFilePath(), knowledge.getName(), UserUtil.getTenantId());
     }
 
+    /**
+     * 新增标签。
+     */
     @Override
     public void addTag(Long knowledgeId, String tagName) {
         Knowledge knowledge = getById(knowledgeId);
@@ -610,6 +634,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         %s
         """;
 
+    /**
+     * 使用 AI 分析文档。
+     */
     @Override
     public KnowledgeAiAnalyzeVO aiAnalyzeDocument(Long knowledgeId, boolean forceRefresh) {
         Knowledge knowledge = getById(knowledgeId);
@@ -663,6 +690,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 解析分析响应。
+     */
     private KnowledgeAiAnalyzeVO parseAnalyzeResponse(String response, Knowledge knowledge) {
         try {
             // Strip markdown code block markers if present
@@ -709,6 +739,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 读取Cached分析结果。
+     */
     private KnowledgeAiAnalyzeVO readCachedAnalyzeResult(Knowledge knowledge) {
         String snapshot = StrUtil.trimToNull(knowledge.getAiAnalysisSnapshot());
         if (snapshot == null) {
@@ -727,6 +760,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 标准化分析结果。
+     */
     private KnowledgeAiAnalyzeVO normalizeAnalyzeResult(KnowledgeAiAnalyzeVO source, Knowledge knowledge) {
         KnowledgeAiAnalyzeVO normalized = new KnowledgeAiAnalyzeVO();
         normalized.setCoreHighlights(StrUtil.blankToDefault(StrUtil.trim(source.getCoreHighlights()),
@@ -764,6 +800,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return normalized;
     }
 
+    /**
+     * 处理persistAnalyzeResult方法逻辑。
+     */
     private void persistAnalyzeResult(Knowledge knowledge, KnowledgeAiAnalyzeVO analyzeResult) {
         String snapshot;
         try {
@@ -796,6 +835,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 构建兜底分析结果。
+     */
     private KnowledgeAiAnalyzeVO buildFallbackAnalyzeResult(Knowledge knowledge) {
         KnowledgeAiAnalyzeVO vo = new KnowledgeAiAnalyzeVO();
         vo.setCoreHighlights(StrUtil.blankToDefault(knowledge.getSummary(), "暂无摘要"));
@@ -804,6 +846,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return vo;
     }
 
+    /**
+     * 发起问答文档Question。
+     */
     @Override
     public Flux<String> askDocumentQuestion(Long knowledgeId, KnowledgeAskBO askBO) {
         Knowledge knowledge = getById(knowledgeId);
@@ -888,6 +933,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 });
     }
 
+    /**
+     * 构建SemanticReferences。
+     */
     private List<KnowledgeAiSearchVO.ReferenceItem> buildSemanticReferences(String keyword, String type, int limit) {
         if (!weKnoraClient.isEnabled()) {
             return List.of();
@@ -963,6 +1011,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 发起问答知识基础Question。
+     */
     private WeKnoraClient.WeKnoraChatResult askKnowledgeBaseQuestion(String keyword, String type) {
         if (!weKnoraClient.isEnabled()) {
             return null;
@@ -1002,6 +1053,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 解析AI搜索范围内知识ID。
+     */
     private List<String> resolveAiSearchScopedKnowledgeIds(String type) {
         if (StrUtil.isBlank(type)) {
             return List.of();
@@ -1029,6 +1083,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return scopedKnowledgeIds;
     }
 
+    /**
+     * 构建ReferencesChunks。
+     */
     private List<KnowledgeAiSearchVO.ReferenceItem> buildReferencesFromChunks(List<WeKnoraChunk> chunks,
                                                                               String type,
                                                                               int limit) {
@@ -1092,10 +1149,16 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             .toList();
     }
 
+    /**
+     * 判断是否UnavailableRAG答案。
+     */
     private boolean isUnavailableRagAnswer(String answer) {
         return StrUtil.isBlank(answer) || answer.contains("NO_MATCH");
     }
 
+    /**
+     * 构建本地References。
+     */
     private List<KnowledgeAiSearchVO.ReferenceItem> buildLocalReferences(String keyword, String type, int limit) {
         KnowledgeQueryBO queryBO = new KnowledgeQueryBO();
         queryBO.setKeyword(keyword);
@@ -1121,6 +1184,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return references;
     }
 
+    /**
+     * 构建AI搜索答案。
+     */
     private String buildAiSearchAnswer(String keyword, List<KnowledgeAiSearchVO.ReferenceItem> references) {
         if (references.isEmpty()) {
             return "### 未找到相关内容\n\n当前知识库里还没有与“" + keyword + "”直接相关的资料，可以换个关键词再试试。";
@@ -1185,6 +1251,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 构建兜底AI答案。
+     */
     private String buildFallbackAiAnswer(String keyword, List<KnowledgeAiSearchVO.ReferenceItem> references) {
         StringBuilder answer = new StringBuilder();
         answer.append("### “").append(keyword).append("”相关知识解答\n\n");
@@ -1210,6 +1279,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return answer.toString().trim();
     }
 
+    /**
+     * 构建TargetedScriptPrompt。
+     */
     private String buildTargetedScriptPrompt(CustomerDetailVO customerDetail,
                                              List<FollowUpVO> recentFollowUps,
                                              List<Knowledge> knowledges) {
@@ -1219,6 +1291,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         );
     }
 
+    /**
+     * 构建Targeted客户上下文。
+     */
     private String buildTargetedCustomerContext(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         StringBuilder builder = new StringBuilder();
         builder.append("公司名称: ").append(StrUtil.blankToDefault(detail.getCompanyName(), "未提供")).append('\n');
@@ -1237,6 +1312,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return builder.toString().trim();
     }
 
+    /**
+     * 构建Targeted知识上下文。
+     */
     private String buildTargetedKnowledgeContext(List<Knowledge> knowledges) {
         StringBuilder builder = new StringBuilder();
         Map<Long, String> customerNameMap = loadCustomerNameMap(knowledges);
@@ -1254,6 +1332,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return builder.toString().trim();
     }
 
+    /**
+     * 处理extractTargetedScriptSnippet方法逻辑。
+     */
     private String extractTargetedScriptSnippet(Knowledge knowledge) {
         String content = normalizeSearchableContent(knowledge.getContentText());
         if (StrUtil.isBlank(content)) {
@@ -1264,6 +1345,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             : content;
     }
 
+    /**
+     * 处理cleanGeneratedMarkdown方法逻辑。
+     */
     private String cleanGeneratedMarkdown(String content, String fallback) {
         if (StrUtil.isBlank(content)) {
             return fallback;
@@ -1276,6 +1360,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return StrUtil.isBlank(normalized) ? fallback : normalized.trim();
     }
 
+    /**
+     * 构建TargetedScript兜底。
+     */
     private String buildTargetedScriptFallback(CustomerDetailVO detail,
                                                List<FollowUpVO> recentFollowUps,
                                                List<Knowledge> knowledges) {
@@ -1337,6 +1424,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return builder.toString().trim();
     }
 
+    /**
+     * 构建TargetedScriptSubtitle。
+     */
     private String buildTargetedScriptSubtitle(String customerName, List<Knowledge> knowledges) {
         List<String> knowledgeNames = knowledges.stream()
             .map(Knowledge::getName)
@@ -1350,6 +1440,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return "基于 %s & %s".formatted(docLabel, StrUtil.blankToDefault(customerName, "目标客户"));
     }
 
+    /**
+     * 解析主联系人摘要。
+     */
     private String resolvePrimaryContactSummary(List<ContactVO> contacts) {
         if (contacts == null || contacts.isEmpty()) {
             return "未提供";
@@ -1371,6 +1464,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return builder.toString();
     }
 
+    /**
+     * 格式化跟进摘要。
+     */
     private String formatFollowUpSummary(List<FollowUpVO> recentFollowUps) {
         if (recentFollowUps == null || recentFollowUps.isEmpty()) {
             return "近期暂无有效跟进记录";
@@ -1390,6 +1486,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return String.join("；", summaries);
     }
 
+    /**
+     * 格式化任务摘要。
+     */
     private String formatTaskSummary(CustomerDetailVO detail) {
         if (detail.getTasks() == null || detail.getTasks().isEmpty()) {
             return "暂无待跟进任务";
@@ -1407,6 +1506,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             .orElse("暂无待跟进任务");
     }
 
+    /**
+     * 处理firstNonBlank方法逻辑。
+     */
     private String firstNonBlank(String... values) {
         if (values == null) {
             return null;
@@ -1419,10 +1521,16 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return null;
     }
 
+    /**
+     * 格式化日期时间。
+     */
     private String formatDateTime(java.util.Date date) {
         return date == null ? "未提供" : DateUtil.formatDateTime(date);
     }
 
+    /**
+     * 加载客户名称MAP。
+     */
     private Map<Long, String> loadCustomerNameMap(List<Knowledge> knowledges) {
         Set<Long> customerIds = new LinkedHashSet<>();
         for (Knowledge knowledge : knowledges) {
@@ -1442,6 +1550,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return customerNameMap;
     }
 
+    /**
+     * 转换为ReferenceItem。
+     */
     private KnowledgeAiSearchVO.ReferenceItem toReferenceItem(Knowledge knowledge, String customerName) {
         KnowledgeAiSearchVO.ReferenceItem item = new KnowledgeAiSearchVO.ReferenceItem();
         item.setKnowledgeId(knowledge.getKnowledgeId());
@@ -1456,6 +1567,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return item;
     }
 
+    /**
+     * 处理calculateOverallMatchPercent方法逻辑。
+     */
     private int calculateOverallMatchPercent(List<KnowledgeAiSearchVO.ReferenceItem> references) {
         if (references.isEmpty()) {
             return 0;
@@ -1466,6 +1580,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             .orElse(0);
     }
 
+    /**
+     * 处理calculateLocalMatchPercent方法逻辑。
+     */
     private int calculateLocalMatchPercent(String keyword, KnowledgeVO knowledge) {
         int score = 55;
         if (StrUtil.containsIgnoreCase(StrUtil.blankToDefault(knowledge.getName(), ""), keyword)) {
@@ -1480,6 +1597,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return Math.min(score, 98);
     }
 
+    /**
+     * 转换为MatchPercent。
+     */
     private int toMatchPercent(Double score) {
         if (score == null) {
             return 86;
@@ -1490,6 +1610,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return Math.max(1, Math.min(99, (int) Math.round(score)));
     }
 
+    /**
+     * 处理extractSnippet方法逻辑。
+     */
     private String extractSnippet(String content, String keyword) {
         String normalized = normalizeSearchableContent(content);
         if (StrUtil.isBlank(normalized)) {
@@ -1515,6 +1638,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             : normalized;
     }
 
+    /**
+     * 处理extractSearchableContent方法逻辑。
+     */
     private String extractSearchableContent(MultipartFile file) {
         if (file == null) {
             return null;
@@ -1527,6 +1653,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 处理extractSearchableContent方法逻辑。
+     */
     private String extractSearchableContent(String filePath, String mimeType, String fileName) {
         if (StrUtil.isBlank(filePath)) {
             return null;
@@ -1539,6 +1668,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         }
     }
 
+    /**
+     * 处理extractSearchableContent方法逻辑。
+     */
     private String extractSearchableContent(InputStream inputStream, String mimeType, String fileName) throws Exception {
         if (inputStream == null) {
             return null;
@@ -1557,6 +1689,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return normalizeSearchableContent(text);
     }
 
+    /**
+     * 标准化Searchable内容。
+     */
     private String normalizeSearchableContent(String text) {
         if (StrUtil.isBlank(text)) {
             return null;
@@ -1572,6 +1707,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return normalized.isBlank() ? null : normalized;
     }
 
+    /**
+     * 移除Unsupported文本Characters。
+     */
     private String removeUnsupportedTextCharacters(String text) {
         StringBuilder sanitized = new StringBuilder(text.length());
         boolean modified = false;
@@ -1590,6 +1728,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return modified ? sanitized.toString() : text;
     }
 
+    /**
+     * 判断是否Plain文本文件。
+     */
     private boolean isPlainTextFile(String mimeType, String fileName) {
         if (mimeType != null && (mimeType.startsWith("text/") || "application/json".equals(mimeType))) {
             return true;
@@ -1609,6 +1750,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             || lower.endsWith(".log");
     }
 
+    /**
+     * 判断是否文档文件。
+     */
     private boolean isDocumentFile(String mimeType, String fileName) {
         if (mimeType != null) {
             if ("application/pdf".equals(mimeType)

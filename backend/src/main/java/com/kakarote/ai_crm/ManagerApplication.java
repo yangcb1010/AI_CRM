@@ -17,6 +17,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration"
 })
 public class ManagerApplication {
+    /**
+     * 启动后端应用。
+     */
     public static void main(String[] args) {
         SpringApplication.run(ManagerApplication.class,args);
     }

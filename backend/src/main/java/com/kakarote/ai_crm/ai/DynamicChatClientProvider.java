@@ -111,6 +111,9 @@ public class DynamicChatClientProvider {
     @Value("${weknora.init-models.chat.name:}")
     private String giftModel;
 
+    /**
+     * 获取聊天客户端。
+     */
     public ChatClient getChatClient() {
         Long tenantId = TenantContextHolder.getTenantId();
         long key = tenantId != null ? tenantId : 0L;
@@ -128,6 +131,9 @@ public class DynamicChatClientProvider {
         return client;
     }
 
+    /**
+     * 刷新聊天客户端。
+     */
     public void refreshChatClient() {
         synchronized (lock) {
             Long tenantId = TenantContextHolder.getTenantId();
@@ -147,14 +153,23 @@ public class DynamicChatClientProvider {
         }
     }
 
+    /**
+     * 判断API Key是否已配置。
+     */
     public boolean isApiKeyConfigured() {
         return StrUtil.isNotBlank(resolveRuntimeConfig(loadAiConfigsFromDB()).apiKey());
     }
 
+    /**
+     * 获取当前能力。
+     */
     public AiModelCapabilities getCurrentCapabilities() {
         return resolveRuntimeConfig(loadAiConfigsFromDB()).capabilities();
     }
 
+    /**
+     * 获取当前运行时配置快照。
+     */
     public AiRuntimeConfigSnapshot getCurrentRuntimeConfigSnapshot() {
         AiRuntimeConfig runtimeConfig = resolveRuntimeConfig(loadAiConfigsFromDB());
         return new AiRuntimeConfigSnapshot(
@@ -168,20 +183,32 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 获取当前模式。
+     */
     public AiMode getCurrentMode() {
         return resolveRuntimeConfig(loadAiConfigsFromDB()).mode();
     }
 
+    /**
+     * 判断是否使用赠送模式。
+     */
     public boolean isUsingGiftMode() {
         return getCurrentMode() == AiMode.GIFT;
     }
 
+    /**
+     * 清理租户聊天客户端。
+     */
     public void evictTenantChatClient(Long tenantId) {
         if (tenantId != null) {
             tenantChatClients.remove(tenantId);
         }
     }
 
+    /**
+     * 创建聊天客户端。
+     */
     public ChatClient createChatClient(String baseUrl, String apiKey, String model,
                                        Double temperature, Integer maxTokens) {
         String normalizedBaseUrl = normalizeCompatibleBaseUrl(baseUrl);
@@ -190,6 +217,9 @@ public class DynamicChatClientProvider {
                 null, defaultCapabilities(), true);
     }
 
+    /**
+     * 创建聊天客户端。
+     */
     public ChatClient createChatClient(String providerCode, String baseUrl, String apiKey, String model,
                                        Double temperature, Integer maxTokens,
                                        String extraHeadersJson, AiModelCapabilities capabilities,
@@ -216,6 +246,9 @@ public class DynamicChatClientProvider {
         return builder.build();
     }
 
+    /**
+     * 创建测试聊天客户端。
+     */
     public ChatClient createTestChatClient(String providerCode, String baseUrl, String apiKey, String model,
                                            Double temperature, Integer maxTokens,
                                            String extraHeadersJson, AiModelCapabilities capabilities) {
@@ -232,6 +265,9 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 创建聊天客户端。
+     */
     private ChatClient createChatClient(AiRuntimeConfig runtimeConfig) {
         return createChatClient(
                 runtimeConfig.providerCode(),
@@ -246,6 +282,9 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 构建OpenAI API。
+     */
     private OpenAiApi buildOpenAiApi(String providerCode, String baseUrl, String apiKey, String extraHeadersJson) {
         String normalizedBaseUrl = normalizeCompatibleBaseUrl(baseUrl);
         AiProviderDescriptor descriptor = AiProviderRegistry.resolve(providerCode, normalizedBaseUrl);
@@ -268,6 +307,9 @@ public class DynamicChatClientProvider {
         return builder.build();
     }
 
+    /**
+     * 解析实际请求基础地址。
+     */
     public static String resolveActualRequestBaseUrl(String providerCode, String baseUrl) {
         String normalizedBaseUrl = normalizeCompatibleBaseUrl(baseUrl);
         if ("openai".equalsIgnoreCase(providerCode) && OPENAI_PUBLIC_BASE_URL.equalsIgnoreCase(normalizedBaseUrl)) {
@@ -277,6 +319,9 @@ public class DynamicChatClientProvider {
         return normalizedBaseUrl;
     }
 
+    /**
+     * 解析Extra请求头。
+     */
     private MultiValueMap<String, String> parseExtraHeaders(String extraHeadersJson) {
         LinkedMultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
         if (StrUtil.isBlank(extraHeadersJson)) {
@@ -300,6 +345,9 @@ public class DynamicChatClientProvider {
         return headers;
     }
 
+    /**
+     * 解析运行时配置。
+     */
     private AiRuntimeConfig resolveRuntimeConfig(Map<String, String> configs) {
         Map<String, SavedProviderConfigSnapshot> savedProviderConfigs = loadSavedProviderConfigs(configs);
         AiMode requestedMode = AiMode.resolve(configs.get(AI_MODE_KEY));
@@ -340,10 +388,16 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 判断是否存在已保存自定义配置。
+     */
     private boolean hasSavedCustomConfig(Map<String, String> configs) {
         return !loadSavedProviderConfigs(configs).isEmpty();
     }
 
+    /**
+     * 加载已保存服务商配置。
+     */
     private Map<String, SavedProviderConfigSnapshot> loadSavedProviderConfigs(Map<String, String> configs) {
         Map<String, SavedProviderConfigSnapshot> savedConfigs = new ConcurrentHashMap<>();
         parseStoredProviderConfigs(configs.get(AI_PROVIDER_CONFIGS_KEY)).forEach((providerCode, storedConfig) -> {
@@ -361,6 +415,9 @@ public class DynamicChatClientProvider {
         return savedConfigs;
     }
 
+    /**
+     * 解析Selected已保存服务商。
+     */
     private SavedProviderConfigSnapshot resolveSelectedSavedProvider(Map<String, String> configs,
                                                                     Map<String, SavedProviderConfigSnapshot> savedProviderConfigs) {
         if (savedProviderConfigs.isEmpty()) {
@@ -378,6 +435,9 @@ public class DynamicChatClientProvider {
         return savedProviderConfigs.values().stream().findFirst().orElse(null);
     }
 
+    /**
+     * 解析已存储服务商配置。
+     */
     private Map<String, StoredProviderConfig> parseStoredProviderConfigs(String providerConfigsJson) {
         if (StrUtil.isBlank(providerConfigsJson)) {
             return Map.of();
@@ -396,6 +456,9 @@ public class DynamicChatClientProvider {
         }
     }
 
+    /**
+     * 构建旧版服务商快照。
+     */
     private SavedProviderConfigSnapshot buildLegacyProviderSnapshot(Map<String, String> configs) {
         String apiUrl = normalizeCompatibleBaseUrl(configs.get(AI_API_URL_KEY));
         String apiKey = StrUtil.nullToEmpty(configs.get(AI_API_KEY_KEY)).trim();
@@ -416,6 +479,9 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 转换为已保存服务商配置快照。
+     */
     private SavedProviderConfigSnapshot toSavedProviderConfigSnapshot(String fallbackProviderCode, StoredProviderConfig storedConfig) {
         if (storedConfig == null) {
             return null;
@@ -444,6 +510,9 @@ public class DynamicChatClientProvider {
         );
     }
 
+    /**
+     * 加载AI配置数据库。
+     */
     private Map<String, String> loadAiConfigsFromDB() {
         LambdaQueryWrapper<SystemConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SystemConfig::getConfigType, "ai");
@@ -458,6 +527,9 @@ public class DynamicChatClientProvider {
                 ));
     }
 
+    /**
+     * 解析Double。
+     */
     private double parseDouble(String value, double defaultValue) {
         if (StrUtil.isBlank(value)) {
             return defaultValue;
@@ -469,6 +541,9 @@ public class DynamicChatClientProvider {
         }
     }
 
+    /**
+     * 解析Int。
+     */
     private int parseInt(String value, int defaultValue) {
         if (StrUtil.isBlank(value)) {
             return defaultValue;
@@ -480,6 +555,9 @@ public class DynamicChatClientProvider {
         }
     }
 
+    /**
+     * 生成默认能力。
+     */
     private AiModelCapabilities defaultCapabilities() {
         return AiModelCapabilities.builder()
                 .supportsStream(true)
@@ -489,6 +567,9 @@ public class DynamicChatClientProvider {
                 .build();
     }
 
+    /**
+     * 标准化Compatible基础地址。
+     */
     public static String normalizeCompatibleBaseUrl(String baseUrl) {
         if (StrUtil.isBlank(baseUrl)) {
             return baseUrl;
@@ -509,6 +590,9 @@ public class DynamicChatClientProvider {
         return normalized;
     }
 
+    /**
+     * 初始化动态聊天客户端。
+     */
     @PostConstruct
     public void init() {
         try {

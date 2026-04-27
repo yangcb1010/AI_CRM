@@ -15,33 +15,78 @@ import java.util.Map;
  */
 public interface ISystemConfigService extends IService<SystemConfig> {
 
+    /**
+     * 获取配置值。
+     */
     String getConfigValue(String configKey);
 
+    /**
+     * 获取配置值。
+     */
     String getConfigValue(String configKey, String defaultValue);
 
+    /**
+     * 获取配置按类型。
+     */
     Map<String, String> getConfigsByType(String configType);
 
+    /**
+     * 更新配置。
+     */
     void updateConfig(String configKey, String configValue);
 
+    /**
+     * 更新配置。
+     */
     void updateConfigs(Map<String, String> configs);
 
+    /**
+     * 获取AI 配置。
+     */
     AiConfigVO getAiConfig();
 
+    /**
+     * 获取AI 配置详情。
+     */
     AiConfigVO getAiConfigDetail();
 
+    /**
+     * 更新AI 配置。
+     */
     void updateAiConfig(AiConfigUpdateBO updateBO);
 
+    /**
+     * 激活AI 服务商。
+     */
     void activateAiProvider(String provider);
 
+    /**
+     * 切换使用赠送AI 配置。
+     */
     void useGiftAiConfig();
 
+    /**
+     * 切换使用自定义AI 配置。
+     */
     void useCustomAiConfig();
 
+    /**
+     * 处理testAiConnection方法逻辑。
+     */
     AiConnectionTestVO testAiConnection(AiConfigUpdateBO configBO);
 
+    /**
+     * 清理配置缓存。
+     */
     void clearConfigCache();
 
+    /**
+     * 获取企业配置。
+     */
     EnterpriseConfigVO getEnterpriseConfig();
 
+    /**
+     * 更新企业配置。
+     */
     void updateEnterpriseConfig(EnterpriseConfigUpdateBO updateBO);
 }

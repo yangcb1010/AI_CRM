@@ -31,6 +31,9 @@ public class TaskTools {
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
+    /**
+     * 获取任务。
+     */
     @Tool(description = "获取待办任务列表。当用户查询任务、待办事项、今日任务、本周任务时调用。")
     @AiToolPermission(value = "task:view", action = "查看任务")
     public String getTasks(
@@ -81,6 +84,9 @@ public class TaskTools {
         }
     }
 
+    /**
+     * 创建任务。
+     */
     @Tool(description = "创建新任务。当用户描述需要做但还没做的事情，且没有具体执行时间点时调用。只有截止日期也用此工具。直接传入客户名称即可，无需先查询ID。如果传入客户名称但系统中不存在该客户，工具会中止创建并提示先创建客户。")
     @AiToolPermission(value = "task:create", action = "创建任务")
     public String createTask(
@@ -143,6 +149,9 @@ public class TaskTools {
         }
     }
 
+    /**
+     * 更新任务。
+     */
     @Tool(description = "修改任务信息。当用户要修改、编辑任务的截止日期、标题、描述、优先级、状态等信息时调用。")
     @AiToolPermission(value = "task:edit", action = "编辑任务")
     public String updateTask(
@@ -217,6 +226,9 @@ public class TaskTools {
         }
     }
 
+    /**
+     * 更新任务状态。
+     */
     @Tool(description = "更新任务状态。当用户只需要完成任务、标记任务状态时调用（简化版）。")
     @AiToolPermission(value = "task:update_status", action = "更新任务状态")
     public String updateTaskStatus(
@@ -241,6 +253,9 @@ public class TaskTools {
         }
     }
 
+    /**
+     * 获取状态Label。
+     */
     private String getStatusLabel(String status) {
         if (status == null) {
             return "未知";
@@ -253,10 +268,16 @@ public class TaskTools {
         };
     }
 
+    /**
+     * 判断是否存在文本值。
+     */
     private boolean hasTextValue(String value) {
         return StrUtil.isNotBlank(value) && !"null".equalsIgnoreCase(StrUtil.trim(value));
     }
 
+    /**
+     * 获取优先级Label。
+     */
     private String getPriorityLabel(String priority) {
         if (priority == null) {
             return "中";

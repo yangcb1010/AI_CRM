@@ -43,9 +43,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * 瀹㈡埛 Logo 鑷姩鎶撳彇涓庡瓨鍌ㄦ湇鍔?
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -89,6 +86,9 @@ public class CustomerLogoService {
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
+    /**
+     * 标准化网站。
+     */
     public String normalizeWebsite(String website) {
         String trimmed = StrUtil.trimToNull(website);
         if (trimmed == null) {
@@ -120,6 +120,9 @@ public class CustomerLogoService {
         }
     }
 
+    /**
+     * 解析Logo地址。
+     */
     public String resolveLogoUrl(String logo) {
         String normalizedLogo = StrUtil.trimToNull(logo);
         if (normalizedLogo == null) {
@@ -131,6 +134,9 @@ public class CustomerLogoService {
         return fileStorageService.getUrl(normalizedLogo);
     }
 
+    /**
+     * 删除已存储LogoQuietly。
+     */
     public void deleteStoredLogoQuietly(String logo) {
         String normalizedLogo = StrUtil.trimToNull(logo);
         if (normalizedLogo == null || isExternalUrl(normalizedLogo)) {
@@ -143,6 +149,9 @@ public class CustomerLogoService {
         }
     }
 
+    /**
+     * 处理populateCustomerLogo方法逻辑。
+     */
     public void populateCustomerLogo(Long customerId, Date expectedRequestedAt) {
         if (customerId == null) {
             return;
@@ -192,6 +201,9 @@ public class CustomerLogoService {
         }
     }
 
+    /**
+     * 下载Logo。
+     */
     private Optional<DownloadedLogo> downloadLogo(String website) {
         try {
             URI websiteUri = buildWebsiteUri(website);
@@ -232,6 +244,9 @@ public class CustomerLogoService {
         return Optional.empty();
     }
 
+    /**
+     * 处理fetch方法逻辑。
+     */
     private FetchResult fetch(URI uri, String acceptHeader) throws Exception {
         URI current = uri;
         for (int redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
@@ -268,6 +283,9 @@ public class CustomerLogoService {
         return null;
     }
 
+    /**
+     * 转换为DownloadedLogo。
+     */
     private Optional<DownloadedLogo> toDownloadedLogo(FetchResult fetchResult) {
         if (fetchResult == null || fetchResult.body().length == 0) {
             return Optional.empty();
@@ -280,6 +298,9 @@ public class CustomerLogoService {
         return Optional.of(new DownloadedLogo(fetchResult.body(), detectedImage.contentType(), detectedImage.extension()));
     }
 
+    /**
+     * 处理detectImage方法逻辑。
+     */
     private Optional<DetectedImage> detectImage(String contentType, URI sourceUri, byte[] body) {
         String normalizedContentType = normalizeContentType(contentType);
         if (SUPPORTED_IMAGE_CONTENT_TYPES.contains(normalizedContentType)) {
@@ -298,6 +319,9 @@ public class CustomerLogoService {
         return Optional.empty();
     }
 
+    /**
+     * 处理detectBySignature方法逻辑。
+     */
     private Optional<DetectedImage> detectBySignature(byte[] body) {
         if (body.length >= 8
                 && (body[0] & 0xFF) == 0x89
@@ -339,6 +363,9 @@ public class CustomerLogoService {
         return Optional.empty();
     }
 
+    /**
+     * 处理extractIconCandidates方法逻辑。
+     */
     private List<URI> extractIconCandidates(URI baseUri, String html) {
         LinkedHashSet<URI> candidates = new LinkedHashSet<>();
         Matcher matcher = LINK_TAG_PATTERN.matcher(html);
@@ -361,6 +388,9 @@ public class CustomerLogoService {
         return new ArrayList<>(candidates);
     }
 
+    /**
+     * 解析Attributes。
+     */
     private Map<String, String> parseAttributes(String tag) {
         Map<String, String> attributes = new LinkedHashMap<>();
         Matcher matcher = ATTRIBUTE_PATTERN.matcher(tag);
@@ -377,6 +407,9 @@ public class CustomerLogoService {
         return attributes;
     }
 
+    /**
+     * 读取内容。
+     */
     private byte[] readBody(InputStream inputStream, int maxBytes) throws Exception {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
@@ -392,6 +425,9 @@ public class CustomerLogoService {
         return outputStream.toByteArray();
     }
 
+    /**
+     * 构建网站URI。
+     */
     private URI buildWebsiteUri(String website) throws URISyntaxException {
         String normalized = StrUtil.trim(website);
         if (!SCHEME_PATTERN.matcher(normalized).find()) {
@@ -400,10 +436,16 @@ public class CustomerLogoService {
         return new URI(normalized);
     }
 
+    /**
+     * 构建OriginURI。
+     */
     private URI buildOriginUri(URI uri) throws URISyntaxException {
         return new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(), null, null, null);
     }
 
+    /**
+     * 校验FetchURI。
+     */
     private void validateFetchUri(URI uri) throws UnknownHostException {
         if (uri == null) {
             throw new IllegalArgumentException("uri is null");
@@ -434,6 +476,9 @@ public class CustomerLogoService {
         }
     }
 
+    /**
+     * 判断是否公开Address。
+     */
     private boolean isPublicAddress(InetAddress address) {
         if (address.isAnyLocalAddress()
                 || address.isLoopbackAddress()
@@ -467,6 +512,9 @@ public class CustomerLogoService {
         return true;
     }
 
+    /**
+     * 构建LogoObject键。
+     */
     private String buildLogoObjectKey(Long customerId, String extension) {
         String datePath = LocalDate.now().format(DATE_PATH_FORMATTER);
         String fileName = "customer-" + customerId + "-" + IdUtil.fastSimpleUUID() + "." + extension;
@@ -478,10 +526,16 @@ public class CustomerLogoService {
         return prefix + "/" + fileName;
     }
 
+    /**
+     * 判断是否HTML响应。
+     */
     private boolean isHtmlResponse(String contentType) {
         return "text/html".equals(contentType) || "application/xhtml+xml".equals(contentType);
     }
 
+    /**
+     * 判断是否Redirect。
+     */
     private boolean isRedirect(int statusCode) {
         return statusCode == 301
                 || statusCode == 302
@@ -490,11 +544,17 @@ public class CustomerLogoService {
                 || statusCode == 308;
     }
 
+    /**
+     * 判断是否External地址。
+     */
     private boolean isExternalUrl(String value) {
         String normalized = value.toLowerCase(Locale.ROOT);
         return normalized.startsWith("http://") || normalized.startsWith("https://");
     }
 
+    /**
+     * 标准化内容类型。
+     */
     private static String normalizeContentType(String contentType) {
         if (StrUtil.isBlank(contentType)) {
             return null;
@@ -504,6 +564,9 @@ public class CustomerLogoService {
         return normalized.trim().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * 处理extensionFromContentType方法逻辑。
+     */
     private String extensionFromContentType(String contentType) {
         return switch (normalizeContentType(contentType)) {
             case "image/png" -> "png";
@@ -515,6 +578,9 @@ public class CustomerLogoService {
         };
     }
 
+    /**
+     * 处理contentTypeFromExtension方法逻辑。
+     */
     private String contentTypeFromExtension(String extension) {
         return switch (extension) {
             case "jpg", "jpeg" -> "image/jpeg";
@@ -525,6 +591,9 @@ public class CustomerLogoService {
         };
     }
 
+    /**
+     * 转换为Canonical内容类型。
+     */
     private String toCanonicalContentType(String contentType) {
         return "image/ico".equals(contentType) ? "image/x-icon" : contentType;
     }

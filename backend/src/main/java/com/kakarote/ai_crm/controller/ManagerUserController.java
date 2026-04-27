@@ -23,6 +23,9 @@ public class ManagerUserController {
     @Autowired
     private ManageUserService manageUserService;
 
+    /**
+     * 新增用户。
+     */
     @PostMapping("/addUser")
     @Operation(summary = "Add user")
     @RequirePermission("user:create")
@@ -31,18 +34,27 @@ public class ManagerUserController {
         return Result.ok();
     }
 
+    /**
+     * 查询Login用户。
+     */
     @PostMapping("/queryLoginUser")
     @Operation(summary = "Query current login user")
     public Result<ManageUserVO> queryLoginUser() {
         return Result.ok(manageUserService.queryLoginUser());
     }
 
+    /**
+     * 分页查询管理用户列表。
+     */
     @PostMapping("/queryPageList")
     @Operation(summary = "Query user page")
     public Result<BasePage<ManageUserVO>> queryPageList(@RequestBody UserQueryBO userQueryBO) {
         return Result.ok(manageUserService.queryPageList(userQueryBO));
     }
 
+    /**
+     * 更新用户。
+     */
     @PostMapping("/updateUser")
     @Operation(summary = "Update user basic info")
     public Result<String> updateUser(@RequestBody UserUpdateBO updateBO) {
@@ -50,6 +62,9 @@ public class ManagerUserController {
         return Result.ok();
     }
 
+    /**
+     * 更新密码。
+     */
     @PostMapping("/updatePassword")
     @Operation(summary = "Update password")
     public Result<String> updatePassword(@Parameter(name = "oldPassword", description = "Old password") @RequestParam("oldPassword") String oldPassword,
@@ -58,6 +73,9 @@ public class ManagerUserController {
         return Result.ok();
     }
 
+    /**
+     * 设置用户状态。
+     */
     @PostMapping("/setUserStatus")
     @Operation(summary = "Set user status")
     @RequirePermission("user:status")
@@ -66,6 +84,9 @@ public class ManagerUserController {
         return Result.ok();
     }
 
+    /**
+     * 删除按ID。
+     */
     @PostMapping("/deleteByIds")
     @Operation(summary = "Delete users")
     @RequirePermission("user:delete")

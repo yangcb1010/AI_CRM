@@ -39,6 +39,9 @@ public class CloudController {
     @Autowired
     private RegistrationService registrationService;
 
+    /**
+     * 获取图形验证码。
+     */
     @PostMapping("/getCaptcha")
     @Operation(summary = "获取图形验证码")
     public Result<Object> get(@RequestBody(required = false) CaptchaVO data, HttpServletRequest request) {
@@ -55,6 +58,9 @@ public class CloudController {
         return result;
     }
 
+    /**
+     * 校验图形验证码。
+     */
     @PostMapping("/checkCaptcha")
     @Operation(summary = "校验图形验证码")
     public Result<CaptchaCheckVO> check(@Valid @RequestBody CaptchaCheckBO data, HttpServletRequest request) {
@@ -90,6 +96,9 @@ public class CloudController {
         return Result.ok();
     }
 
+    /**
+     * 获取远程ID。
+     */
     public static String getRemoteId(HttpServletRequest request) {
         String clientIP = JakartaServletUtil.getClientIP(request);
         String ua = request.getHeader("user-agent");
@@ -99,15 +108,24 @@ public class CloudController {
         return request.getRemoteAddr() + ua;
     }
 
+    /**
+     * 构建坐标JSON。
+     */
     private String buildPointJson(Integer pointX, Integer pointY) {
         int y = pointY == null ? DEFAULT_POINT_Y : pointY;
         return "{\"x\":%d,\"y\":%d}".formatted(pointX, y);
     }
 
+    /**
+     * 构建验证码校验。
+     */
     private String buildCaptchaVerification(String token, String pointJson, String secretKey) {
         return encryptIfNecessary(token + "---" + pointJson, secretKey);
     }
 
+    /**
+     * 加密IFNecessary。
+     */
     private String encryptIfNecessary(String rawValue, String secretKey) {
         if (StrUtil.isBlank(secretKey)) {
             return rawValue;

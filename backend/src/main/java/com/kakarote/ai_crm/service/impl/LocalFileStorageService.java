@@ -26,6 +26,9 @@ public class LocalFileStorageService implements FileStorageService {
     @Value("${file.upload-path:./uploads}")
     private String uploadPath;
 
+    /**
+     * 上传本地文件存储。
+     */
     @Override
     public String upload(MultipartFile file, String path) {
         try {
@@ -43,6 +46,9 @@ public class LocalFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 上传本地文件存储。
+     */
     @Override
     public String upload(InputStream inputStream, long size, String path, String contentType) {
         try (InputStream stream = inputStream) {
@@ -60,6 +66,9 @@ public class LocalFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 删除本地文件存储。
+     */
     @Override
     public void delete(String path) {
         try {
@@ -74,11 +83,17 @@ public class LocalFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 获取地址。
+     */
     @Override
     public String getUrl(String path) {
         return "/knowledge/download/" + path;
     }
 
+    /**
+     * 获取文件流。
+     */
     @Override
     public InputStream getFileStream(String path) {
         try {
@@ -94,6 +109,9 @@ public class LocalFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 获取本地路径。
+     */
     @Override
     public String getLocalPath(String path) {
         File baseDir = new File(uploadPath).getAbsoluteFile();
@@ -101,11 +119,17 @@ public class LocalFileStorageService implements FileStorageService {
         return targetFile.getAbsolutePath();
     }
 
+    /**
+     * 获取存储类型。
+     */
     @Override
     public String getStorageType() {
         return "local";
     }
 
+    /**
+     * 获取PresignedUpload地址。
+     */
     @Override
     public PresignedUploadInfo getPresignedUploadUrl(String path, String contentType, int expiry) {
         throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "本地存储不支持预签名上传，请启用 MinIO 存储");

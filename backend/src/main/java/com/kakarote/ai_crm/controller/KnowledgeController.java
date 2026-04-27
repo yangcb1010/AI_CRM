@@ -55,6 +55,9 @@ public class KnowledgeController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    /**
+     * 上传知识。
+     */
     @PostMapping("/upload")
     @Operation(summary = "Upload knowledge file")
     @RequirePermission("knowledge:upload")
@@ -67,6 +70,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeId);
     }
 
+    /**
+     * 删除知识。
+     */
     @PostMapping("/delete/{id}")
     @Operation(summary = "Delete knowledge file")
     @RequirePermission("knowledge:delete")
@@ -75,6 +81,9 @@ public class KnowledgeController {
         return Result.ok();
     }
 
+    /**
+     * 分页查询知识列表。
+     */
     @PostMapping("/queryPageList")
     @Operation(summary = "Query knowledge page")
     @RequirePermission("knowledge:view")
@@ -82,6 +91,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeService.queryPageList(queryBO));
     }
 
+    /**
+     * 使用 AI 搜索知识。
+     */
     @PostMapping("/ai-search")
     @Operation(summary = "AI search knowledge base")
     @RequirePermission("knowledge:view")
@@ -89,6 +101,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeService.aiSearch(searchBO));
     }
 
+    /**
+     * 生成TargetedScript。
+     */
     @PostMapping("/targeted-script")
     @Operation(summary = "Generate targeted sales script and SOP")
     @RequirePermission("knowledge:view")
@@ -97,6 +112,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeService.generateTargetedScript(scriptBO));
     }
 
+    /**
+     * 处理detail方法逻辑。
+     */
     @GetMapping("/detail/{id}")
     @Operation(summary = "Get knowledge detail")
     @RequirePermission("knowledge:view")
@@ -104,6 +122,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeService.getKnowledgeDetail(id));
     }
 
+    /**
+     * 下载知识。
+     */
     @GetMapping("/download/{id}")
     @Operation(summary = "Download knowledge file")
     @RequirePermission("knowledge:download")
@@ -127,6 +148,9 @@ public class KnowledgeController {
         return responseBuilder.body(resource);
     }
 
+    /**
+     * 解析媒体类型。
+     */
     private MediaType resolveMediaType(KnowledgeVO knowledge) {
         try {
             if (knowledge.getMimeType() != null && !knowledge.getMimeType().isBlank()) {
@@ -138,6 +162,9 @@ public class KnowledgeController {
         return MediaTypeFactory.getMediaType(knowledge.getName()).orElse(MediaType.APPLICATION_OCTET_STREAM);
     }
 
+    /**
+     * 预览HTML。
+     */
     @GetMapping("/preview-html/{id}")
     @Operation(summary = "Preview .doc file as HTML")
     @RequirePermission("knowledge:view")
@@ -159,6 +186,9 @@ public class KnowledgeController {
         }
     }
 
+    /**
+     * 重新解析知识。
+     */
     @PostMapping("/reparse/{id}")
     @Operation(summary = "Reparse knowledge file")
     @RequirePermission("knowledge:upload")
@@ -167,6 +197,9 @@ public class KnowledgeController {
         return Result.ok();
     }
 
+    /**
+     * 新增标签。
+     */
     @PostMapping("/addTag")
     @Operation(summary = "Add knowledge tag")
     @RequirePermission("knowledge:upload")
@@ -177,6 +210,9 @@ public class KnowledgeController {
         return Result.ok();
     }
 
+    /**
+     * 更新客户。
+     */
     @PostMapping("/updateCustomer")
     @Operation(summary = "Update knowledge related customer")
     @RequirePermission("knowledge:upload")
@@ -187,6 +223,9 @@ public class KnowledgeController {
         return Result.ok();
     }
 
+    /**
+     * 使用 AI 分析知识。
+     */
     @PostMapping("/{id}/ai-analyze")
     @Operation(summary = "AI analyze knowledge document")
     @RequirePermission("knowledge:view")
@@ -196,6 +235,9 @@ public class KnowledgeController {
         return Result.ok(knowledgeService.aiAnalyzeDocument(id, forceRefresh));
     }
 
+    /**
+     * 发起问答文档。
+     */
     @PostMapping(value = "/{id}/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "Ask AI about the document")
     @RequirePermission("knowledge:view")

@@ -28,24 +28,39 @@ public class AiQuotaService {
     @Autowired
     private ICrmTenantService tenantService;
 
+    /**
+     * 确保额度可用。
+     */
     public void ensureQuotaAvailable(String actionName) {
         ensureQuotaAvailable(resolveCurrentTenantId(), actionName, MIN_REQUIRED_TOKENS);
     }
 
+    /**
+     * 确保额度可用。
+     */
     public void ensureQuotaAvailable(String actionName, int requiredTokens) {
         ensureQuotaAvailable(resolveCurrentTenantId(), actionName, requiredTokens);
     }
 
+    /**
+     * 确保额度可用。
+     */
     public void ensureQuotaAvailable(String actionName, String systemPrompt,
                                      List<Message> history, String currentContent) {
         ensureQuotaAvailable(resolveCurrentTenantId(), actionName, systemPrompt, history, currentContent);
     }
 
+    /**
+     * 确保额度可用。
+     */
     public void ensureQuotaAvailable(Long tenantId, String actionName, String systemPrompt,
                                      List<Message> history, String currentContent) {
         ensureQuotaAvailable(tenantId, actionName, estimateRequiredTokens(systemPrompt, history, currentContent));
     }
 
+    /**
+     * 确保额度可用。
+     */
     public void ensureQuotaAvailable(Long tenantId, String actionName, int requiredTokens) {
         String failureMessage = resolveQuotaFailureMessage(tenantId, actionName, requiredTokens);
         if (failureMessage != null) {
@@ -53,20 +68,32 @@ public class AiQuotaService {
         }
     }
 
+    /**
+     * 解析额度Failure消息。
+     */
     public String resolveQuotaFailureMessage(String actionName) {
         return resolveQuotaFailureMessage(resolveCurrentTenantId(), actionName, MIN_REQUIRED_TOKENS);
     }
 
+    /**
+     * 解析额度Failure消息。
+     */
     public String resolveQuotaFailureMessage(String actionName, String systemPrompt,
                                              List<Message> history, String currentContent) {
         return resolveQuotaFailureMessage(resolveCurrentTenantId(), actionName, systemPrompt, history, currentContent);
     }
 
+    /**
+     * 解析额度Failure消息。
+     */
     public String resolveQuotaFailureMessage(Long tenantId, String actionName, String systemPrompt,
                                              List<Message> history, String currentContent) {
         return resolveQuotaFailureMessage(tenantId, actionName, estimateRequiredTokens(systemPrompt, history, currentContent));
     }
 
+    /**
+     * 解析额度Failure消息。
+     */
     public String resolveQuotaFailureMessage(Long tenantId, String actionName, int requiredTokens) {
         String normalizedActionName = normalizeActionName(actionName);
         if (tenantId == null) {
@@ -80,6 +107,9 @@ public class AiQuotaService {
         return "AI额度不足，本次" + normalizedActionName + "失败，请充值后重试";
     }
 
+    /**
+     * 解析TokenUsage。
+     */
     public TokenUsageSnapshot resolveTokenUsage(ChatResponse chatResponse,
                                                 String systemPrompt,
                                                 List<Message> history,
@@ -97,6 +127,9 @@ public class AiQuotaService {
         return resolveTokenUsage(promptTokens, completionTokens, totalTokens, systemPrompt, history, currentContent, responseContent);
     }
 
+    /**
+     * 解析TokenUsage。
+     */
     public TokenUsageSnapshot resolveTokenUsage(Integer promptTokens, Integer completionTokens, Integer totalTokens,
                                                 String systemPrompt, List<Message> history,
                                                 String currentContent, String responseContent) {
@@ -113,10 +146,16 @@ public class AiQuotaService {
         return new TokenUsageSnapshot(resolvedPromptTokens, resolvedCompletionTokens, resolvedTotalTokens);
     }
 
+    /**
+     * 消耗ResolvedTokens。
+     */
     public void consumeResolvedTokens(String actionName, TokenUsageSnapshot usageSnapshot) {
         consumeResolvedTokens(resolveCurrentTenantId(), actionName, usageSnapshot);
     }
 
+    /**
+     * 消耗ResolvedTokens。
+     */
     public void consumeResolvedTokens(Long tenantId, String actionName, TokenUsageSnapshot usageSnapshot) {
         if (usageSnapshot == null) {
             return;
@@ -124,15 +163,24 @@ public class AiQuotaService {
         consumeTokens(tenantId, actionName, usageSnapshot.totalTokens());
     }
 
+    /**
+     * 消耗EstimatedTokens。
+     */
     public void consumeEstimatedTokens(String actionName, String promptContent, String responseContent) {
         consumeEstimatedTokens(resolveCurrentTenantId(), actionName, promptContent, responseContent);
     }
 
+    /**
+     * 消耗EstimatedTokens。
+     */
     public void consumeEstimatedTokens(Long tenantId, String actionName, String promptContent, String responseContent) {
         TokenUsageSnapshot usageSnapshot = resolveTokenUsage(null, null, null, null, null, promptContent, responseContent);
         consumeResolvedTokens(tenantId, actionName, usageSnapshot);
     }
 
+    /**
+     * 消耗Tokens。
+     */
     public void consumeTokens(Long tenantId, String actionName, Integer totalTokens) {
         if (tenantId == null || totalTokens == null || totalTokens <= 0) {
             return;
@@ -142,6 +190,9 @@ public class AiQuotaService {
             tenantId, normalizeActionName(actionName), totalTokens);
     }
 
+    /**
+     * 处理estimatePromptTokens方法逻辑。
+     */
     public int estimatePromptTokens(String systemPrompt, List<Message> history, String currentContent) {
         int total = estimateTokens(systemPrompt);
         if (history != null) {
@@ -153,10 +204,16 @@ public class AiQuotaService {
         return Math.max(total, 1);
     }
 
+    /**
+     * 处理estimateRequiredTokens方法逻辑。
+     */
     public int estimateRequiredTokens(String systemPrompt, List<Message> history, String currentContent) {
         return estimatePromptTokens(systemPrompt, history, currentContent) + RESPONSE_BUFFER_TOKENS;
     }
 
+    /**
+     * 处理estimateTokens方法逻辑。
+     */
     public int estimateTokens(String text) {
         if (StrUtil.isBlank(text)) {
             return 0;
@@ -180,6 +237,9 @@ public class AiQuotaService {
         return Math.max(estimated, 1);
     }
 
+    /**
+     * 标准化Action名称。
+     */
     private String normalizeActionName(String actionName) {
         String normalized = StrUtil.blankToDefault(StrUtil.trim(actionName), DEFAULT_ACTION_NAME);
         return switch (normalized) {
@@ -203,11 +263,17 @@ public class AiQuotaService {
         };
     }
 
+    /**
+     * 解析当前租户ID。
+     */
     private Long resolveCurrentTenantId() {
         Long tenantId = UserUtil.getTenantId();
         return tenantId != null ? tenantId : AiContextHolder.getCurrentTenantId();
     }
 
+    /**
+     * 处理extractMessageContent方法逻辑。
+     */
     private String extractMessageContent(Message message) {
         if (message == null) {
             return null;
@@ -225,6 +291,9 @@ public class AiQuotaService {
         return null;
     }
 
+    /**
+     * 判断是否CJKCharacter。
+     */
     private boolean isCjkCharacter(char value) {
         Character.UnicodeScript script = Character.UnicodeScript.of(value);
         return script == Character.UnicodeScript.HAN

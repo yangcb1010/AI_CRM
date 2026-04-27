@@ -37,6 +37,9 @@ public class FileController {
     @Value("${minio.presigned-expiry:3600}")
     private int defaultExpiry;
 
+    /**
+     * 获取预签名上传URL。
+     */
     @PostMapping("/presigned-upload")
     @Operation(summary = "获取预签名上传URL", description = "前端直传MinIO时使用，返回预签名URL")
     public Result<PresignedUploadVO> getPresignedUploadUrl(@Valid @RequestBody PresignedUploadBO uploadBO) {
@@ -80,6 +83,9 @@ public class FileController {
         return Result.ok(vo);
     }
 
+    /**
+     * 获取存储配置信息。
+     */
     @GetMapping("/storage-info")
     @Operation(summary = "获取存储配置信息")
     public Result<Map<String, Object>> getStorageInfo() {

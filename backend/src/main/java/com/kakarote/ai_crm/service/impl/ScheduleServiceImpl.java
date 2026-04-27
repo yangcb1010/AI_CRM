@@ -112,6 +112,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
             "(?:参与人(?:员)?|参与者|参会人(?:员)?|出席人(?:员)?|同行(?:人员)?|与会人员)\\s*(?:有|为|是|包括|包含|[:：])\\s*([^。；;]+)"
     );
 
+    /**
+     * 新增日程。
+     */
     @Override
     public Long addSchedule(ScheduleAddBO scheduleAddBO) {
         Schedule schedule = new Schedule();
@@ -134,6 +137,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return schedule.getScheduleId();
     }
 
+    /**
+     * 更新日程。
+     */
     @Override
     public void updateSchedule(ScheduleUpdateBO scheduleUpdateBO) {
         Schedule schedule = getById(scheduleUpdateBO.getScheduleId());
@@ -160,6 +166,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         globalSearchIndexService.refreshScheduleIndex(schedule.getScheduleId());
     }
 
+    /**
+     * 删除日程。
+     */
     @Override
     public void deleteSchedule(Long scheduleId) {
         Schedule schedule = getById(scheduleId);
@@ -171,6 +180,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         globalSearchIndexService.deleteByEntity("schedule", scheduleId);
     }
 
+    /**
+     * 获取MY日程。
+     */
     @Override
     public List<ScheduleVO> getMySchedules(String filter) {
         Long userId = UserUtil.getUserId();
@@ -182,6 +194,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return schedules;
     }
 
+    /**
+     * 分页查询日程列表。
+     */
     @Override
     public BasePage<ScheduleVO> queryPageList(ScheduleQueryBO queryBO) {
         queryBO.setCurrentUserId(UserUtil.getUserId());
@@ -194,6 +209,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return page;
     }
 
+    /**
+     * 使用 AI 解析日程。
+     */
     @Override
     public ScheduleAiParseVO aiParseSchedule(ScheduleAiParseBO parseBO) {
         String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
@@ -222,11 +240,17 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         }
     }
 
+    /**
+     * 处理enrichSchedules方法逻辑。
+     */
     private void enrichSchedules(List<ScheduleVO> schedules) {
         fillTypeName(schedules);
         fillParticipantUsers(schedules);
     }
 
+    /**
+     * 填充类型名称。
+     */
     private void fillTypeName(List<ScheduleVO> schedules) {
         if (schedules == null) {
             return;
@@ -234,6 +258,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         schedules.forEach(schedule -> schedule.setTypeName(getTypeName(schedule.getType())));
     }
 
+    /**
+     * 填充参与人用户。
+     */
     private void fillParticipantUsers(List<ScheduleVO> schedules) {
         if (schedules == null || schedules.isEmpty()) {
             return;
@@ -277,6 +304,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         }
     }
 
+    /**
+     * 获取类型名称。
+     */
     private String getTypeName(String type) {
         if (type == null) return "会议";
         return switch (type.toLowerCase()) {
@@ -288,6 +318,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         };
     }
 
+    /**
+     * 解析日程AI响应。
+     */
     private ScheduleAiParseVO parseScheduleAiResponse(String response, String originalContent) {
         try {
             String json = extractJsonObject(response);
@@ -316,6 +349,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         }
     }
 
+    /**
+     * 处理applyCustomerMatch方法逻辑。
+     */
     private void applyCustomerMatch(ScheduleAiParseVO vo, String originalContent) {
         LinkedHashSet<String> candidateNames = new LinkedHashSet<>();
         extractCompanyContactMentions(originalContent).stream()
@@ -344,6 +380,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         }
     }
 
+    /**
+     * 处理applyParticipantMatches方法逻辑。
+     */
     private void applyParticipantMatches(ScheduleAiParseVO vo, String originalContent) {
         List<String> participantNames = extractExplicitParticipantNames(originalContent);
         if (participantNames.isEmpty()) {
@@ -362,6 +401,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         vo.setUnmatchedParticipantNames(String.join(", ", matchResult.unmatchedNames()));
     }
 
+    /**
+     * 处理refineTitle包含CompanyContact方法逻辑。
+     */
     private void refineTitleWithCompanyContact(ScheduleAiParseVO vo, String originalContent) {
         if (StrUtil.isBlank(vo.getTitle())) {
             return;
@@ -389,6 +431,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         }
     }
 
+    /**
+     * 判断是否存在有意义AI解析结果。
+     */
     private boolean hasMeaningfulAiParseResult(ScheduleAiParseVO vo) {
         return StrUtil.isNotBlank(vo.getTitle())
                 || StrUtil.isNotBlank(vo.getStartTime())
@@ -401,6 +446,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 || StrUtil.isNotBlank(vo.getUnmatchedParticipantNames());
     }
 
+    /**
+     * 解析参与人用户按名称。
+     */
     private ParticipantMatchResult resolveParticipantUsersByNames(List<String> names) {
         if (names.isEmpty()) {
             return new ParticipantMatchResult(List.of(), List.of());
@@ -425,6 +473,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return new ParticipantMatchResult(new ArrayList<>(matchedUsers.values()), unmatchedNames);
     }
 
+    /**
+     * 查找Best用户Match。
+     */
     private ManagerUser findBestUserMatch(String name, List<ManagerUser> users) {
         if (StrUtil.isBlank(name) || users == null || users.isEmpty()) {
             return null;
@@ -456,6 +507,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return null;
     }
 
+    /**
+     * 转换为参与人用户。
+     */
     private ScheduleParticipantUserVO toParticipantUser(ManagerUser user) {
         ScheduleParticipantUserVO vo = new ScheduleParticipantUserVO();
         vo.setUserId(user.getUserId());
@@ -464,6 +518,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return vo;
     }
 
+    /**
+     * 获取用户Display名称。
+     */
     private String getUserDisplayName(ManagerUser user) {
         if (user == null) {
             return "";
@@ -471,6 +528,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return StrUtil.blankToDefault(StrUtil.trim(user.getRealname()), user.getUsername());
     }
 
+    /**
+     * 处理splitParticipantNames方法逻辑。
+     */
     private List<String> splitParticipantNames(String participantNames) {
         if (StrUtil.isBlank(participantNames)) {
             return List.of();
@@ -481,6 +541,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 .toList();
     }
 
+    /**
+     * 处理extractExplicitParticipantNames方法逻辑。
+     */
     private List<String> extractExplicitParticipantNames(String content) {
         if (StrUtil.isBlank(content)) {
             return List.of();
@@ -505,6 +568,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return new ArrayList<>(names);
     }
 
+    /**
+     * 处理sanitizeParticipantSegment方法逻辑。
+     */
     private String sanitizeParticipantSegment(String segment) {
         String cleaned = StrUtil.trim(segment);
         if (StrUtil.isBlank(cleaned)) {
@@ -522,6 +588,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return cleaned.substring(0, cutIndex).trim();
     }
 
+    /**
+     * 判断是否External公司联系人名称。
+     */
     private boolean isExternalCompanyContactName(String name, String content) {
         String normalizedName = normalizeParticipantName(name);
         if (StrUtil.isBlank(normalizedName) || StrUtil.isBlank(content)) {
@@ -532,6 +601,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 .anyMatch(contactName -> StrUtil.equals(normalizedName, normalizeParticipantName(contactName)));
     }
 
+    /**
+     * 处理extractCompanyContactMentions方法逻辑。
+     */
     private List<CompanyContactMention> extractCompanyContactMentions(String content) {
         if (StrUtil.isBlank(content)) {
             return List.of();
@@ -550,6 +622,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return new ArrayList<>(mentions.values());
     }
 
+    /**
+     * 处理extractStandaloneCompanyNames方法逻辑。
+     */
     private List<String> extractStandaloneCompanyNames(String content) {
         if (StrUtil.isBlank(content)) {
             return List.of();
@@ -566,6 +641,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return new ArrayList<>(companies);
     }
 
+    /**
+     * 标准化参与人名称。
+     */
     private String normalizeParticipantName(String rawName) {
         String result = StrUtil.trim(rawName);
         if (StrUtil.isBlank(result)) {
@@ -595,10 +673,16 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return result;
     }
 
+    /**
+     * 处理containsNonParticipantKeyword方法逻辑。
+     */
     private boolean containsNonParticipantKeyword(String value) {
         return StrUtil.containsAny(value, "地点", "地址", "会议", "公司", "方案", "讨论", "沟通", "开会");
     }
 
+    /**
+     * 标准化公司Candidate。
+     */
     private String normalizeCompanyCandidate(String rawCompanyName) {
         String value = StrUtil.trim(rawCompanyName);
         if (StrUtil.isBlank(value)) {
@@ -624,6 +708,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return StrUtil.trim(value);
     }
 
+    /**
+     * 处理shortenCompanyName方法逻辑。
+     */
     private String shortenCompanyName(String companyName) {
         String result = StrUtil.trim(companyName);
         if (StrUtil.isBlank(result)) {
@@ -639,6 +726,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return result;
     }
 
+    /**
+     * 解析参与人用户ID。
+     */
     private List<Long> parseParticipantUserIds(String participantUserIdsText) {
         if (StrUtil.isBlank(participantUserIdsText)) {
             return List.of();
@@ -659,6 +749,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return userIds;
     }
 
+    /**
+     * 处理joinParticipantUserIds方法逻辑。
+     */
     private String joinParticipantUserIds(List<Long> participantUserIds) {
         if (participantUserIds == null || participantUserIds.isEmpty()) {
             return null;
@@ -670,6 +763,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
                 .collect(Collectors.joining(","));
     }
 
+    /**
+     * 处理extractJsonObject方法逻辑。
+     */
     private String extractJsonObject(String response) {
         String normalized = StrUtil.nullToEmpty(response).trim();
         if (normalized.startsWith("```")) {
@@ -690,6 +786,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return StrUtil.isBlank(normalized) ? "{}" : normalized;
     }
 
+    /**
+     * 获取文本OR默认。
+     */
     private String getTextOrDefault(JsonNode root, String field, String defaultValue) {
         if (root.has(field) && !root.get(field).isNull()) {
             String value = root.get(field).asText();
@@ -698,6 +797,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         return defaultValue;
     }
 
+    /**
+     * 标准化类型。
+     */
     private String normalizeType(String type) {
         if (StrUtil.isBlank(type)) {
             return "meeting";
@@ -711,6 +813,9 @@ public class ScheduleServiceImpl extends ServiceImpl<ScheduleMapper, Schedule> i
         };
     }
 
+    /**
+     * 构建兜底日程结果。
+     */
     private ScheduleAiParseVO buildFallbackScheduleResult(String content) {
         ScheduleAiParseVO vo = new ScheduleAiParseVO();
         vo.setTitle(content.length() > 50 ? content.substring(0, 50) + "..." : content);

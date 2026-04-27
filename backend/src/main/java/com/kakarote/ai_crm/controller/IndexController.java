@@ -25,6 +25,9 @@ public class IndexController {
     @Autowired
     private TokenService tokenService;
 
+    /**
+     * 跳转到系统首页。
+     */
     @GetMapping(path = {"/", "/index"})
     public void index(HttpServletResponse response) throws Exception {
         String basePath = SystemUtil.get("BASE_PATH", "/");

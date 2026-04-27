@@ -18,10 +18,16 @@ public enum AiMode {
         this.code = code;
     }
 
+    /**
+     * 获取验证码。
+     */
     public String getCode() {
         return code;
     }
 
+    /**
+     * 解析AI模式。
+     */
     public static AiMode resolve(String value) {
         if (StrUtil.equalsIgnoreCase(CUSTOM.code, value)) {
             return CUSTOM;

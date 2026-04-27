@@ -84,6 +84,9 @@ public class RegistrationServiceImpl implements RegistrationService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    /**
+     * 完成用户注册。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(RegisterBO registerBO) {
@@ -164,6 +167,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
+    /**
+     * 发送邮箱。
+     */
     @Override
     public void sendEmail(String email, Integer type) {
         String normalizedEmail = normalizeEmail(email);
@@ -194,6 +200,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         log.info("发送邮箱验证码成功: email={}, type={}", normalizedEmail, type);
     }
 
+    /**
+     * 重置密码。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resetPassword(ResetPasswordBO resetPasswordBO) {
@@ -235,6 +244,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         log.info("邮箱找回密码成功: email={}, userCount={}", email, matchedUsers.size());
     }
 
+    /**
+     * 校验SendScene。
+     */
     private void validateSendScene(String email, Integer type) {
         if (Objects.equals(type, REGISTER_EMAIL_TYPE)) {
             ensureEmailNotRegistered(email);
@@ -250,6 +262,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "不支持的验证码类型");
     }
 
+    /**
+     * 校验邮箱验证码。
+     */
     private void verifyEmailCode(String email, String verificationCode) {
         String cachedCode = redis.get(getEmailCodeCacheKey(email));
         if (StrUtil.isBlank(cachedCode)) {
@@ -260,6 +275,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
+    /**
+     * 确保邮箱编号TRegistered。
+     */
     private void ensureEmailNotRegistered(String email) {
         long registeredEnterpriseCount = tenantService.count(
                 Wrappers.<CrmTenant>lambdaQuery().eq(CrmTenant::getContactEmail, email)
@@ -269,19 +287,31 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
+    /**
+     * 获取邮箱验证码缓存键。
+     */
     private String getEmailCodeCacheKey(String email) {
         return EMAIL_CODE_CACHE_PREFIX + email;
     }
 
+    /**
+     * 标准化邮箱。
+     */
     private String normalizeEmail(String email) {
         return StrUtil.trim(email).toLowerCase();
     }
 
+    /**
+     * 标准化文本。
+     */
     private String normalizeText(String value) {
         String normalized = StrUtil.trim(value);
         return StrUtil.isBlank(normalized) ? null : normalized;
     }
 
+    /**
+     * 初始化企业配置。
+     */
     private void initializeEnterpriseConfig(String companyName) {
         if (StrUtil.isBlank(companyName)) {
             return;

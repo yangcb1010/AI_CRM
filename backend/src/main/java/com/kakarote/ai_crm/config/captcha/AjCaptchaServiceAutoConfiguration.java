@@ -28,6 +28,9 @@ public class AjCaptchaServiceAutoConfiguration {
 
     private static Logger logger = LoggerFactory.getLogger(AjCaptchaServiceAutoConfiguration.class);
 
+    /**
+     * 处理captchaService方法逻辑。
+     */
     @Bean
     @ConditionalOnMissingBean
     public CaptchaService captchaService(AjCaptchaProperties prop) {
@@ -69,12 +72,18 @@ public class AjCaptchaServiceAutoConfiguration {
         return CaptchaServiceFactory.getInstance(config);
     }
 
+    /**
+     * 初始化基础MAP。
+     */
     private static void initializeBaseMap(String jigsaw, String picClick) {
         ImageUtils.cacheBootImage(getResourcesImagesFile(jigsaw + "/original/*.png"),
                 getResourcesImagesFile(jigsaw + "/slidingBlock/*.png"),
                 getResourcesImagesFile(picClick + "/*.png"));
     }
 
+    /**
+     * 获取ResourcesImages文件。
+     */
     public static Map<String, String> getResourcesImagesFile(String path) {
         Map<String, String> imgMap = new HashMap<>();
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();

@@ -32,9 +32,6 @@ import java.util.List;
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {
-    /**
-     * 自定义用户认证逻辑
-     */
     @Autowired
     private UserDetailsService userDetailsService;
 
@@ -62,6 +59,12 @@ public class SecurityConfig {
     @Autowired
     private CorsFilter corsFilter;
 
+    /**
+     * 处理securityFilterChain方法逻辑。
+     */
+    /**
+     * 自定义用户认证逻辑
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -100,6 +103,9 @@ public class SecurityConfig {
     }
 
 
+    /**
+     * 处理authenticationManagerBean方法逻辑。
+     */
     @Bean(name = BeanIds.AUTHENTICATION_MANAGER)
     public AuthenticationManager authenticationManagerBean() throws Exception {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();

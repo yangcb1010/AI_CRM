@@ -44,6 +44,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
     @Autowired
     private IGlobalSearchIndexService globalSearchIndexService;
 
+    /**
+     * 新增联系人。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addContact(ContactAddBO contactAddBO) {
@@ -77,6 +80,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         return contact.getContactId();
     }
 
+    /**
+     * 更新联系人。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateContact(ContactUpdateBO contactUpdateBO) {
@@ -111,6 +117,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         globalSearchIndexService.refreshContactIndex(contact.getContactId());
     }
 
+    /**
+     * 构建联系人Unique字段值。
+     */
     private Map<String, Object> buildContactUniqueFieldValues(Contact contact, Map<String, Object> customFields) {
         Map<String, Object> values = new HashMap<>();
         if (contact != null) {
@@ -128,6 +137,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         return values;
     }
 
+    /**
+     * 删除联系人。
+     */
     @Override
     public void deleteContact(Long contactId) {
         Contact contact = getById(contactId);
@@ -141,6 +153,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         globalSearchIndexService.deleteByEntity("contact", contactId);
     }
 
+    /**
+     * 按客户查询联系人。
+     */
     @Override
     public List<ContactVO> queryByCustomer(Long customerId) {
         List<Contact> contacts = lambdaQuery()
@@ -161,6 +176,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         return voList;
     }
 
+    /**
+     * 设置主联系人。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void setPrimary(Long contactId) {
@@ -183,6 +201,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         globalSearchIndexService.refreshContactIndex(contactId);
     }
 
+    /**
+     * 分页查询联系人列表。
+     */
     @Override
     public BasePage<ContactVO> queryPageList(ContactQueryBO queryBO) {
         BasePage<ContactVO> page = queryBO.parse();
@@ -200,6 +221,9 @@ public class ContactServiceImpl extends ServiceImpl<ContactMapper, Contact> impl
         return page;
     }
 
+    /**
+     * 使用 AI 解析联系人。
+     */
     @Override
     public CustomerAiParseVO aiParseContact(CustomerAiParseBO parseBO) {
         return customerService.aiParseCustomer(parseBO);

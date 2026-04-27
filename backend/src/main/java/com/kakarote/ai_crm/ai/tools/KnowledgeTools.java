@@ -45,6 +45,9 @@ public class KnowledgeTools {
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
+    /**
+     * 获取知识基础。
+     */
     @Tool(description = "查看知识库文件列表。当用户查询文档、资料、知识库、会议记录、合同等时调用。")
     @AiToolPermission(value = "knowledge:view", action = "查看知识库")
     public String getKnowledgeBase(
@@ -98,6 +101,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 获取知识详情。
+     */
     @Tool(description = "获取知识库文件详情。当用户想查看某个文件的基本信息、摘要、上传时间时调用。")
     @AiToolPermission(value = "knowledge:view", action = "查看知识库详情")
     public String getKnowledgeDetail(
@@ -139,6 +145,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 发起问答知识Question。
+     */
     @Tool(description = "直接向 RAG 知识库发起问答。当用户询问知识库文件内容、合同条款、会议结论、文档总结，或者希望基于知识库直接得到答案时优先调用。可选传入知识库文件ID，将回答范围限制在指定文件内。")
     @AiToolPermission(value = "knowledge:view", action = "知识库问答")
     public String askKnowledgeQuestion(
@@ -221,6 +230,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 搜索知识内容。
+     */
     @Tool(description = "在知识库中语义检索原始文档片段。当用户明确要查看原文、核对出处、查找相关片段或列出命中文档时调用。若目标是直接回答知识库问题，优先使用 askKnowledgeQuestion。")
     @AiToolPermission(value = "knowledge:view", action = "搜索知识库内容")
     public String searchKnowledgeContent(
@@ -280,6 +292,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 构建RAG兜底上下文。
+     */
     private String buildRagFallbackContext(String query, KnowledgeScope scope, Long tenantId) {
         if (tenantId == null) {
             return "";
@@ -334,6 +349,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 判断是否UnavailableRAG答案。
+     */
     private boolean isUnavailableRagAnswer(String answer) {
         if (StrUtil.isBlank(answer)) {
             return true;
@@ -345,6 +363,9 @@ public class KnowledgeTools {
                 || "抱歉，我无法回答这个问题".equals(normalized);
     }
 
+    /**
+     * 解析知识Scope。
+     */
     private KnowledgeScope resolveKnowledgeScope(String knowledgeIdsStr) {
         if (StrUtil.isBlank(knowledgeIdsStr)) {
             return new KnowledgeScope(Collections.emptyList(), Collections.emptyList());
@@ -379,6 +400,9 @@ public class KnowledgeTools {
         return new KnowledgeScope(weKnoraKnowledgeIds, invalidKnowledgeIds);
     }
 
+    /**
+     * 处理appendReference摘要方法逻辑。
+     */
     private void appendReferenceSummary(StringBuilder sb, List<WeKnoraChunk> references) {
         if (CollUtil.isEmpty(references)) {
             return;
@@ -414,6 +438,9 @@ public class KnowledgeTools {
         }
     }
 
+    /**
+     * 处理abbreviateForLog方法逻辑。
+     */
     private String abbreviateForLog(String text) {
         if (StrUtil.isBlank(text)) {
             return "";
@@ -422,6 +449,9 @@ public class KnowledgeTools {
         return normalized.length() > 120 ? normalized.substring(0, 120) + "..." : normalized;
     }
 
+    /**
+     * 获取类型Label。
+     */
     private String getTypeLabel(String type) {
         if (type == null) {
             return "文档";
@@ -437,6 +467,9 @@ public class KnowledgeTools {
         };
     }
 
+    /**
+     * 格式化文件Size。
+     */
     private String formatFileSize(Long bytes) {
         if (bytes == null) {
             return "未知";

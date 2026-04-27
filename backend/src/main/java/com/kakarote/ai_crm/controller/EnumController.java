@@ -19,6 +19,9 @@ import java.util.List;
 @Tag(name = "枚举值接口")
 public class EnumController {
 
+    /**
+     * 客户阶段枚举。
+     */
     @GetMapping("/customerStage")
     @Operation(summary = "客户阶段枚举")
     public Result<List<EnumVO>> customerStage() {
@@ -32,6 +35,9 @@ public class EnumController {
         ));
     }
 
+    /**
+     * 客户级别枚举。
+     */
     @GetMapping("/customerLevel")
     @Operation(summary = "客户级别枚举")
     public Result<List<EnumVO>> customerLevel() {
@@ -42,6 +48,9 @@ public class EnumController {
         ));
     }
 
+    /**
+     * 任务状态枚举。
+     */
     @GetMapping("/taskStatus")
     @Operation(summary = "任务状态枚举")
     public Result<List<EnumVO>> taskStatus() {
@@ -53,6 +62,9 @@ public class EnumController {
         ));
     }
 
+    /**
+     * 任务优先级枚举。
+     */
     @GetMapping("/taskPriority")
     @Operation(summary = "任务优先级枚举")
     public Result<List<EnumVO>> taskPriority() {
@@ -63,6 +75,9 @@ public class EnumController {
         ));
     }
 
+    /**
+     * 跟进类型枚举。
+     */
     @GetMapping("/followUpType")
     @Operation(summary = "跟进类型枚举")
     public Result<List<EnumVO>> followUpType() {
@@ -75,6 +90,9 @@ public class EnumController {
         ));
     }
 
+    /**
+     * 知识库类型枚举。
+     */
     @GetMapping("/knowledgeType")
     @Operation(summary = "知识库类型枚举")
     public Result<List<EnumVO>> knowledgeType() {

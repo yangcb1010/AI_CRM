@@ -33,6 +33,9 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
     @Autowired
     private ObjectProvider<DataPermissionService> dataPermissionServiceProvider;
 
+    /**
+     * 获取SQLSegment。
+     */
     @Override
     public Expression getSqlSegment(Table table, Expression where, String mappedStatementId) {
         String module = resolveModule(mappedStatementId);
@@ -65,6 +68,9 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
         }
     }
 
+    /**
+     * 解析模块。
+     */
     private String resolveModule(String mappedStatementId) {
         // 用 mapper 名推断权限模块，避免在每个 XML/方法上手工重复声明模块信息。
         return MODULE_BY_MAPPER.entrySet().stream()
@@ -74,6 +80,9 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
                 .orElse(null);
     }
 
+    /**
+     * 构建SQLSegment。
+     */
     private String buildSqlSegment(String module, Table table, List<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             // 无可见用户时返回恒假表达式，显式拒绝访问，避免因为 null 片段而误放行整表数据。
@@ -109,12 +118,18 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
         };
     }
 
+    /**
+     * 标准化Table名称。
+     */
     private String normalizeTableName(String tableName) {
         return Optional.ofNullable(tableName)
                 .map(name -> name.replace("\"", "").toLowerCase())
                 .orElse("");
     }
 
+    /**
+     * 处理qualifiedColumn方法逻辑。
+     */
     private String qualifiedColumn(Table table, String column) {
         Alias alias = table.getAlias();
         String prefix = alias != null ? alias.getName() : null;

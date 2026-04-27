@@ -29,14 +29,23 @@ public interface KnowledgeMapper extends BaseMapper<Knowledge> {
      */
     KnowledgeVO getKnowledgeById(@Param("knowledgeId") Long knowledgeId);
 
+    /**
+     * 查询按ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_knowledge WHERE knowledge_id = #{knowledgeId}")
     Knowledge selectByIdIgnoreDataPermission(@Param("knowledgeId") Long knowledgeId);
 
+    /**
+     * 查询按客户ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_knowledge WHERE customer_id = #{customerId}")
     List<Knowledge> selectByCustomerIdIgnoreDataPermission(@Param("customerId") Long customerId);
 
+    /**
+     * 更新WEKnora信息忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Update("""
             UPDATE crm_knowledge
@@ -48,6 +57,9 @@ public interface KnowledgeMapper extends BaseMapper<Knowledge> {
                                               @Param("weKnoraKnowledgeId") String weKnoraKnowledgeId,
                                               @Param("parseStatus") String parseStatus);
 
+    /**
+     * 更新解析状态忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Update("""
             UPDATE crm_knowledge

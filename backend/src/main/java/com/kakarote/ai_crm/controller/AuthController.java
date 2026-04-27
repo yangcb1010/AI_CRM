@@ -69,6 +69,9 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    /**
+     * 完成用户注册。
+     */
     @PostMapping("/register")
     @Operation(summary = "用户注册")
     public Result<String> register(@Valid @RequestBody RegisterBO registerBO) {
@@ -76,6 +79,9 @@ public class AuthController {
         return Result.ok("注册成功");
     }
 
+    /**
+     * 重置密码。
+     */
     @PostMapping("/reset-password")
     @Operation(summary = "重置密码")
     public Result<String> resetPassword(@Valid @RequestBody ResetPasswordBO resetPasswordBO) {
@@ -83,6 +89,9 @@ public class AuthController {
         return Result.ok("密码重置成功");
     }
 
+    /**
+     * 完成用户登录。
+     */
     @PostMapping("/login")
     @Operation(summary = "用户登录")
     public Result<LoginResponseVO> login(@Valid @RequestBody LoginUserBO loginUserBO,
@@ -143,6 +152,9 @@ public class AuthController {
         return Result.ok(buildLoginSuccessResponse(enabledUsers.get(0), request, response));
     }
 
+    /**
+     * 退出当前登录会话。
+     */
     @PostMapping("/logout")
     @Operation(summary = "用户退出")
     public Result<String> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -169,12 +181,18 @@ public class AuthController {
         return Result.ok();
     }
 
+    /**
+     * 获取当前用户信息。
+     */
     @GetMapping("/userInfo")
     @Operation(summary = "获取当前用户信息")
     public Result<ManageUserVO> getUserInfo() {
         return Result.ok(manageUserService.queryLoginUser());
     }
 
+    /**
+     * 获取 OIDC Session Token。
+     */
     @GetMapping("/oidc-session")
     @Operation(summary = "获取 OIDC Session Token")
     public Result<Map<String, String>> getOidcSessionToken() {
@@ -188,6 +206,9 @@ public class AuthController {
         return Result.ok(result);
     }
 
+    /**
+     * 获取会话IDCookie。
+     */
     private String getSessionIdFromCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
@@ -201,10 +222,16 @@ public class AuthController {
         return null;
     }
 
+    /**
+     * 判断是否启用项。
+     */
     private boolean isEnabled(ManagerUser user) {
         return user != null && Integer.valueOf(1).equals(user.getStatus());
     }
 
+    /**
+     * 构建LoginSuccess响应。
+     */
     private LoginResponseVO buildLoginSuccessResponse(ManagerUser user,
                                                       HttpServletRequest request,
                                                       HttpServletResponse response) {
@@ -228,6 +255,9 @@ public class AuthController {
         return result;
     }
 
+    /**
+     * 构建用户信息。
+     */
     private ManageUserVO buildUserInfo(ManagerUser user) {
         ManageUserVO userVO = new ManageUserVO();
         userVO.setUserId(user.getUserId());

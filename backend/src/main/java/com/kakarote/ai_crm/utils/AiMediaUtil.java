@@ -15,11 +15,17 @@ import java.io.InputStream;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class AiMediaUtil {
 
+    /**
+     * 构建媒体。
+     */
     public static Media buildMedia(FileStorageService fileStorageService, String filePath, MimeType mimeType)
             throws IOException {
         try (InputStream inputStream = fileStorageService.getFileStream(filePath)) {
             byte[] data = inputStream.readAllBytes();
             Resource resource = new ByteArrayResource(data) {
+                /**
+                 * 获取Filename。
+                 */
                 @Override
                 public String getFilename() {
                     return FileUtil.getName(filePath);

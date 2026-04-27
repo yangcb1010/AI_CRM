@@ -13,9 +13,15 @@ import java.util.Base64;
 
 public final class QrCodeUtil {
 
+    /**
+     * 初始化QR验证码实例。
+     */
     private QrCodeUtil() {
     }
 
+    /**
+     * 转换为DataURI。
+     */
     public static String toDataUri(String content, int size) {
         if (StrUtil.isBlank(content)) {
             return null;

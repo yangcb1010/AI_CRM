@@ -39,6 +39,9 @@ public class MinioFileStorageService implements FileStorageService {
     private volatile boolean bucketInitialized = false;
     private final Object bucketLock = new Object();
 
+    /**
+     * 确保BucketExists。
+     */
     private void ensureBucketExists() {
         if (bucketInitialized) {
             return;
@@ -71,6 +74,9 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 上传Minio文件存储。
+     */
     @Override
     public String upload(MultipartFile file, String path) {
         ensureBucketExists();
@@ -91,6 +97,9 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 上传Minio文件存储。
+     */
     @Override
     public String upload(InputStream inputStream, long size, String path, String contentType) {
         ensureBucketExists();
@@ -111,6 +120,9 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 删除Minio文件存储。
+     */
     @Override
     public void delete(String path) {
         ensureBucketExists();
@@ -127,6 +139,9 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 获取地址。
+     */
     @Override
     public String getUrl(String path) {
         ensureBucketExists();
@@ -152,6 +167,9 @@ public class MinioFileStorageService implements FileStorageService {
         return baseUrl + "/" + minioConfig.getBucket() + "/" + path;
     }
 
+    /**
+     * 获取文件流。
+     */
     @Override
     public InputStream getFileStream(String path) {
         ensureBucketExists();
@@ -168,16 +186,25 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 获取本地路径。
+     */
     @Override
     public String getLocalPath(String path) {
         return null;
     }
 
+    /**
+     * 获取存储类型。
+     */
     @Override
     public String getStorageType() {
         return "minio";
     }
 
+    /**
+     * 获取PresignedUpload地址。
+     */
     @Override
     public PresignedUploadInfo getPresignedUploadUrl(String path, String contentType, int expiry) {
         ensureBucketExists();
@@ -205,6 +232,9 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    /**
+     * 转换为公开地址。
+     */
     private String toPublicUrl(String internalUrl) {
         String publicEndpoint = minioConfig.getPublicEndpoint();
         if (StrUtil.isBlank(publicEndpoint)) {

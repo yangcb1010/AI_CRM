@@ -53,6 +53,9 @@ public class FollowupTools {
     @Autowired
     private ICustomerService customerService;
 
+    /**
+     * 创建跟进。
+     */
     @Tool(description = "创建跟进记录。当用户描述已经发生的沟通、拜访、电话、会议、邮件等事项时调用。直接传入客户名称和联系人姓名即可，无需先查询ID。如找不到联系人，仍继续创建跟进记录。涉及签约、回款、成交等关键节点时，可在内容前加【关键节点】标记。")
     @AiToolPermission(value = "followup:create", action = "创建跟进记录")
     public String createFollowUp(
@@ -130,6 +133,9 @@ public class FollowupTools {
         }
     }
 
+    /**
+     * 查询跟进UPS。
+     */
     @Tool(description = "查询客户的跟进记录。当用户要查看某个客户的跟进历史、跟进记录时调用。直接传入客户名称即可，无需先查询ID。")
     @AiToolPermission(value = "followup:view", action = "查看跟进记录")
     public String queryFollowUps(
@@ -172,6 +178,9 @@ public class FollowupTools {
         }
     }
 
+    /**
+     * 查找联系人ID按名称。
+     */
     private Long findContactIdByName(String name, Long customerId) {
         if (StrUtil.isBlank(name)) {
             return null;
@@ -200,6 +209,9 @@ public class FollowupTools {
         return null;
     }
 
+    /**
+     * 创建跟进用于客户。
+     */
     private String createFollowUpForCustomer(Customer customer,
                                              String type,
                                              String content,
@@ -244,6 +256,9 @@ public class FollowupTools {
         return result.toString();
     }
 
+    /**
+     * 解析客户按ID。
+     */
     private CustomerResolveResult resolveCustomerById(String customerIdStr, String actionName) {
         String normalizedCustomerId = normalizeOptionalText(customerIdStr);
         if (normalizedCustomerId == null) {
@@ -262,6 +277,9 @@ public class FollowupTools {
         }
     }
 
+    /**
+     * 标准化Optional文本。
+     */
     private String normalizeOptionalText(String value) {
         String normalized = StrUtil.trim(value);
         if (StrUtil.isBlank(normalized) || "null".equalsIgnoreCase(normalized)) {
@@ -273,6 +291,9 @@ public class FollowupTools {
     private record CustomerResolveResult(Customer customer, String errorMessage) {
     }
 
+    /**
+     * 解析跟进时间。
+     */
     private Date parseFollowUpTime(String value, Date fallback) {
         if (StrUtil.isBlank(value) || "null".equalsIgnoreCase(value)) {
             return fallback;
@@ -287,6 +308,9 @@ public class FollowupTools {
         return toDate(parsed);
     }
 
+    /**
+     * 解析Optional时间。
+     */
     private Date parseOptionalTime(String value) {
         if (StrUtil.isBlank(value) || "null".equalsIgnoreCase(value)) {
             return null;
@@ -300,6 +324,9 @@ public class FollowupTools {
         return toDate(parsed);
     }
 
+    /**
+     * 解析本地日期时间。
+     */
     private LocalDateTime parseLocalDateTime(String value, LocalTime defaultTime) {
         for (DateTimeFormatter formatter : DATE_TIME_FORMATTERS) {
             try {
@@ -316,18 +343,30 @@ public class FollowupTools {
         }
     }
 
+    /**
+     * 转换为本地日期时间。
+     */
     private LocalDateTime toLocalDateTime(Date date) {
         return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
     }
 
+    /**
+     * 转换为日期。
+     */
     private Date toDate(LocalDateTime dateTime) {
         return Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 
+    /**
+     * 格式化日期时间。
+     */
     private String formatDateTime(Date date) {
         return OUTPUT_TIME_FORMATTER.format(toLocalDateTime(date));
     }
 
+    /**
+     * 获取类型名称。
+     */
     private String getTypeName(String type) {
         if (type == null) {
             return "拜访";

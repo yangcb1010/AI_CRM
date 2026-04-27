@@ -28,10 +28,16 @@ public interface ContactMapper extends BaseMapper<Contact> {
      */
     Contact getPrimaryContact(@Param("customerId") Long customerId);
 
+    /**
+     * 查询按ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_contact WHERE contact_id = #{contactId}")
     Contact selectByIdIgnoreDataPermission(@Param("contactId") Long contactId);
 
+    /**
+     * 查询按客户ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_contact WHERE customer_id = #{customerId}")
     List<Contact> selectByCustomerIdIgnoreDataPermission(@Param("customerId") Long customerId);

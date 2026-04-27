@@ -18,9 +18,15 @@ public final class DocumentTextExtractor {
 
     private static final Tika TIKA = new Tika();
 
+    /**
+     * 初始化文档文本Extractor实例。
+     */
     private DocumentTextExtractor() {
     }
 
+    /**
+     * 解析TOString。
+     */
     public static String parseToString(InputStream inputStream, String mimeType, String fileName) throws Exception {
         if (isPdf(mimeType, fileName)) {
             return parsePdfWithoutOcr(inputStream);
@@ -28,6 +34,9 @@ public final class DocumentTextExtractor {
         return TIKA.parseToString(inputStream);
     }
 
+    /**
+     * 解析PDF包含outOCR。
+     */
     private static String parsePdfWithoutOcr(InputStream inputStream) throws Exception {
         AutoDetectParser parser = new AutoDetectParser();
         Metadata metadata = new Metadata();
@@ -48,6 +57,9 @@ public final class DocumentTextExtractor {
         return handler.toString();
     }
 
+    /**
+     * 判断是否PDF。
+     */
     private static boolean isPdf(String mimeType, String fileName) {
         if ("application/pdf".equalsIgnoreCase(mimeType)) {
             return true;

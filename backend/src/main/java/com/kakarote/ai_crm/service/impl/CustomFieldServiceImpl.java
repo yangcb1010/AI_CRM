@@ -97,6 +97,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
      */
     private static final int MAX_FIELDS_PER_ENTITY = 50;
 
+    /**
+     * 新增字段。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addField(CustomFieldAddBO bo) {
@@ -141,6 +144,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return field.getFieldId();
     }
 
+    /**
+     * 更新字段。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateField(CustomFieldUpdateBO bo) {
@@ -194,6 +200,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 处理disableField方法逻辑。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void disableField(Long fieldId) {
@@ -210,6 +219,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 处理enableField方法逻辑。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void enableField(Long fieldId) {
@@ -226,6 +238,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 删除字段。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteField(Long fieldId) {
@@ -250,6 +265,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 获取字段按Entity。
+     */
     @Override
     public List<CustomFieldVO> getFieldsByEntity(String entityType) {
         initializeSystemFields(entityType);
@@ -260,6 +278,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return convertToVO(fields);
     }
 
+    /**
+     * 获取启用项字段按Entity。
+     */
     @Override
     public List<CustomFieldVO> getEnabledFieldsByEntity(String entityType) {
         initializeSystemFields(entityType);
@@ -271,6 +292,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return convertToVO(fields);
     }
 
+    /**
+     * 获取列表字段按Entity。
+     */
     @Override
     public List<CustomFieldVO> getListFieldsByEntity(String entityType) {
         initializeSystemFields(entityType);
@@ -283,6 +307,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return convertToVO(fields);
     }
 
+    /**
+     * 获取表单字段按Entity。
+     */
     @Override
     public List<CustomFieldVO> getFormFieldsByEntity(String entityType) {
         initializeSystemFields(entityType);
@@ -294,6 +321,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return convertToVO(fields);
     }
 
+    /**
+     * 更新排序订单。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateSortOrder(List<FieldSortBO> sortList) {
@@ -308,6 +338,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 获取自定义字段值。
+     */
     @Override
     public Map<String, Object> getCustomFieldValues(String entityType, Long entityId) {
         List<CustomFieldVO> fields = getEnabledCustomFieldVOs(entityType);
@@ -348,6 +381,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return result;
     }
 
+    /**
+     * 更新自定义字段值。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateCustomFieldValues(String entityType, Long entityId, Map<String, Object> values) {
@@ -391,6 +427,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         baseMapper.updateCustomFieldValues(tableName, idColumn, entityId, columnValues);
     }
 
+    /**
+     * 更新自定义字段值。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateCustomFieldValue(String entityType, Long entityId, String fieldName, Object value) {
@@ -416,6 +455,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         baseMapper.updateCustomFieldValues(tableName, idColumn, entityId, columnValues);
     }
 
+    /**
+     * 校验Unique自定义字段值。
+     */
     @Override
     public void validateUniqueCustomFieldValues(String entityType, Long entityId, Map<String, Object> values) {
         if (values == null || values.isEmpty()) {
@@ -446,6 +488,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 校验Unique字段值。
+     */
     @Override
     public void validateUniqueFieldValue(String entityType, Long entityId, String fieldName, Object value) {
         if (StrUtil.isBlank(fieldName)) {
@@ -456,6 +501,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         validateUniqueCustomFieldValues(entityType, entityId, values);
     }
 
+    /**
+     * 获取批量自定义字段值。
+     */
     @Override
     public Map<Long, Map<String, Object>> getBatchCustomFieldValues(String entityType, List<Long> entityIds) {
         if (entityIds == null || entityIds.isEmpty()) {
@@ -530,6 +578,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return converted;
     }
 
+    /**
+     * 转换值用于Jdbc。
+     */
     private Object convertValueForJdbc(String fieldType, Object val, String fieldName) {
         if (val == null || fieldType == null) {
             return val;
@@ -569,6 +620,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 校验Unique自定义字段值。
+     */
     private void validateUniqueCustomFieldValue(String tableName,
                                                 String idColumn,
                                                 Long entityId,
@@ -638,6 +692,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
     }
 
     */
+    /**
+     * 初始化系统字段。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void initializeSystemFields(String entityType) {
@@ -672,6 +729,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }
     }
 
+    /**
+     * 构建系统字段。
+     */
     private CustomField buildSystemField(String entityType, SystemFieldDefinition definition) {
         CustomField field = new CustomField();
         field.setEntityType(entityType);
@@ -694,6 +754,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return field;
     }
 
+    /**
+     * 处理systemField方法逻辑。
+     */
     private static SystemFieldDefinition systemField(String fieldName,
                                                      String fieldLabel,
                                                      String fieldType,
@@ -722,6 +785,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         );
     }
 
+    /**
+     * 处理option方法逻辑。
+     */
     private static FieldOption option(String value, String label) {
         FieldOption option = new FieldOption();
         option.setValue(value);
@@ -729,6 +795,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return option;
     }
 
+    /**
+     * 获取下次排序订单。
+     */
     private int getNextSortOrder(String entityType) {
         CustomField lastField = getOne(new LambdaQueryWrapper<CustomField>()
                 .eq(CustomField::getEntityType, entityType)
@@ -741,26 +810,41 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         return lastField.getSortOrder() + 1;
     }
 
+    /**
+     * 处理appendCustomFieldSourceCondition方法逻辑。
+     */
     private void appendCustomFieldSourceCondition(LambdaQueryWrapper<CustomField> wrapper) {
         wrapper.isNull(CustomField::getFieldSource)
                 .or()
                 .eq(CustomField::getFieldSource, FIELD_SOURCE_CUSTOM);
     }
 
+    /**
+     * 判断是否系统字段。
+     */
     private boolean isSystemField(CustomField field) {
         return field != null && FIELD_SOURCE_SYSTEM.equalsIgnoreCase(field.getFieldSource());
     }
 
+    /**
+     * 判断是否自定义字段。
+     */
     private boolean isCustomField(CustomField field) {
         return !isSystemField(field);
     }
 
+    /**
+     * 获取启用项自定义字段VOS。
+     */
     private List<CustomFieldVO> getEnabledCustomFieldVOs(String entityType) {
         return getEnabledFieldsByEntity(entityType).stream()
                 .filter(field -> !FIELD_SOURCE_SYSTEM.equalsIgnoreCase(field.getFieldSource()))
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 转换TOVO。
+     */
     private List<CustomFieldVO> convertToVO(List<CustomField> fields) {
         return fields.stream().map(field -> {
             CustomFieldVO vo = BeanUtil.copyProperties(field, CustomFieldVO.class,"options");
@@ -781,6 +865,9 @@ public class CustomFieldServiceImpl extends ServiceImpl<CustomFieldMapper, Custo
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 判断是否刷新客户搜索文本。
+     */
     private boolean shouldRefreshCustomerSearchText(String entityType, String fieldType, boolean searchable) {
         return searchable
                 && "customer".equals(entityType)

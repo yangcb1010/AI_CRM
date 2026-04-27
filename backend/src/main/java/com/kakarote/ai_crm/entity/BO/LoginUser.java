@@ -34,23 +34,38 @@ public class LoginUser implements UserDetails {
      */
     private ManagerUser user;
 
+    /**
+     * 获取Token。
+     */
     public String getToken() {
         return token;
     }
 
+    /**
+     * 设置Token。
+     */
     public void setToken(String token) {
         this.token = token;
     }
 
+    /**
+     * 初始化Login用户实例。
+     */
     public LoginUser() {
     }
 
+    /**
+     * 获取密码。
+     */
     @JsonIgnore
     @Override
     public String getPassword() {
         return user.getPassword();
     }
 
+    /**
+     * 获取Username。
+     */
     @Override
     public String getUsername() {
         return user.getUsername();
@@ -98,30 +113,51 @@ public class LoginUser implements UserDetails {
         return user != null && Integer.valueOf(1).equals(user.getStatus());
     }
 
+    /**
+     * 获取Login时间。
+     */
     public Long getLoginTime() {
         return loginTime;
     }
 
+    /**
+     * 设置Login时间。
+     */
     public void setLoginTime(Long loginTime) {
         this.loginTime = loginTime;
     }
 
+    /**
+     * 获取Expire时间。
+     */
     public Long getExpireTime() {
         return expireTime;
     }
 
+    /**
+     * 设置Expire时间。
+     */
     public void setExpireTime(Long expireTime) {
         this.expireTime = expireTime;
     }
 
+    /**
+     * 获取用户。
+     */
     public ManagerUser getUser() {
         return user;
     }
 
+    /**
+     * 设置用户。
+     */
     public void setUser(ManagerUser user) {
         this.user = user;
     }
 
+    /**
+     * 获取Authorities。
+     */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return null;

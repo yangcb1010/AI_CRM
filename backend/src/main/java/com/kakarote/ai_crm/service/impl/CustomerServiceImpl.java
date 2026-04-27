@@ -285,6 +285,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         只返回 JSON，不要返回解释性文字，不要使用 Markdown 代码块。
         """;
 
+    /**
+     * 新增客户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addCustomer(CustomerAddBO customerAddBO) {
@@ -341,6 +344,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return customer.getCustomerId();
     }
 
+    /**
+     * 更新客户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateCustomer(CustomerUpdateBO customerUpdateBO) {
@@ -383,6 +389,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 analysisRequestedAt);
     }
 
+    /**
+     * 更新客户字段。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CustomerDetailVO updateCustomerField(CustomerFieldUpdateBO fieldUpdateBO) {
@@ -410,6 +419,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return getCustomerDetail(customerId);
     }
 
+    /**
+     * 删除客户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteCustomer(Long customerId) {
@@ -429,6 +441,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         taskService.refreshValuePriorityByCustomerId(customerId);
     }
 
+    /**
+     * 分页查询客户列表。
+     */
     @Override
     public BasePage<CustomerListVO> queryPageList(CustomerQueryBO queryBO) {
         queryBO.setKeyword(normalizeSearchTextFragment(queryBO.getKeyword()));
@@ -604,16 +619,25 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return vo;
     }
 
+    /**
+     * 转换为Long。
+     */
     private Long toLong(Object val) {
         if (val == null) return null;
         if (val instanceof Number n) return n.longValue();
         try { return Long.valueOf(val.toString()); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * 转换为STR。
+     */
     private String toStr(Object val) {
         return val != null ? val.toString() : null;
     }
 
+    /**
+     * 转换为BIGDecimal。
+     */
     private BigDecimal toBigDecimal(Object val) {
         if (val == null) return null;
         if (val instanceof BigDecimal bd) return bd;
@@ -621,6 +645,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         try { return new BigDecimal(val.toString()); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * 转换为日期。
+     */
     private Date toDate(Object val) {
         if (val == null) return null;
         if (val instanceof Date d) return d;
@@ -628,12 +655,18 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return null;
     }
 
+    /**
+     * 转换为Int。
+     */
     private Integer toInt(Object val) {
         if (val == null) return null;
         if (val instanceof Number n) return n.intValue();
         try { return Integer.valueOf(val.toString()); } catch (NumberFormatException e) { return null; }
     }
 
+    /**
+     * 标准化BlankTO空值。
+     */
     private Object normalizeBlankToNull(Object value) {
         if (value == null) {
             return null;
@@ -644,11 +677,17 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return value;
     }
 
+    /**
+     * 标准化String值。
+     */
     private String normalizeStringValue(Object value) {
         Object normalized = normalizeBlankToNull(value);
         return normalized == null ? null : normalized.toString().trim();
     }
 
+    /**
+     * 解析字段BIGDecimal。
+     */
     private BigDecimal parseFieldBigDecimal(Object value) {
         Object normalized = normalizeBlankToNull(value);
         if (normalized == null) {
@@ -667,6 +706,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析字段日期。
+     */
     private Date parseFieldDate(Object value) {
         Object normalized = normalizeBlankToNull(value);
         if (normalized == null) {
@@ -685,6 +727,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 构建客户Unique字段值。
+     */
     private Map<String, Object> buildCustomerUniqueFieldValues(Customer customer, Map<String, Object> customFields) {
         Map<String, Object> values = new HashMap<>();
         if (customer != null) {
@@ -705,6 +750,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return values;
     }
 
+    /**
+     * 构建联系人Unique字段值。
+     */
     private Map<String, Object> buildContactUniqueFieldValues(Contact contact, Map<String, Object> customFields) {
         Map<String, Object> values = new HashMap<>();
         if (contact != null) {
@@ -722,12 +770,18 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return values;
     }
 
+    /**
+     * 判断是否启用项自定义客户字段。
+     */
     private boolean isEnabledCustomCustomerField(String fieldName) {
         return customFieldService.getEnabledFieldsByEntity("customer").stream()
                 .anyMatch(field -> "custom".equalsIgnoreCase(field.getFieldSource())
                         && fieldName.equals(field.getFieldName()));
     }
 
+    /**
+     * 更新系统客户字段。
+     */
     private void updateSystemCustomerField(Customer customer, String fieldName, Object value) {
         if (!INLINE_EDITABLE_SYSTEM_FIELDS.contains(fieldName)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Field is not editable");
@@ -803,6 +857,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         refreshCustomerAfterInlineUpdate(customerId, "quotation".equals(fieldName));
     }
 
+    /**
+     * 更新主联系人字段。
+     */
     private void updatePrimaryContactField(Customer customer, String fieldName, Object value) {
         String normalizedFieldName = normalizePrimaryContactFieldName(fieldName);
         String textValue = normalizeStringValue(value);
@@ -849,6 +906,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 查找主联系人Entity。
+     */
     private Contact findPrimaryContactEntity(Long customerId) {
         List<Contact> contacts = contactMapper.selectList(
                 new LambdaQueryWrapper<Contact>()
@@ -862,6 +922,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return contacts.isEmpty() ? null : contacts.get(0);
     }
 
+    /**
+     * 标准化主联系人字段名称。
+     */
     private String normalizePrimaryContactFieldName(String fieldName) {
         return switch (fieldName) {
             case "primaryContactName", "contactName" -> "name";
@@ -872,6 +935,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 处理applyPrimaryContactValue方法逻辑。
+     */
     private void applyPrimaryContactValue(Contact contact, String normalizedFieldName, String value) {
         switch (normalizedFieldName) {
             case "name" -> contact.setName(value);
@@ -882,6 +948,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 刷新客户AfterInlineUpdate。
+     */
     private void refreshCustomerAfterInlineUpdate(Long customerId, boolean refreshTaskPriority) {
         refreshCustomerSearchText(customerId);
         globalSearchIndexService.refreshCustomerIndex(customerId);
@@ -891,6 +960,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 查找客户按精确公司名称。
+     */
     @Override
     public List<Customer> findCustomersByExactCompanyName(String companyName) {
         String normalizedCompanyName = StrUtil.trim(companyName);
@@ -904,6 +976,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             .list();
     }
 
+    /**
+     * 查找客户按精确公司名称忽略数据权限。
+     */
     @Override
     public List<Customer> findCustomersByExactCompanyNameIgnoreDataPermission(String companyName) {
         String normalizedCompanyName = StrUtil.trim(companyName);
@@ -913,6 +988,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return baseMapper.selectByExactCompanyNameIgnoreDataPermission(normalizedCompanyName);
     }
 
+    /**
+     * 查找客户按公司名称模糊忽略数据权限。
+     */
     @Override
     public List<Customer> findCustomersByCompanyNameLikeIgnoreDataPermission(String keyword, int limit) {
         String normalizedKeyword = StrUtil.trim(keyword);
@@ -923,6 +1001,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return baseMapper.selectByCompanyNameLikeIgnoreDataPermission(normalizedKeyword, actualLimit);
     }
 
+    /**
+     * 获取客户详情。
+     */
     @Override
     public CustomerDetailVO getCustomerDetail(Long customerId) {
         CustomerDetailVO detail = baseMapper.getCustomerById(customerId);
@@ -988,6 +1069,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return detail;
     }
 
+    /**
+     * 生成AI报告。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CustomerAiReportVO generateAiReport(Long customerId) {
@@ -1006,6 +1090,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 生成AI报告内部。
+     */
     private CustomerAiReportVO generateAiReportInternal(Long customerId,
                                                         Date expectedRequestedAt,
                                                         boolean persistCompletedStatus) {
@@ -1067,6 +1154,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return report;
     }
 
+    /**
+     * 删除客户LogoAfterCommit。
+     */
     private void deleteCustomerLogoAfterCommit(String logo) {
         String normalizedLogo = StrUtil.trimToNull(logo);
         if (normalizedLogo == null) {
@@ -1076,6 +1166,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         Runnable deleteTask = () -> customerLogoService.deleteStoredLogoQuietly(normalizedLogo);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                /**
+                 * 处理afterCommit方法逻辑。
+                 */
                 @Override
                 public void afterCommit() {
                     deleteTask.run();
@@ -1087,6 +1180,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         deleteTask.run();
     }
 
+    /**
+     * 处理scheduleCustomerAiAnalysis方法逻辑。
+     */
     private void scheduleCustomerAiAnalysis(Long customerId, Long userId, Long tenantId, Date analysisRequestedAt) {
         if (customerId == null || userId == null || analysisRequestedAt == null) {
             return;
@@ -1102,6 +1198,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                /**
+                 * 处理afterCommit方法逻辑。
+                 */
                 @Override
                 public void afterCommit() {
                     triggerTask.run();
@@ -1113,6 +1212,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         triggerTask.run();
     }
 
+    /**
+     * 处理runCustomerAiAnalysisAsync方法逻辑。
+     */
     private void runCustomerAiAnalysisAsync(Long customerId, Long userId, Long tenantId, Date analysisRequestedAt) {
         if (tenantId == null) {
             log.warn("skip customer ai analysis because tenant context is missing, customerId={}", customerId);
@@ -1138,16 +1240,25 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 绑定客户AI分析上下文。
+     */
     private void bindCustomerAiAnalysisContext(Long userId, Long tenantId) {
         DataPermissionHolder.clear();
         AiContextHolder.bindThreadContext(userId, tenantId);
     }
 
+    /**
+     * 清理客户AI分析上下文。
+     */
     private void clearCustomerAiAnalysisContext() {
         DataPermissionHolder.clear();
         AiContextHolder.clearThreadContext();
     }
 
+    /**
+     * 更新客户AI分析状态。
+     */
     private boolean updateCustomerAiAnalysisState(Long customerId,
                                                   Date expectedRequestedAt,
                                                   String aiAnalysisStatus,
@@ -1166,6 +1277,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return baseMapper.update(null, updateWrapper) > 0;
     }
 
+    /**
+     * 处理serializeCustomerAiParseSnapshot方法逻辑。
+     */
     private String serializeCustomerAiParseSnapshot(CustomerAiParseVO snapshot) {
         if (isEmptyCustomerAiParseResult(snapshot)) {
             return null;
@@ -1178,6 +1292,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 构建客户AI解析快照。
+     */
     private CustomerAiParseVO buildCustomerAiParseSnapshot(CustomerDetailVO detail,
                                                            List<FollowUpVO> recentFollowUps,
                                                            CustomerAiReportVO report) {
@@ -1207,6 +1324,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return snapshot;
     }
 
+    /**
+     * 查找主联系人。
+     */
     private ContactVO findPrimaryContact(List<ContactVO> contacts) {
         if (contacts == null || contacts.isEmpty()) {
             return null;
@@ -1217,6 +1337,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .orElse(contacts.get(0));
     }
 
+    /**
+     * 处理inferCustomerAiParseScore方法逻辑。
+     */
     private Integer inferCustomerAiParseScore(CustomerDetailVO detail,
                                               List<FollowUpVO> recentFollowUps,
                                               String aiStatus) {
@@ -1266,6 +1389,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return Math.max(20, Math.min(score, 98));
     }
 
+    /**
+     * 构建客户AI解析标签。
+     */
     private List<String> buildCustomerAiParseTags(CustomerDetailVO detail, String aiStatus) {
         LinkedHashSet<String> tags = new LinkedHashSet<>();
         if (detail.getTags() != null) {
@@ -1289,6 +1415,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return tags.stream().filter(StrUtil::isNotBlank).limit(5).collect(Collectors.toList());
     }
 
+    /**
+     * 构建客户AI解析摘要。
+     */
     private String buildCustomerAiParseSummary(CustomerDetailVO detail,
                                                List<FollowUpVO> recentFollowUps,
                                                CustomerAiReportVO report) {
@@ -1298,6 +1427,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return buildDeepAiInsight(detail, recentFollowUps, report.getAiStatusDetection());
     }
 
+    /**
+     * 构建客户AI解析下次步骤。
+     */
     private String buildCustomerAiParseNextStep(CustomerDetailVO detail, String aiStatus) {
         if (detail.getNextFollowTime() != null && !detail.getNextFollowTime().before(new Date())) {
             return "优先围绕已安排的下次跟进时间推进沟通，确认客户反馈、决策节点和下一步动作。";
@@ -1310,6 +1442,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 构建客户AI解析键要点。
+     */
     private List<String> buildCustomerAiParseKeyPoints(CustomerDetailVO detail,
                                                        ContactVO primaryContact,
                                                        List<FollowUpVO> recentFollowUps) {
@@ -1348,6 +1483,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return keyPoints.stream().filter(StrUtil::isNotBlank).limit(4).collect(Collectors.toList());
     }
 
+    /**
+     * 构建客户AI报告上下文。
+     */
     private String buildCustomerAiReportContext(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         StringBuilder builder = new StringBuilder();
         builder.append("客户ID: ").append(detail.getCustomerId()).append('\n');
@@ -1378,6 +1516,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return builder.toString();
     }
 
+    /**
+     * 解析客户AI报告响应。
+     */
     private CustomerAiReportVO parseCustomerAiReportResponse(String response,
                                                              CustomerDetailVO detail,
                                                              List<FollowUpVO> recentFollowUps) {
@@ -1416,6 +1557,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 构建兜底客户AI报告。
+     */
     private CustomerAiReportVO buildFallbackCustomerAiReport(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         CustomerAiReportVO report = new CustomerAiReportVO();
         String stageLabel = getStageLabel(detail.getStage());
@@ -1465,6 +1609,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return report;
     }
 
+    /**
+     * 构建兜底客户AI报告V2。
+     */
     private CustomerAiReportVO buildFallbackCustomerAiReportV2(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         CustomerAiReportVO report = new CustomerAiReportVO();
         String aiStatus = inferAiStatusDetection(detail, recentFollowUps);
@@ -1476,6 +1623,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return report;
     }
 
+    /**
+     * 构建DeepAIInsight。
+     */
     private String buildDeepAiInsight(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps, String aiStatus) {
         ContactVO primaryContact = findPrimaryContact(detail.getContacts());
         FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
@@ -1527,6 +1677,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("\n"));
     }
 
+    /**
+     * 构建CompactAIInsight。
+     */
     private String buildCompactAiInsight(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps, String aiStatus) {
         FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
         boolean hasContact = detail.getContacts() != null && !detail.getContacts().isEmpty();
@@ -1542,11 +1695,17 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return compactAiReportText(summary);
     }
 
+    /**
+     * 构建阶段Phrase。
+     */
     private String buildStagePhrase(String stage) {
         String stageLabel = getStageLabel(stage);
         return stageLabel.endsWith("阶段") ? stageLabel : stageLabel + "阶段";
     }
 
+    /**
+     * 构建CommunicationPhrase。
+     */
     private String buildCommunicationPhrase(CustomerDetailVO detail, FollowUpVO latestFollowUp) {
         long daysSinceLastContact = getDaysSinceNow(detail.getLastContactTime());
         long daysSinceLatestFollowUp = latestFollowUp != null && latestFollowUp.getFollowTime() != null
@@ -1565,6 +1724,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return "未沟通";
     }
 
+    /**
+     * 构建DemandPhrase。
+     */
     private String buildDemandPhrase(CustomerDetailVO detail, FollowUpVO latestFollowUp) {
         if (detail.getQuotation() != null) {
             return "预算初步明确";
@@ -1576,6 +1738,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return "需求不明";
     }
 
+    /**
+     * 构建CompactAIInsightSuggestion。
+     */
     private String buildCompactAiInsightSuggestion(String aiStatus, boolean hasContact, boolean demandUnknown) {
         if (!hasContact || demandUnknown) {
             return "建议尽快触达并完善信息，避免流失。";
@@ -1588,6 +1753,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 标准化AI状态检测。
+     */
     private String normalizeAiStatusDetection(String value, CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         String normalized = StrUtil.trimToEmpty(value);
         if (AI_STATUS_DETECTION_OPTIONS.contains(normalized)) {
@@ -1618,6 +1786,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return inferAiStatusDetection(detail, recentFollowUps);
     }
 
+    /**
+     * 处理inferAiStatus检测方法逻辑。
+     */
     private String inferAiStatusDetection(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
         FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
         long daysSinceLastContact = getDaysSinceNow(detail.getLastContactTime());
@@ -1654,6 +1825,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return "活跃状态";
     }
 
+    /**
+     * 构建AIInsightSuggestion。
+     */
     private String buildAiInsightSuggestion(String aiStatus) {
         return switch (aiStatus) {
             case "高意向" -> "建议优先围绕成交条件、预算确认和决策推进节奏展开深度跟进，尽快推动明确下一步商务动作。";
@@ -1664,6 +1838,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 获取DaysSince编号W。
+     */
     private long getDaysSinceNow(Date value) {
         if (value == null) {
             return Long.MAX_VALUE;
@@ -1675,6 +1852,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return diff / (24L * 60L * 60L * 1000L);
     }
 
+    /**
+     * 处理extractJsonPayload方法逻辑。
+     */
     private String extractJsonPayload(String response) {
         String json = StrUtil.blankToDefault(response, "").trim();
         if (json.startsWith("```")) {
@@ -1689,6 +1869,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return json;
     }
 
+    /**
+     * 标准化AI报告文本。
+     */
     private String normalizeAiReportText(String value) {
         if (StrUtil.isBlank(value)) {
             return null;
@@ -1696,6 +1879,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return compactAiReportText(value);
     }
 
+    /**
+     * 标准化AIDeepInsight文本。
+     */
     private String normalizeAiDeepInsightText(String value) {
         if (StrUtil.isBlank(value)) {
             return null;
@@ -1710,6 +1896,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .trim();
     }
 
+    /**
+     * 处理compactAiReportText方法逻辑。
+     */
     private String compactAiReportText(String value) {
         String normalized = StrUtil.trimToEmpty(value)
                 .replace('\r', ' ')
@@ -1741,14 +1930,23 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return normalized.substring(0, maxLength) + "...";
     }
 
+    /**
+     * 格式化Nullable日期时间。
+     */
     private String formatNullableDateTime(Date value) {
         return value == null ? "无" : DateUtil.formatDateTime(value);
     }
 
+    /**
+     * 格式化Nullable金额。
+     */
     private String formatNullableAmount(BigDecimal value) {
         return value == null ? "无" : value.stripTrailingZeros().toPlainString();
     }
 
+    /**
+     * 格式化标签名称。
+     */
     private String formatTagNames(List<CustomerTag> tags) {
         if (tags == null || tags.isEmpty()) {
             return "无";
@@ -1759,6 +1957,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("、"));
     }
 
+    /**
+     * 格式化联系人摘要。
+     */
     private String formatContactSummary(List<ContactVO> contacts) {
         if (contacts == null || contacts.isEmpty()) {
             return "无";
@@ -1778,6 +1979,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("；"));
     }
 
+    /**
+     * 格式化任务摘要。
+     */
     private String formatTaskSummary(List<Task> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return "无";
@@ -1797,6 +2001,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("；"));
     }
 
+    /**
+     * 格式化跟进摘要。
+     */
     private String formatFollowUpSummary(List<FollowUpVO> followUps) {
         if (followUps == null || followUps.isEmpty()) {
             return "无";
@@ -1817,6 +2024,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("；"));
     }
 
+    /**
+     * 格式化自定义字段摘要。
+     */
     private String formatCustomFieldSummary(Map<String, Object> customFields) {
         return customFields.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && StrUtil.isNotBlank(String.valueOf(entry.getValue())))
@@ -1825,6 +2035,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 .collect(Collectors.joining("；"));
     }
 
+    /**
+     * 获取LevelDisplayLabel。
+     */
     private String getLevelDisplayLabel(String level) {
         return switch (StrUtil.blankToDefault(level, "")) {
             case "A" -> "A级";
@@ -1834,6 +2047,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 处理truncateText方法逻辑。
+     */
     private String truncateText(String value, int maxLength) {
         if (StrUtil.isBlank(value)) {
             return "无";
@@ -1845,6 +2061,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return normalized.substring(0, maxLength) + "...";
     }
 
+    /**
+     * 更新阶段。
+     */
     @Override
     public void updateStage(Long customerId, String stage) {
         Customer customer = getById(customerId);
@@ -1857,6 +2076,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         taskService.refreshValuePriorityByCustomerId(customerId);
     }
 
+    /**
+     * 新增标签。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void addTag(Long customerId, String tagName, String color) {
@@ -1884,6 +2106,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         syncTagCache(customerId);
     }
 
+    /**
+     * 移除标签。
+     */
     @Override
     public void removeTag(Long customerId, Long tagId) {
         customerTagMapper.deleteById(tagId);
@@ -1891,6 +2116,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         syncTagCache(customerId);
     }
 
+    /**
+     * 转移客户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transferCustomer(CustomerTransferBO transferBO) {
@@ -2064,6 +2292,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 构建导出客户Wrapper。
+     */
     private LambdaQueryWrapper<Customer> buildExportCustomerWrapper(CustomerExportBO exportBO) {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Customer::getStatus, 1);
@@ -2151,6 +2382,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return wrapper;
     }
 
+    /**
+     * 处理applyExportSort方法逻辑。
+     */
     private void applyExportSort(LambdaQueryWrapper<Customer> wrapper, String sortBy, String sortOrder) {
         boolean asc = "asc".equalsIgnoreCase(sortOrder);
         if (StrUtil.isBlank(sortBy) || "createTime".equals(sortBy)) {
@@ -2179,6 +2413,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         wrapper.orderByDesc(Customer::getCreateTime);
     }
 
+    /**
+     * 构建导出ROW。
+     */
     private List<Object> buildExportRow(Customer c, Contact contact, List<CustomFieldVO> customFields, Map<String, Object> cfValues) {
         List<Object> row = new ArrayList<>();
         row.add(c.getCompanyName());
@@ -2211,6 +2448,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return row;
     }
 
+    /**
+     * 处理applyCenteredStyle方法逻辑。
+     */
     private void applyCenteredStyle(Sheet sheet, Workbook wb, int rowIdx, int colIdx) {
         Row row = sheet.getRow(rowIdx);
         if (row == null) return;
@@ -2544,6 +2784,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return preview;
     }
 
+    /**
+     * 获取CellSTR。
+     */
     private String getCellStr(List<Object> row, int index) {
         if (index < 0 || index >= row.size() || row.get(index) == null) {
             return null;
@@ -2552,6 +2795,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return val.isEmpty() ? null : val;
     }
 
+    /**
+     * 构建客户导入Unique字段值。
+     */
     private Map<String, Object> buildCustomerImportUniqueFieldValues(CustomerImportBO row) {
         Map<String, Object> values = new HashMap<>();
         if (row != null) {
@@ -2698,6 +2944,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return result;
     }
 
+    /**
+     * 插入联系人导入。
+     */
     private void insertContactFromImport(Long customerId, CustomerImportBO row) {
         if (StrUtil.isEmpty(row.getContactName())) {
             return;
@@ -2725,6 +2974,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         contactMapper.insert(contact);
     }
 
+    /**
+     * 获取统计信息。
+     */
     @Override
     public DashboardStatsVO getStatistics() {
         DashboardStatsVO stats = new DashboardStatsVO();
@@ -2846,6 +3098,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return refreshed;
     }
 
+    /**
+     * 刷新客户搜索文本。
+     */
     public void refreshCustomerSearchText(Long customerId) {
         if (customerId == null || !dynamicSchemaService.columnExists(CUSTOMER_TABLE_NAME, CUSTOMER_SEARCH_TEXT_COLUMN)) {
             return;
@@ -2868,6 +3123,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             .update();
     }
 
+    /**
+     * 获取Searchable客户文本字段。
+     */
     private List<CustomFieldVO> getSearchableCustomerTextFields() {
         return getEnabledCustomOnlyFields("customer").stream()
             .filter(field -> Boolean.TRUE.equals(field.getIsSearchable()))
@@ -2875,12 +3133,18 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             .toList();
     }
 
+    /**
+     * 获取启用项自定义Only字段。
+     */
     private List<CustomFieldVO> getEnabledCustomOnlyFields(String entityType) {
         return customFieldService.getEnabledFieldsByEntity(entityType).stream()
             .filter(field -> !"system".equalsIgnoreCase(field.getFieldSource()))
             .toList();
     }
 
+    /**
+     * 处理applyCustomerQueryScope方法逻辑。
+     */
     private void applyCustomerQueryScope(CustomerQueryBO queryBO) {
         queryBO.setTenantId(TenantContextHolder.getTenantId());
 
@@ -2898,6 +3162,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         queryBO.setAuthorizedOwnerIds(new ArrayList<>(context.getUserIds()));
     }
 
+    /**
+     * 构建客户搜索文本。
+     */
     private String buildCustomerSearchText(Customer customer,
                                            List<CustomFieldVO> searchableFields,
                                            Map<String, Object> customFields) {
@@ -2933,6 +3200,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return String.join(" ", fragments);
     }
 
+    /**
+     * 解析搜索字段RAW值。
+     */
     private Object resolveSearchFieldRawValue(CustomFieldVO field, Map<String, Object> customFields) {
         if (field == null || customFields == null || customFields.isEmpty()) {
             return null;
@@ -2951,6 +3221,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return null;
     }
 
+    /**
+     * 解析自定义字段搜索值。
+     */
     private List<String> resolveCustomFieldSearchValues(CustomFieldVO field, Object rawValue) {
         if (field == null || rawValue == null) {
             return Collections.emptyList();
@@ -2963,6 +3236,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 构建Select搜索值。
+     */
     private List<String> buildSelectSearchValues(CustomFieldVO field, Object rawValue) {
         String raw = StrUtil.trim(String.valueOf(rawValue));
         if (StrUtil.isBlank(raw)) {
@@ -2978,6 +3254,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return values;
     }
 
+    /**
+     * 构建Multiselect搜索值。
+     */
     private List<String> buildMultiselectSearchValues(CustomFieldVO field, Object rawValue) {
         List<String> values = new ArrayList<>();
         for (String item : parseMultiValueSafe(rawValue)) {
@@ -2993,6 +3272,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return values;
     }
 
+    /**
+     * 解析Multi值Safe。
+     */
     private List<String> parseMultiValueSafe(Object rawValue) {
         if (rawValue == null) {
             return Collections.emptyList();
@@ -3034,6 +3316,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             .toList();
     }
 
+    /**
+     * 解析字段选项Label。
+     */
     private String resolveFieldOptionLabel(CustomFieldVO field, String rawValue) {
         if (field == null || field.getOptions() == null || field.getOptions().isEmpty() || StrUtil.isBlank(rawValue)) {
             return rawValue;
@@ -3047,6 +3332,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             .orElse(rawValue);
     }
 
+    /**
+     * 处理appendSearchText方法逻辑。
+     */
     private void appendSearchText(Set<String> fragments, String value) {
         String normalized = normalizeSearchTextFragment(value);
         if (StrUtil.isNotBlank(normalized)) {
@@ -3054,6 +3342,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 标准化搜索文本Fragment。
+     */
     private String normalizeSearchTextFragment(String value) {
         if (StrUtil.isBlank(value)) {
             return null;
@@ -3071,6 +3362,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return StrUtil.isBlank(normalized) ? null : normalized;
     }
 
+    /**
+     * 使用 AI 解析客户。
+     */
     @Override
     public CustomerAiParseVO aiParseCustomer(CustomerAiParseBO parseBO) {
         String prompt = String.format(AI_CUSTOMER_PARSE_PROMPT, parseBO.getContent());
@@ -3129,6 +3423,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 使用 AI 解析搜索。
+     */
     @Override
     public CustomerAiSearchParseVO aiParseSearch(CustomerAiSearchParseBO parseBO) {
         String normalizedQuery = StrUtil.trim(parseBO.getQuery());
@@ -3166,6 +3463,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析客户AI响应。
+     */
     private CustomerAiParseVO parseCustomerAiResponse(String response, String sourceContent) {
         try {
             // Strip markdown code block markers if present
@@ -3205,6 +3505,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析客户AI搜索响应。
+     */
     private CustomerAiSearchParseVO parseCustomerAiSearchResponse(String response, String normalizedQuery) {
         try {
             String json = extractJsonPayload(response);
@@ -3234,6 +3537,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 转换为客户AI搜索查询。
+     */
     private CustomerAiSearchQueryVO toCustomerAiSearchQuery(JsonNode queryNode) {
         CustomerAiSearchQueryVO query = new CustomerAiSearchQueryVO();
         if (queryNode == null || queryNode.isNull()) {
@@ -3284,6 +3590,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return query;
     }
 
+    /**
+     * 标准化AI搜索查询。
+     */
     private void normalizeAiSearchQuery(CustomerAiSearchQueryVO query, String normalizedQuery) {
         if (query == null) {
             return;
@@ -3315,6 +3624,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         normalizeContactCountRange(query, keepZeroContactCount);
     }
 
+    /**
+     * 处理applyAmountFilterFromQuery方法逻辑。
+     */
     private void applyAmountFilterFromQuery(CustomerAiSearchQueryVO query,
                                             String normalizedQuery,
                                             Pattern comparePattern,
@@ -3351,6 +3663,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         applyAmountOperator(query, fieldKey, compareMatcher.group(2), value);
     }
 
+    /**
+     * 处理applyAmountOperator方法逻辑。
+     */
     private void applyAmountOperator(CustomerAiSearchQueryVO query, String fieldKey, String operator, BigDecimal value) {
         if (query == null || value == null) {
             return;
@@ -3368,6 +3683,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         setAmountRange(query, fieldKey, value, null);
     }
 
+    /**
+     * 设置金额范围。
+     */
     private void setAmountRange(CustomerAiSearchQueryVO query, String fieldKey, BigDecimal min, BigDecimal max) {
         if (query == null || StrUtil.isBlank(fieldKey)) {
             return;
@@ -3383,6 +3701,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 标准化金额范围。
+     */
     private void normalizeAmountRange(CustomerAiSearchQueryVO query, String fieldKey, boolean keepZero) {
         if (query == null || StrUtil.isBlank(fieldKey)) {
             return;
@@ -3415,6 +3736,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         setAmountRange(query, fieldKey, max, min);
     }
 
+    /**
+     * 标准化联系人Count范围。
+     */
     private void normalizeContactCountRange(CustomerAiSearchQueryVO query, boolean keepZero) {
         if (query == null) {
             return;
@@ -3436,10 +3760,16 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         query.setContactCountMax(min);
     }
 
+    /**
+     * 判断是否KeepZero金额筛选。
+     */
     private boolean shouldKeepZeroAmountFilter(String normalizedQuery, String... fieldKeywords) {
         return mentionsExplicitZero(normalizedQuery) && containsAny(normalizedQuery, fieldKeywords);
     }
 
+    /**
+     * 判断是否KeepZero联系人Count筛选。
+     */
     private boolean shouldKeepZeroContactCountFilter(String normalizedQuery) {
         if (StrUtil.isBlank(normalizedQuery)) {
             return false;
@@ -3450,10 +3780,16 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return mentionsExplicitZero(normalizedQuery) && containsAny(normalizedQuery, "联系人", "联系人数", "联系人数量");
     }
 
+    /**
+     * 处理mentionsExplicitZero方法逻辑。
+     */
     private boolean mentionsExplicitZero(String normalizedQuery) {
         return StrUtil.isNotBlank(normalizedQuery) && EXPLICIT_ZERO_PATTERN.matcher(normalizedQuery).find();
     }
 
+    /**
+     * 处理containsAny方法逻辑。
+     */
     private boolean containsAny(String value, String... candidates) {
         if (StrUtil.isBlank(value) || candidates == null || candidates.length == 0) {
             return false;
@@ -3466,10 +3802,16 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return false;
     }
 
+    /**
+     * 判断是否Zero。
+     */
     private boolean isZero(BigDecimal value) {
         return value != null && BigDecimal.ZERO.compareTo(value) == 0;
     }
 
+    /**
+     * 构建搜索结果。
+     */
     private CustomerAiSearchParseVO buildSearchResult(String originalQuery,
                                                       CustomerAiSearchQueryVO query,
                                                       String explanation,
@@ -3487,6 +3829,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return vo;
     }
 
+    /**
+     * 构建兜底搜索结果。
+     */
     private CustomerAiSearchParseVO buildFallbackSearchResult(String normalizedQuery) {
         CustomerAiSearchQueryVO query = new CustomerAiSearchQueryVO();
         query.setKeyword(normalizedQuery);
@@ -3499,6 +3844,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         );
     }
 
+    /**
+     * 构建Heuristic搜索查询。
+     */
     private CustomerAiSearchQueryVO buildHeuristicSearchQuery(String normalizedQuery) {
         CustomerAiSearchQueryVO query = new CustomerAiSearchQueryVO();
         normalizeAiSearchQuery(query, normalizedQuery);
@@ -3506,6 +3854,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return query;
     }
 
+    /**
+     * 处理enrichSearchQuery包含Heuristics方法逻辑。
+     */
     private void enrichSearchQueryWithHeuristics(CustomerAiSearchQueryVO query, String normalizedQuery) {
         if (query == null || StrUtil.isBlank(normalizedQuery)) {
             return;
@@ -3576,6 +3927,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 判断是否搜索查询空值。
+     */
     private boolean isSearchQueryEmpty(CustomerAiSearchQueryVO query) {
         if (query == null) {
             return true;
@@ -3600,6 +3954,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             && query.getContactCountMax() == null;
     }
 
+    /**
+     * 构建搜索Chips。
+     */
     private List<CustomerAiSearchDisplayChipVO> buildSearchChips(CustomerAiSearchQueryVO query) {
         List<CustomerAiSearchDisplayChipVO> chips = new ArrayList<>();
         if (query == null) {
@@ -3656,6 +4013,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return chips;
     }
 
+    /**
+     * 获取阶段Label。
+     */
     private String getStageLabel(String stage) {
         if (StrUtil.isBlank(stage)) {
             return "未知";
@@ -3663,6 +4023,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return STAGE_LABEL_MAP.getOrDefault(stage, stage);
     }
 
+    /**
+     * 构建金额范围Label。
+     */
     private String buildAmountRangeLabel(String prefix, BigDecimal min, BigDecimal max) {
         if (min != null && max != null) {
             return prefix + ": " + formatCompactAmount(min) + " - " + formatCompactAmount(max);
@@ -3673,6 +4036,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return prefix + "<=" + formatCompactAmount(max);
     }
 
+    /**
+     * 构建日期范围Label。
+     */
     private String buildDateRangeLabel(String prefix, Date start, Date end, boolean includeNoValue) {
         List<String> parts = new ArrayList<>();
         if (start != null) {
@@ -3690,6 +4056,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return prefix + ": " + String.join(" ", parts);
     }
 
+    /**
+     * 构建排序Label。
+     */
     private String buildSortLabel(String sortBy, String sortOrder) {
         String label = switch (sortBy) {
             case "quotation" -> "预计成交金额";
@@ -3701,6 +4070,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return "排序: 按" + label + ("asc".equalsIgnoreCase(sortOrder) ? "升序" : "降序");
     }
 
+    /**
+     * 解析搜索Explanation。
+     */
     private String resolveSearchExplanation(String originalQuery,
                                             List<CustomerAiSearchDisplayChipVO> displayChips,
                                             String rawExplanation,
@@ -3724,6 +4096,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return "已将自然语言搜索解析为结构化筛选条件";
     }
 
+    /**
+     * 构建搜索ExplanationChips。
+     */
     private String buildSearchExplanationFromChips(List<CustomerAiSearchDisplayChipVO> displayChips) {
         if (displayChips == null || displayChips.isEmpty()) {
             return null;
@@ -3752,6 +4127,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return parts.isEmpty() ? null : String.join("；", parts);
     }
 
+    /**
+     * 处理sanitizeSearchExplanation方法逻辑。
+     */
     private String sanitizeSearchExplanation(String explanation) {
         String sanitized = StrUtil.trim(explanation);
         if (StrUtil.isBlank(sanitized)) {
@@ -3766,6 +4144,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return sanitized.trim();
     }
 
+    /**
+     * 处理contains内部SearchField方法逻辑。
+     */
     private boolean containsInternalSearchField(String explanation) {
         if (StrUtil.isBlank(explanation)) {
             return false;
@@ -3784,6 +4165,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return false;
     }
 
+    /**
+     * 格式化Compact金额。
+     */
     private String formatCompactAmount(BigDecimal amount) {
         if (amount == null) {
             return "";
@@ -3796,14 +4180,23 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return amount.stripTrailingZeros().toPlainString();
     }
 
+    /**
+     * 构建金额ComparePattern。
+     */
     private static Pattern buildAmountComparePattern(String fieldRegex) {
         return Pattern.compile("(" + fieldRegex + ")\\s*(?:在)?\\s*(大于等于|大于或等于|不少于|不低于|高于或等于|>=|＞=|≥|大于|高于|超过|多于|>|＞|小于等于|小于或等于|不超过|不高于|低于或等于|<=|＜=|≤|小于|低于|少于|以内|以下|<|＜|等于|为|=)\\s*" + SEARCH_NUMBER_WITH_UNIT_PATTERN);
     }
 
+    /**
+     * 构建金额范围Pattern。
+     */
     private static Pattern buildAmountRangePattern(String fieldRegex) {
         return Pattern.compile("(" + fieldRegex + ")\\s*" + SEARCH_NUMBER_WITH_UNIT_PATTERN + "\\s*(?:到|至|~|～|-|—)\\s*" + SEARCH_NUMBER_WITH_UNIT_PATTERN);
     }
 
+    /**
+     * 解析搜索金额。
+     */
     private BigDecimal parseSearchAmount(String numberText, String unitText) {
         if (StrUtil.isBlank(numberText)) {
             return null;
@@ -3822,6 +4215,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析JSONBIGDecimal。
+     */
     private BigDecimal parseJsonBigDecimal(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -3837,6 +4233,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析JSONInteger。
+     */
     private Integer parseJsonInteger(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -3852,6 +4251,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析JSONBoolean。
+     */
     private Boolean parseJsonBoolean(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -3863,6 +4265,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return Boolean.parseBoolean(text);
     }
 
+    /**
+     * 解析JSON日期。
+     */
     private Date parseJsonDate(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -3878,6 +4283,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 解析JSONConfidence。
+     */
     private Double parseJsonConfidence(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
@@ -3897,6 +4305,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
     }
 
+    /**
+     * 标准化阶段验证码。
+     */
     private String normalizeStageCode(String stage) {
         String normalized = normalizeOptionalText(stage);
         if (normalized == null) {
@@ -3909,6 +4320,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return LABEL_STAGE_MAP.getOrDefault(normalized, null);
     }
 
+    /**
+     * 标准化排序按。
+     */
     private String normalizeSortBy(String sortBy) {
         String normalized = normalizeOptionalText(sortBy);
         if (normalized == null) {
@@ -3924,6 +4338,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 标准化排序订单。
+     */
     private String normalizeSortOrder(String sortOrder) {
         String normalized = normalizeOptionalText(sortOrder);
         if (normalized == null) {
@@ -3938,6 +4355,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return null;
     }
 
+    /**
+     * 标准化搜索Operator。
+     */
     private String normalizeSearchOperator(String operator) {
         if (operator == null) {
             return "";
@@ -3945,6 +4365,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return operator.replaceAll("\\s+", "");
     }
 
+    /**
+     * 判断是否UpperBoundOperator。
+     */
     private boolean isUpperBoundOperator(String operator) {
         return switch (operator) {
             case "小于等于", "小于或等于", "不超过", "不高于", "低于或等于", "<=", "＜=", "≤", "小于", "低于", "少于", "以内", "以下", "<", "＜" -> true;
@@ -3952,6 +4375,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 判断是否EqualityOperator。
+     */
     private boolean isEqualityOperator(String operator) {
         return switch (operator) {
             case "等于", "为", "=" -> true;
@@ -3959,6 +4385,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         };
     }
 
+    /**
+     * 标准化Optional文本。
+     */
     private String normalizeOptionalText(String value) {
         String normalized = StrUtil.trim(value);
         if (StrUtil.isBlank(normalized) || "null".equalsIgnoreCase(normalized)) {
@@ -3967,6 +4396,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return normalized;
     }
 
+    /**
+     * 解析AIParsed网站。
+     */
     private String resolveAiParsedWebsite(String parsedWebsite, String sourceContent) {
         String normalizedWebsite = normalizeWebsiteForAiParse(parsedWebsite);
         if (StrUtil.isNotBlank(normalizedWebsite)) {
@@ -3975,6 +4407,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return extractWebsiteFromContent(sourceContent);
     }
 
+    /**
+     * 处理extract网站FromContent方法逻辑。
+     */
     private String extractWebsiteFromContent(String content) {
         if (StrUtil.isBlank(content)) {
             return null;
@@ -3986,6 +4421,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return normalizeWebsiteForAiParse(matcher.group());
     }
 
+    /**
+     * 标准化网站用于AI解析。
+     */
     private String normalizeWebsiteForAiParse(String website) {
         String normalized = StrUtil.trim(website);
         if (StrUtil.isBlank(normalized)) {
@@ -4003,6 +4441,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return customerLogoService.normalizeWebsite(normalized);
     }
 
+    /**
+     * 获取JSON文本。
+     */
     private String getJsonText(JsonNode root, String field) {
         if (root.has(field) && !root.get(field).isNull()) {
             return root.get(field).asText();
@@ -4010,6 +4451,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return null;
     }
 
+    /**
+     * 获取JSONString列表。
+     */
     private List<String> getJsonStringList(JsonNode root, String field) {
         List<String> result = new ArrayList<>();
         if (root.has(field) && root.get(field).isArray()) {
@@ -4018,6 +4462,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return result;
     }
 
+    /**
+     * 构建兜底客户结果。
+     */
     private CustomerAiParseVO buildFallbackCustomerResult(String sourceContent) {
         CustomerAiParseVO vo = new CustomerAiParseVO();
         vo.setWebsite(extractWebsiteFromContent(sourceContent));
@@ -4026,6 +4473,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         return vo;
     }
 
+    /**
+     * 判断是否空值客户AI解析结果。
+     */
     private boolean isEmptyCustomerAiParseResult(CustomerAiParseVO result) {
         if (result == null) {
             return true;

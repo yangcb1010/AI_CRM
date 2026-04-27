@@ -150,6 +150,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * 新增跟进。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addFollowUp(FollowUpAddBO followUpAddBO) {
@@ -174,6 +177,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return followUp.getFollowUpId();
     }
 
+    /**
+     * 更新跟进。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateFollowUp(FollowUpUpdateBO followUpUpdateBO) {
@@ -195,6 +201,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         syncCustomerFollowUpSummary(followUp.getCustomerId());
     }
 
+    /**
+     * 删除跟进。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteFollowUp(Long followUpId) {
@@ -210,6 +219,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         syncCustomerFollowUpSummary(customerId);
     }
 
+    /**
+     * 按客户查询跟进。
+     */
     @Override
     public List<FollowUpVO> queryByCustomer(Long customerId) {
         List<FollowUp> followUps = lambdaQuery()
@@ -221,6 +233,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return result;
     }
 
+    /**
+     * 分页查询跟进列表。
+     */
     @Override
     public BasePage<FollowUpVO> queryPageList(FollowUpQueryBO queryBO) {
         BasePage<FollowUpVO> page = queryBO.parse();
@@ -229,6 +244,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return page;
     }
 
+    /**
+     * 使用 AI 解析跟进。
+     */
     @Override
     public FollowUpAiParseVO aiParseFollowUp(FollowUpAiParseBO parseBO) {
         String customerName = StrUtil.blankToDefault(parseBO.getCustomerName(), "Unknown customer");
@@ -270,6 +288,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理analyzeAttachment方法逻辑。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public FollowUpAttachmentVO analyzeAttachment(Long attachmentId) {
@@ -304,6 +325,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 获取附件。
+     */
     @Override
     public FollowUpAttachmentVO getAttachment(Long attachmentId) {
         FollowUpAttachment attachment = followUpAttachmentMapper.selectById(attachmentId);
@@ -313,6 +337,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return toAttachmentVO(attachment);
     }
 
+    /**
+     * 解析AI响应。
+     */
     private FollowUpAiParseVO parseAiResponse(String response, String originalContent, String now) {
         try {
             String json = response.trim();
@@ -348,6 +375,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 获取文本OR默认。
+     */
     private String getTextOrDefault(JsonNode root, String field, String defaultValue) {
         if (root.has(field) && !root.get(field).isNull()) {
             String value = root.get(field).asText();
@@ -356,6 +386,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return defaultValue;
     }
 
+    /**
+     * 构建兜底结果。
+     */
     private FollowUpAiParseVO buildFallbackResult(String content, String now) {
         FollowUpAiParseVO vo = new FollowUpAiParseVO();
         vo.setSummary(normalizeGeneratedSummary("", content));
@@ -368,6 +401,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return normalizeParsedTimes(vo, content, now);
     }
 
+    /**
+     * 标准化ParsedTimes。
+     */
     private FollowUpAiParseVO normalizeParsedTimes(FollowUpAiParseVO vo, String originalContent, String now) {
         LocalDateTime nowTime = parseDateTime(now, LocalTime.now());
         if (nowTime == null) {
@@ -402,11 +438,17 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return vo;
     }
 
+    /**
+     * 标准化Generated摘要。
+     */
     private String normalizeGeneratedSummary(String summary, String fallbackContent) {
         String candidate = StrUtil.isNotBlank(summary) ? summary : fallbackContent;
         return compactSummary(candidate);
     }
 
+    /**
+     * 标准化已存储摘要。
+     */
     private String normalizeStoredSummary(String summary) {
         if (StrUtil.isBlank(summary)) {
             return null;
@@ -414,6 +456,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return compactSummary(summary);
     }
 
+    /**
+     * 处理compact摘要方法逻辑。
+     */
     private String compactSummary(String text) {
         String normalized = normalizeSingleLineText(text);
         if (StrUtil.isBlank(normalized)) {
@@ -438,6 +483,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return candidate;
     }
 
+    /**
+     * 处理firstSegment方法逻辑。
+     */
     private String firstSegment(String text, String regex) {
         if (StrUtil.isBlank(text)) {
             return "";
@@ -451,10 +499,16 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return text.trim();
     }
 
+    /**
+     * 标准化SingleLine文本。
+     */
     private String normalizeSingleLineText(String text) {
         return StrUtil.blankToDefault(text, "").replaceAll("\\s+", " ").trim();
     }
 
+    /**
+     * 处理chooseFutureNextFollowTime方法逻辑。
+     */
     private LocalDateTime chooseFutureNextFollowTime(
         LocalDateTime inferredNextFollowTime,
         LocalDateTime nextFollowTime,
@@ -473,6 +527,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return null;
     }
 
+    /**
+     * 处理inferNextFollowTimeFromContent方法逻辑。
+     */
     private LocalDateTime inferNextFollowTimeFromContent(String content, LocalDateTime nowTime) {
         if (StrUtil.isBlank(content) || nowTime == null) {
             return null;
@@ -486,6 +543,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return parseEnglishRelativeTime(content, nowTime);
     }
 
+    /**
+     * 解析ChineseRelative时间。
+     */
     private LocalDateTime parseChineseRelativeTime(String content, LocalDateTime nowTime) {
         Matcher matcher = CHINESE_RELATIVE_TIME_PATTERN.matcher(content);
         while (matcher.find()) {
@@ -509,6 +569,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return null;
     }
 
+    /**
+     * 解析EnglishRelative时间。
+     */
     private LocalDateTime parseEnglishRelativeTime(String content, LocalDateTime nowTime) {
         Matcher matcher = ENGLISH_RELATIVE_TIME_PATTERN.matcher(content);
         while (matcher.find()) {
@@ -532,6 +595,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return null;
     }
 
+    /**
+     * 解析ChineseDAYOffset。
+     */
     private long resolveChineseDayOffset(String dayToken) {
         if (StrUtil.startWith(dayToken, "后天")) {
             return 2;
@@ -542,6 +608,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return 0;
     }
 
+    /**
+     * 解析EnglishDAYOffset。
+     */
     private long resolveEnglishDayOffset(String dayToken) {
         String normalized = StrUtil.nullToEmpty(dayToken).toLowerCase(Locale.ROOT);
         if (normalized.contains("day after tomorrow")) {
@@ -553,6 +622,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return 0;
     }
 
+    /**
+     * 处理deriveChinesePeriodToken方法逻辑。
+     */
     private String deriveChinesePeriodToken(String dayToken) {
         if (StrUtil.equals(dayToken, "明早")) {
             return "上午";
@@ -563,6 +635,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return "";
     }
 
+    /**
+     * 解析HourToken。
+     */
     private Integer parseHourToken(String value) {
         try {
             int hour = Integer.parseInt(StrUtil.trim(value));
@@ -572,6 +647,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 解析MinuteToken。
+     */
     private Integer parseMinuteToken(String value, String halfToken) {
         if (StrUtil.isNotBlank(value)) {
             try {
@@ -584,6 +662,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return StrUtil.isNotBlank(halfToken) ? 30 : 0;
     }
 
+    /**
+     * 标准化Hour。
+     */
     private Integer normalizeHour(Integer hour, String periodToken) {
         if (hour == null) {
             return null;
@@ -616,6 +697,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return normalizedHour >= 0 && normalizedHour <= 23 ? normalizedHour : null;
     }
 
+    /**
+     * 标准化Required日期时间。
+     */
     private String normalizeRequiredDateTime(String value, String fallback) {
         LocalDateTime fallbackTime = parseDateTime(fallback, LocalTime.now());
         LocalDateTime parsed = parseDateTime(
@@ -628,6 +712,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return AI_TIME_FORMATTER.format(parsed);
     }
 
+    /**
+     * 标准化Optional日期时间。
+     */
     private String normalizeOptionalDateTime(String value, String fallback) {
         if (StrUtil.isBlank(value)) {
             return "";
@@ -641,6 +728,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return AI_TIME_FORMATTER.format(parsed);
     }
 
+    /**
+     * 解析日期时间。
+     */
     private LocalDateTime parseDateTime(String value, LocalTime defaultTime) {
         String trimmed = StrUtil.trim(value);
         if (StrUtil.isBlank(trimmed)) {
@@ -662,6 +752,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 保存附件。
+     */
     private void saveAttachments(Long followUpId, List<ChatSendBO.AttachmentDTO> attachments) {
         if (followUpId == null || CollUtil.isEmpty(attachments)) {
             return;
@@ -685,6 +778,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 创建Suggested任务。
+     */
     private void createSuggestedTasks(FollowUp followUp, List<FollowUpSuggestedTaskBO> suggestedTasks) {
         if (followUp == null || followUp.getCustomerId() == null || CollUtil.isEmpty(suggestedTasks)) {
             return;
@@ -709,6 +805,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理enrichFollowUps方法逻辑。
+     */
     private void enrichFollowUps(List<FollowUpVO> followUps) {
         if (CollUtil.isEmpty(followUps)) {
             return;
@@ -755,10 +854,16 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 转换为附件VO。
+     */
     private FollowUpAttachmentVO toAttachmentVO(FollowUpAttachment attachment) {
         return BeanUtil.copyProperties(attachment, FollowUpAttachmentVO.class);
     }
 
+    /**
+     * 转换为关联任务VO。
+     */
     private FollowUpLinkedTaskVO toLinkedTaskVO(Task task) {
         FollowUpLinkedTaskVO vo = new FollowUpLinkedTaskVO();
         vo.setTaskId(task.getTaskId());
@@ -771,6 +876,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return vo;
     }
 
+    /**
+     * 构建附件分析。
+     */
     private String buildAttachmentAnalysis(FollowUpAttachment attachment) {
         String mimeType = StrUtil.blankToDefault(attachment.getMimeType(), "");
         String fileName = StrUtil.blankToDefault(attachment.getFileName(), "");
@@ -796,6 +904,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return analyzeTextLikeAttachment(fileName, content);
     }
 
+    /**
+     * 处理analyzeImageAttachment方法逻辑。
+     */
     private String analyzeImageAttachment(FollowUpAttachment attachment) {
         AiModelCapabilities capabilities = chatClientProvider.getCurrentCapabilities();
         if (capabilities == null || !capabilities.isSupportsVision()) {
@@ -837,6 +948,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理analyzeAudioAttachment方法逻辑。
+     */
     private String analyzeAudioAttachment(FollowUpAttachment attachment) {
         try (InputStream inputStream = fileStorageService.getFileStream(attachment.getFilePath())) {
             if (inputStream == null) {
@@ -858,6 +972,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理analyzeText模糊Attachment方法逻辑。
+     */
     private String analyzeTextLikeAttachment(String fileName, String content) {
         String prompt = """
             You are a CRM assistant.
@@ -896,6 +1013,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 构建附件上下文。
+     */
     private String buildAttachmentContext(List<ChatSendBO.AttachmentDTO> attachments, AiModelCapabilities capabilities) {
         if (CollUtil.isEmpty(attachments)) {
             return "";
@@ -938,6 +1058,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return context.toString();
     }
 
+    /**
+     * 构建媒体列表。
+     */
     private List<Media> buildMediaList(List<ChatSendBO.AttachmentDTO> attachments, AiModelCapabilities capabilities) {
         if (CollUtil.isEmpty(attachments) || capabilities == null || !capabilities.isSupportsVision()) {
             return Collections.emptyList();
@@ -958,6 +1081,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return mediaList;
     }
 
+    /**
+     * 判断是否文本文件。
+     */
     private boolean isTextFile(String mimeType, String fileName) {
         if (mimeType != null && (mimeType.startsWith("text/") || "application/json".equals(mimeType))) {
             return true;
@@ -971,6 +1097,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return false;
     }
 
+    /**
+     * 判断是否文档文件。
+     */
     private boolean isDocumentFile(String mimeType, String fileName) {
         if (mimeType != null) {
             if (mimeType.equals("application/pdf")
@@ -992,6 +1121,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return false;
     }
 
+    /**
+     * 判断是否Audio文件。
+     */
     private boolean isAudioFile(String mimeType, String fileName) {
         String lowerMimeType = StrUtil.blankToDefault(mimeType, "").toLowerCase(Locale.ROOT);
         if (lowerMimeType.startsWith("audio/")) {
@@ -1006,6 +1138,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
             || lowerFileName.endsWith(".ogg");
     }
 
+    /**
+     * 处理extractFileText方法逻辑。
+     */
     private String extractFileText(String filePath) {
         try (InputStream inputStream = fileStorageService.getFileStream(filePath)) {
             if (inputStream == null) {
@@ -1024,6 +1159,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理extractDocumentText方法逻辑。
+     */
     private String extractDocumentText(String filePath) {
         try (InputStream inputStream = fileStorageService.getFileStream(filePath)) {
             if (inputStream == null) {
@@ -1044,6 +1182,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         }
     }
 
+    /**
+     * 处理limitText方法逻辑。
+     */
     private String limitText(String content, int maxLength) {
         if (content == null) {
             return "";
@@ -1055,6 +1196,9 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         return normalized.substring(0, maxLength) + "\n...(truncated)";
     }
 
+    /**
+     * 处理syncCustomerFollowUp摘要方法逻辑。
+     */
     private void syncCustomerFollowUpSummary(Long customerId) {
         if (customerId == null) {
             return;

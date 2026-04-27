@@ -43,6 +43,9 @@ public class CustomerTools {
     @Autowired
     private AiToolPermissionSupport permissionSupport;
 
+    /**
+     * 创建客户。
+     */
     @Tool(description = "创建新客户档案。系统会先检查是否已存在同名客户；如果存在，不会直接创建，而是进入待确认状态。只有用户明确确认后，才能再调用 confirmPendingCustomerCreation 完成创建。")
     @AiToolPermission(value = "customer:create", action = "创建客户")
     public String createCustomer(
@@ -113,6 +116,9 @@ public class CustomerTools {
         }
     }
 
+    /**
+     * 确认Pending客户Creation。
+     */
     @Tool(description = "确认创建重复客户。只有在 createCustomer 检测到同名客户后，且用户明确表示“确认创建”“继续创建”“仍然创建”时才调用。会基于当前会话中暂存的草稿真正创建客户。")
     @AiToolPermission(value = "customer:create", action = "确认创建客户")
     public String confirmPendingCustomerCreation() {
@@ -137,6 +143,9 @@ public class CustomerTools {
         }
     }
 
+    /**
+     * 处理cancelPendingCustomerCreation方法逻辑。
+     */
     @Tool(description = "取消待确认的重复客户创建。只有在 createCustomer 检测到同名客户后，且用户明确表示“不创建”“取消”“算了”时才调用。")
     @AiToolPermission(value = "customer:create", action = "取消创建客户")
     public String cancelPendingCustomerCreation() {
@@ -153,6 +162,9 @@ public class CustomerTools {
         return "已取消重复客户创建请求：" + pendingCreation.customerAddBO().getCompanyName();
     }
 
+    /**
+     * 查询客户。
+     */
     @Tool(description = "查询客户列表。当用户查看、搜索、筛选客户时调用此工具。")
     @AiToolPermission(value = "customer:view", action = "查看客户")
     public String queryCustomers(
@@ -201,6 +213,9 @@ public class CustomerTools {
         }
     }
 
+    /**
+     * 更新客户。
+     */
     @Tool(description = "修改客户信息。当用户要修改、编辑、更新已有客户的信息时调用。包括公司名称、行业、阶段、等级、地址、网站、金额等。客户标识既可以传客户ID，也可以传当前公司名称；优先使用客户ID。")
     @AiToolPermission(value = "customer:edit", action = "编辑客户")
     public String updateCustomer(
@@ -327,6 +342,9 @@ public class CustomerTools {
         }
     }
 
+    /**
+     * 获取客户详情。
+     */
     @Tool(description = "获取客户详细信息。当用户询问某个客户的具体信息、联系人、跟进记录时调用。可以使用客户ID或公司名称查询。")
     @AiToolPermission(value = "customer:view", action = "查看客户详情")
     public String getCustomerDetail(
@@ -406,6 +424,9 @@ public class CustomerTools {
         }
     }
 
+    /**
+     * 构建客户ADDBO。
+     */
     private CustomerAddBO buildCustomerAddBO(String companyName,
                                              String industry,
                                              String level,
@@ -440,6 +461,9 @@ public class CustomerTools {
         return bo;
     }
 
+    /**
+     * 构建DuplicateConfirmation消息。
+     */
     private String buildDuplicateConfirmationMessage(CustomerAddBO bo,
                                                      List<Customer> existingCustomers,
                                                      boolean pendingSaved) {
@@ -471,10 +495,16 @@ public class CustomerTools {
         return result.toString().trim();
     }
 
+    /**
+     * 构建Existing编号Access消息。
+     */
     private String buildExistingNoAccessMessage(String companyName) {
         return "客户已存在：「" + companyName + "」。";
     }
 
+    /**
+     * 格式化Existing客户。
+     */
     private String formatExistingCustomer(Customer customer) {
         StringBuilder sb = new StringBuilder();
         sb.append("客户ID=").append(customer.getCustomerId());
@@ -493,6 +523,9 @@ public class CustomerTools {
         return sb.toString();
     }
 
+    /**
+     * 格式化Draft客户。
+     */
     private String formatDraftCustomer(CustomerAddBO bo) {
         StringBuilder sb = new StringBuilder();
         sb.append("公司名称=").append(bo.getCompanyName());
@@ -511,6 +544,9 @@ public class CustomerTools {
         return sb.toString();
     }
 
+    /**
+     * 构建CreateSuccess消息。
+     */
     private String buildCreateSuccessMessage(CustomerAddBO bo, Long customerId) {
         StringBuilder result = new StringBuilder();
         result.append("客户“")
@@ -551,6 +587,9 @@ public class CustomerTools {
         return page.getList().get(0).getCustomerId();
     }
 
+    /**
+     * 标准化Required文本。
+     */
     private String normalizeRequiredText(String value) {
         String normalized = StrUtil.trim(value);
         if (StrUtil.isBlank(normalized) || "null".equalsIgnoreCase(normalized)) {
@@ -559,10 +598,16 @@ public class CustomerTools {
         return normalized;
     }
 
+    /**
+     * 标准化Optional文本。
+     */
     private String normalizeOptionalText(String value) {
         return normalizeRequiredText(value);
     }
 
+    /**
+     * 获取阶段Label。
+     */
     private String getStageLabel(String stage) {
         if (stage == null) {
             return "未知";

@@ -12,6 +12,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class AjCaptchaStorageAutoConfiguration {
 
+    /**
+     * 处理captchaCacheService方法逻辑。
+     */
     @Bean(name = "AjCaptchaCacheService")
     public CaptchaCacheService captchaCacheService(AjCaptchaProperties ajCaptchaProperties, Redis redis) {
         //缓存类型redis/local/....

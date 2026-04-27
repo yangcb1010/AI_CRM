@@ -30,12 +30,18 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
     @Autowired
     private ManageUserService manageUserService;
 
+    /**
+     * 查询部门树。
+     */
     @Override
     public List<DeptVO> queryDeptTree() {
         List<DeptVO> allDepts = baseMapper.queryAllDeptWithUserCount();
         return RecursionUtil.getChildListTree(allDepts, "parentId", 0L, "deptId", "children", DeptVO.class);
     }
 
+    /**
+     * 新增部门。
+     */
     @Override
     public void addDept(DeptAddBO bo) {
         ManagerDept dept = BeanUtil.copyProperties(bo, ManagerDept.class);
@@ -49,6 +55,9 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
         save(dept);
     }
 
+    /**
+     * 更新部门。
+     */
     @Override
     public void updateDept(DeptUpdateBO bo) {
         ManagerDept dept = getById(bo.getDeptId());
@@ -69,6 +78,9 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
         updateById(dept);
     }
 
+    /**
+     * 删除部门。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteDept(Long deptId) {
@@ -85,10 +97,16 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
         removeById(deptId);
     }
 
+    /**
+     * 标准化ParentID。
+     */
     private Long normalizeParentId(Long parentId) {
         return parentId == null ? 0L : parentId;
     }
 
+    /**
+     * 校验Parent部门。
+     */
     private void validateParentDept(Long deptId, Long parentId) {
         if (Objects.equals(parentId, 0L)) {
             return;
@@ -104,6 +122,9 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
         }
     }
 
+    /**
+     * 判断是否Descendant部门。
+     */
     private boolean isDescendantDept(Long deptId, Long targetParentId) {
         List<ManagerDept> allDepts = lambdaQuery().list();
         Set<Long> childDeptIds = new HashSet<>();
@@ -111,6 +132,9 @@ public class ManagerDeptServiceImpl extends ServiceImpl<ManagerDeptMapper, Manag
         return childDeptIds.contains(targetParentId);
     }
 
+    /**
+     * 处理collectChildDeptIds方法逻辑。
+     */
     private void collectChildDeptIds(List<ManagerDept> allDepts, Long parentId, Set<Long> result, int depth) {
         if (parentId == null || depth <= 0) {
             return;

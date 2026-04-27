@@ -10,10 +10,10 @@ import lombok.Data;
  */
 @Data
 public class LoginUserBO {
-
     /**
      * 用户名
      */
+
     @NotEmpty
     private String username;
 

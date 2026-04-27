@@ -30,6 +30,9 @@ public class ContactTools {
     @Autowired
     private ICustomerService customerService;
 
+    /**
+     * 搜索联系人。
+     */
     @Tool(description = "查询联系人。当用户要搜索、查找联系人时调用。支持按姓名和/或手机号搜索。")
     @AiToolPermission(value = "contact:view", action = "查看联系人")
     public String searchContacts(
@@ -108,6 +111,9 @@ public class ContactTools {
         }
     }
 
+    /**
+     * 获取联系人详情。
+     */
     @Tool(description = "获取联系人详细信息。当用户询问某个联系人的具体信息时调用。可以使用联系人ID或姓名查询。")
     @AiToolPermission(value = "contact:view", action = "查看联系人详情")
     public String getContactDetail(
@@ -191,6 +197,9 @@ public class ContactTools {
         }
     }
 
+    /**
+     * 更新联系人。
+     */
     @Tool(description = "修改联系人信息。当用户要修改、编辑、更新联系人的姓名、职位、电话、邮箱、微信、备注等信息时调用。")
     @AiToolPermission(value = "contact:edit", action = "编辑联系人")
     public String updateContact(
@@ -264,6 +273,9 @@ public class ContactTools {
         }
     }
 
+    /**
+     * 删除联系人。
+     */
     @Tool(description = "删除联系人。当用户要删除、移除某个联系人时调用。需要提供联系人ID。")
     @AiToolPermission(value = "contact:delete", action = "删除联系人")
     public String deleteContact(

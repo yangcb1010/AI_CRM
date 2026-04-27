@@ -32,10 +32,16 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
                                      @Param("today") Date today,
                                      @Param("weekEnd") Date weekEnd);
 
+    /**
+     * 查询按ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_schedule WHERE schedule_id = #{scheduleId}")
     Schedule selectByIdIgnoreDataPermission(@Param("scheduleId") Long scheduleId);
 
+    /**
+     * 查询按客户ID忽略数据权限。
+     */
     @InterceptorIgnore(dataPermission = "true")
     @Select("SELECT * FROM crm_schedule WHERE customer_id = #{customerId}")
     List<Schedule> selectByCustomerIdIgnoreDataPermission(@Param("customerId") Long customerId);

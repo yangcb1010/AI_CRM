@@ -261,11 +261,17 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
         return roleMenuService.queryMenuIdListByRoleId(id);
     }
 
+    /**
+     * 查询角色列表包含用户Count。
+     */
     @Override
     public List<RoleVO> queryRoleListWithUserCount(String search) {
         return baseMapper.queryRoleListWithUserCount(search);
     }
 
+    /**
+     * 查询角色权限。
+     */
     @Override
     public List<RolePermissionVO> queryRolePermissions(Long roleId) {
         // 1. 获取所有菜单
@@ -314,6 +320,9 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
         return result;
     }
 
+    /**
+     * 保存角色权限。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveRolePermissions(RolePermissionSaveBO bo) {
@@ -345,6 +354,9 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
         }
     }
 
+    /**
+     * 创建菜单。
+     */
     public static JSONObject createMenu(Set<ManagerMenu> adminMenuList, Long parentId) {
         JSONObject jsonObject = new JSONObject();
         adminMenuList.forEach(adminMenu -> {

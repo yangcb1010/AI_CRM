@@ -79,6 +79,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
     @Autowired
     private SystemConfigMapper systemConfigMapper;
 
+    /**
+     * 查询用户按Username。
+     */
     @Override
     public ManagerUser queryUserByUsername(String username) {
         List<ManagerUser> users = queryUsersByUsername(username);
@@ -89,6 +92,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return managerUser;
     }
 
+    /**
+     * 查询用户按Username。
+     */
     @Override
     public List<ManagerUser> queryUsersByUsername(String username) {
         if (StrUtil.isBlank(username)) {
@@ -97,6 +103,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return baseMapper.queryUsersByUsername(StrUtil.trim(username));
     }
 
+    /**
+     * 构建Login租户选项。
+     */
     @Override
     public List<LoginTenantOptionVO> buildLoginTenantOptions(Collection<ManagerUser> users) {
         if (CollUtil.isEmpty(users)) {
@@ -134,6 +143,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 解析企业名称MAP。
+     */
     private Map<Long, String> resolveEnterpriseNameMap(Collection<Long> tenantIds, Map<Long, String> tenantNameMap) {
         if (CollUtil.isEmpty(tenantIds)) {
             return Collections.emptyMap();
@@ -168,6 +180,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return enterpriseNameMap;
     }
 
+    /**
+     * 新增用户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void addUser(UserAddBO userAddBO) {
@@ -209,6 +224,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 分页查询管理用户列表。
+     */
     @Override
     public BasePage<ManageUserVO> queryPageList(UserQueryBO userQueryBO) {
         if (userQueryBO.getDeptId() != null) {
@@ -223,6 +241,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return page;
     }
 
+    /**
+     * 处理collectChildDeptIds方法逻辑。
+     */
     private void collectChildDeptIds(List<ManagerDept> allDepts, Long parentId, Set<Long> result, int depth) {
         if (parentId == null || depth <= 0 || !result.add(parentId)) {
             return;
@@ -234,6 +255,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 填充角色信息。
+     */
     private void fillRoleInfo(List<ManageUserVO> users) {
         if (CollUtil.isEmpty(users)) {
             return;
@@ -270,6 +294,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 更新用户。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateUser(UserUpdateBO updateBO) {
@@ -332,6 +359,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 设置用户状态。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void setUserStatus(UserStatusBO userStatusBO) {
@@ -342,6 +372,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         updateBatchById(managerUserList);
     }
 
+    /**
+     * 查询Login用户。
+     */
     @Override
     public ManageUserVO queryLoginUser() {
         ManagerUser userEntity = baseMapper.getUserId(UserUtil.getUserId());
@@ -361,6 +394,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         return vo;
     }
 
+    /**
+     * 填充IMG地址。
+     */
     private void fillImgUrl(List<ManageUserVO> voList) {
         for (ManageUserVO vo : voList) {
             if (StrUtil.isNotBlank(vo.getImg())) {
@@ -372,6 +408,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 更新密码。
+     */
     @Override
     public void updatePassword(String oldPassword, String newPassword) {
         if (newPassword == null || newPassword.length() < 6) {
@@ -389,6 +428,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         updateById(userEntity);
     }
 
+    /**
+     * 删除按ID。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteByIds(Long[] userIds) {
@@ -424,10 +466,16 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 标准化Parent用户ID。
+     */
     private Long normalizeParentUserId(Long parentId) {
         return parentId == null || Objects.equals(parentId, 0L) ? null : parentId;
     }
 
+    /**
+     * 校验Parent用户。
+     */
     private void validateParentUser(Long userId, Long parentId) {
         if (parentId == null) {
             return;
@@ -456,6 +504,9 @@ public class ManageUserServiceImpl extends ServiceImpl<ManageUserMapper, Manager
         }
     }
 
+    /**
+     * 处理wouldCreateParentCycle方法逻辑。
+     */
     private boolean wouldCreateParentCycle(Long userId, Long parentId, Map<Long, Long> parentByUserId) {
         Set<Long> visited = new HashSet<>();
         Long currentParentId = parentId;

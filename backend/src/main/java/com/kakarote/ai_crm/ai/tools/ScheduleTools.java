@@ -41,6 +41,9 @@ public class ScheduleTools {
 
     private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
+    /**
+     * 创建日程。
+     */
     @Tool(description = "创建日程安排。仅当用户提到具体时间点时调用。没有具体执行时间点、只有截止日期的应使用 createTask。直接传入客户名称和联系人姓名即可，无需先查询ID。如果传入客户名称但系统中不存在该客户，工具会中止创建并提示先创建客户。")
     @AiToolPermission(value = "schedule:create", action = "创建日程")
     public String createSchedule(
@@ -145,6 +148,9 @@ public class ScheduleTools {
         }
     }
 
+    /**
+     * 查询日程。
+     */
     @Tool(description = "查询我的日程安排。当用户要查看日程、今天的安排、本周日程时调用。")
     @AiToolPermission(value = "schedule:view", action = "查看日程")
     public String querySchedules(
@@ -192,6 +198,9 @@ public class ScheduleTools {
         }
     }
 
+    /**
+     * 查找联系人ID按名称。
+     */
     private Long findContactIdByName(String name, Long customerId) {
         if (StrUtil.isBlank(name) || customerId == null) {
             return null;
@@ -220,6 +229,9 @@ public class ScheduleTools {
         return null;
     }
 
+    /**
+     * 解析客户按ID。
+     */
     private CustomerResolveResult resolveCustomerById(String customerIdStr, String actionName) {
         String normalizedCustomerId = normalizeOptionalText(customerIdStr);
         if (normalizedCustomerId == null) {
@@ -238,6 +250,9 @@ public class ScheduleTools {
         }
     }
 
+    /**
+     * 标准化Optional文本。
+     */
     private String normalizeOptionalText(String value) {
         String normalized = StrUtil.trim(value);
         if (StrUtil.isBlank(normalized) || "null".equalsIgnoreCase(normalized)) {
@@ -249,10 +264,16 @@ public class ScheduleTools {
     private record CustomerResolveResult(Customer customer, String errorMessage) {
     }
 
+    /**
+     * 判断是否存在文本值。
+     */
     private boolean hasTextValue(String value) {
         return StrUtil.isNotBlank(value) && !"null".equalsIgnoreCase(StrUtil.trim(value));
     }
 
+    /**
+     * 获取类型名称。
+     */
     private String getTypeName(String type) {
         if (type == null) {
             return "会议";

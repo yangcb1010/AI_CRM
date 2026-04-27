@@ -34,9 +34,15 @@ public interface ManagerRoleMenuMapper extends BaseMapper<ManagerRoleMenu> {
     @Select("SELECT menu_id FROM manager_role_menu  where role_id=#{roleId}")
     List<Long> queryMenuIdListByRoleId(@Param("roleId") Long roleId);
 
+    /**
+     * 查询角色菜单包含范围按角色ID。
+     */
     @Select("SELECT id, menu_id, role_id, data_scope FROM manager_role_menu WHERE role_id=#{roleId}")
     List<ManagerRoleMenu> queryRoleMenuWithScopeByRoleId(@Param("roleId") Long roleId);
 
+    /**
+     * 查询DataScopes按用户ID和模块。
+     */
     @Select("""
             SELECT rm.data_scope
             FROM manager_role_menu rm
@@ -48,6 +54,9 @@ public interface ManagerRoleMenuMapper extends BaseMapper<ManagerRoleMenu> {
             """)
     List<Integer> queryDataScopesByUserIdAndModule(@Param("userId") Long userId, @Param("module") String module);
 
+    /**
+     * 查询DataScopes按用户ID和权限。
+     */
     @Select("""
             SELECT rm.data_scope
             FROM manager_role_menu rm
