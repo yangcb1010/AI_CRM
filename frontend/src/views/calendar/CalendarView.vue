@@ -373,21 +373,8 @@
 
     <TaskEditDialog
       v-model="showTaskEditDialog"
-      :is-mobile="isMobile"
       :editing-task="editingTask"
-      :submitting="submitting"
-      :ai-parsing="aiParsing"
-      v-model:ai-parse-input="aiParseInput"
-      :form-data="formData"
-      v-model:selected-participants="selectedParticipants"
-      :user-options="userOptions"
-      :user-search-loading="userSearchLoading"
-      :customer-options="customerOptions"
-      :customer-search-loading="customerSearchLoading"
-      :search-users="searchUsers"
-      :search-customers="searchCustomers"
-      @ai-parse="handleAiParse"
-      @submit="handleSubmitTask"
+      @saved="handleTaskSaved"
     />
 
     <ScheduleFormDialog
@@ -400,16 +387,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { useResponsive } from '@/composables/useResponsive'
 import { getMySchedules, queryScheduleList } from '@/api/schedule'
-import { getMyTasks, updateTaskStatus, aiParseTask, updateTask } from '@/api/task'
-import { queryCustomerList } from '@/api/customer'
-import { queryUserList } from '@/api/auth'
+import { getMyTasks, updateTaskStatus } from '@/api/task'
 import type { ScheduleVO } from '@/api/schedule'
-import type { Task, TaskAddBO, TaskStatus, TaskUpdateBO } from '@/types/common'
+import type { Task } from '@/types/common'
 import { normalizeTaskPriority } from '@/utils/taskPriority'
 import TaskDetailDrawer from '@/views/task/components/TaskDetailDrawer.vue'
 import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
@@ -484,26 +468,8 @@ const schedules = ref<ScheduleVO[]>([])
 const tasks = ref<Task[]>([])
 const showTaskEditDialog = ref(false)
 const editingTask = ref<Task | null>(null)
-const submitting = ref(false)
 const showMobileMonthEventsDialog = ref(false)
 const mobileMonthEventsDialogDate = ref<string | null>(null)
-const aiParseInput = ref('')
-const aiParsing = ref(false)
-const customerOptions = ref<{ value: string; label: string }[]>([])
-const customerSearchLoading = ref(false)
-const userOptions = ref<{ value: string; label: string }[]>([])
-const userSearchLoading = ref(false)
-const selectedParticipants = ref<string[]>([])
-const formData = reactive<TaskAddBO & { status?: TaskStatus; assignedToName?: string }>({
-  title: '',
-  description: '',
-  priority: 'MEDIUM',
-  dueDate: undefined,
-  status: undefined,
-  taskType: '',
-  customerId: '',
-  assignedToName: ''
-})
 
 const viewModes = [
   { value: 'grid' as const, label: '周' },
@@ -739,6 +705,12 @@ watch(showAddDialog, value => {
   }
 })
 
+watch(showTaskEditDialog, value => {
+  if (!value) {
+    editingTask.value = null
+  }
+})
+
 function openCreateScheduleDialog() {
   editingSchedule.value = null
   showAddDialog.value = true
@@ -763,65 +735,8 @@ async function handleScheduleDeleted() {
   selectedEvent.value = null
 }
 
-async function searchCustomers(query: string) {
-  if (!query) {
-    customerOptions.value = []
-    return
-  }
-  customerSearchLoading.value = true
-  try {
-    const res = await queryCustomerList({ keyword: query, page: 1, limit: 20 })
-    customerOptions.value = (res.list || []).map((customer: any) => ({
-      value: String(customer.customerId),
-      label: customer.companyName
-    }))
-  } catch (e) {
-    console.warn('客户搜索失败:', e)
-    customerOptions.value = []
-  } finally {
-    customerSearchLoading.value = false
-  }
-}
-
-async function searchUsers(query: string) {
-  if (!query) {
-    userOptions.value = []
-    return
-  }
-  userSearchLoading.value = true
-  try {
-    const res = await queryUserList({ search: query })
-    userOptions.value = (res.list || []).map((user: any) => ({
-      value: user.realname || user.username,
-      label: user.realname || user.username
-    }))
-  } catch (e) {
-    console.warn('用户搜索失败:', e)
-    userOptions.value = []
-  } finally {
-    userSearchLoading.value = false
-  }
-}
-
 function handleEdit(task: Task) {
   editingTask.value = task
-  Object.assign(formData, {
-    title: task.title,
-    description: task.description || '',
-    priority: normalizeTaskPriority(task.priority),
-    dueDate: task.dueDate ? formatDateTimeLocal(task.dueDate) : undefined,
-    status: task.status,
-    taskType: task.taskType || '',
-    customerId: task.customerId || '',
-    assignedToName: task.assignedToName || ''
-  })
-  if (task.customerId && task.customerName) {
-    customerOptions.value = [{ value: String(task.customerId), label: task.customerName }]
-  }
-  selectedParticipants.value = task.participantNames
-    ? task.participantNames.split(/[,，]\s*/).filter(Boolean)
-    : []
-  userOptions.value = selectedParticipants.value.map(name => ({ value: name, label: name }))
   showTaskEditDialog.value = true
 }
 
@@ -835,96 +750,10 @@ async function handleCalendarTaskDetailMutated() {
   syncSelectedTask()
 }
 
-async function handleSubmitTask() {
-  if (!formData.title.trim()) {
-    ElMessage.warning('请输入任务标题')
-    return
-  }
-  if (!formData.dueDate) {
-    ElMessage.warning('请选择截止时间')
-    return
-  }
-  if (!editingTask.value) return
-
-  submitting.value = true
-  try {
-    const submitData: TaskUpdateBO = {
-      taskId: editingTask.value.taskId,
-      title: formData.title,
-      description: formData.description,
-      priority: normalizeTaskPriority(formData.priority),
-      dueDate: formData.dueDate,
-      taskType: formData.taskType,
-      participantNames: selectedParticipants.value.join(', '),
-      customerId: formData.customerId || undefined,
-      status: formData.status
-    }
-    await updateTask(submitData)
-    ElMessage.success('更新成功')
-    showTaskEditDialog.value = false
-    resetTaskForm()
-    await loadTasks()
-  } finally {
-    submitting.value = false
-  }
-}
-
-function resetTaskForm() {
+async function handleTaskSaved() {
   editingTask.value = null
-  aiParseInput.value = ''
-  selectedParticipants.value = []
-  customerOptions.value = []
-  userOptions.value = []
-  Object.assign(formData, {
-    title: '',
-    description: '',
-    priority: 'MEDIUM',
-    dueDate: undefined,
-    status: undefined,
-    taskType: '',
-    customerId: '',
-    assignedToName: ''
-  })
-}
-
-async function handleAiParse() {
-  if (!aiParseInput.value.trim()) return
-  aiParsing.value = true
-  try {
-    const result = await aiParseTask(aiParseInput.value)
-    if (result.title) formData.title = result.title
-    if (result.dueDate) formData.dueDate = result.dueDate
-    if (result.priority) formData.priority = normalizeTaskPriority(result.priority)
-    if (result.taskType) formData.taskType = result.taskType
-    if (result.customerName) {
-      const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
-      const list = res.list || []
-      if (list.length > 0) {
-        customerOptions.value = list.map((customer: any) => ({
-          value: String(customer.customerId),
-          label: customer.companyName
-        }))
-        formData.customerId = String(list[0].customerId)
-      }
-    }
-    if (result.participantNames) {
-      selectedParticipants.value = result.participantNames.split(/[,，]\s*/).filter(Boolean)
-      userOptions.value = selectedParticipants.value.map(name => ({ value: name, label: name }))
-    }
-    if (result.description) formData.description = result.description
-    if (result.assignedToName) formData.assignedToName = result.assignedToName
-    ElMessage.success('AI 解析完成，请确认并补充信息')
-  } catch (error) {
-    console.error('AI parse task failed:', error)
-  } finally {
-    aiParsing.value = false
-  }
-}
-
-function formatDateTimeLocal(dateStr: string): string {
-  const d = new Date(dateStr)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  await loadTasks()
+  syncSelectedTask()
 }
 
 type ListItem =

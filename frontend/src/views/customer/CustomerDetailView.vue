@@ -1032,34 +1032,22 @@
 
     <TaskEditDialog
       v-model="showTaskEditDialog"
-      :is-mobile="isMobile"
       :editing-task="editingCustomerTask"
-      :submitting="taskFormSubmitting"
-      :ai-parsing="taskAiParsing"
-      v-model:ai-parse-input="taskAiParseInput"
-      :form-data="taskFormData"
-      v-model:selected-participants="taskSelectedParticipants"
-      :user-options="taskUserOptions"
-      :user-search-loading="taskUserSearchLoading"
-      :customer-options="taskCustomerOptions"
-      :customer-search-loading="taskCustomerSearchLoading"
-      :search-users="searchTaskUsers"
-      :search-customers="searchTaskCustomers"
-      @ai-parse="handleCustomerTaskAiParse"
-      @submit="handleTaskDialogSubmit"
+      :default-customer="taskDefaultCustomer"
+      @saved="handleTaskDialogSaved"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
 import { useTaskStore } from '@/stores/task'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
-import { addCustomerTag, generateCustomerAiReport, queryCustomerList, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
-import { aiParseTask, queryTaskList } from '@/api/task'
+import { addCustomerTag, generateCustomerAiReport, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
+import { queryTaskList } from '@/api/task'
 import type { CustomerAiParseVO } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import { addFollowUp, deleteFollowUp, queryFollowUpPageList, updateFollowUp } from '@/api/followup'
@@ -1067,11 +1055,10 @@ import { deleteContact, queryContactPageList, queryContactsByCustomer, setPrimar
 import { getEnabledFieldsByEntity } from '@/api/customField'
 import { downloadKnowledge, queryKnowledgeList } from '@/api/knowledge'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { Knowledge, Task, TaskAddBO, TaskStatus } from '@/types/common'
+import type { Knowledge, Task, TaskStatus } from '@/types/common'
 import type { Contact, CustomerAiReportVO, CustomerTag, FollowUp, FollowUpAddBO, FollowUpTask, FollowUpUpdateBO } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { compactCustomerAiInsight, getCustomerAiStatusMeta } from '@/utils/customerAi'
-import { normalizeTaskPriority } from '@/utils/taskPriority'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import FollowUpUpsertDialog from '@/components/customer/FollowUpUpsertDialog.vue'
 import type { FollowUpUpsertSubmitPayload } from '@/components/customer/FollowUpUpsertDialog.vue'
@@ -1170,23 +1157,16 @@ const showCustomerTaskDetail = computed({
 })
 const showTaskEditDialog = ref(false)
 const editingCustomerTask = ref<Task | null>(null)
-const taskFormSubmitting = ref(false)
-const taskAiParseInput = ref('')
-const taskAiParsing = ref(false)
-const taskCustomerOptions = ref<{ value: string; label: string }[]>([])
-const taskCustomerSearchLoading = ref(false)
-const taskUserOptions = ref<{ value: string; label: string }[]>([])
-const taskUserSearchLoading = ref(false)
-const taskSelectedParticipants = ref<string[]>([])
-const taskFormData = reactive<TaskAddBO & { status?: TaskStatus; assignedToName?: string }>({
-  title: '',
-  description: '',
-  priority: 'MEDIUM',
-  dueDate: undefined,
-  status: undefined,
-  taskType: '',
-  customerId: '',
-  assignedToName: ''
+const taskDefaultCustomer = computed(() => customer.value
+  ? {
+      customerId: customer.value.customerId,
+      companyName: customer.value.companyName || ''
+    }
+  : null
+)
+
+watch(showTaskEditDialog, visible => {
+  if (!visible) editingCustomerTask.value = null
 })
 
 interface TransferUserOption {
@@ -1977,12 +1957,6 @@ async function handleSetPrimary(contactId: string) {
   }
 }
 
-function formatTaskDateTimeLocal(dateStr: string): string {
-  const d = new Date(dateStr)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 async function refreshCustomerAfterTaskMutation() {
   if (!customer.value) return
   await refreshFollowUpContext(customer.value.customerId)
@@ -1995,103 +1969,6 @@ async function refreshCustomerAfterTaskMutation() {
 function isCustomerTaskOverdue(task: Task): boolean {
   if (!task.dueDate || task.status === 'COMPLETED') return false
   return new Date(task.dueDate) < new Date()
-}
-
-function resetCustomerTaskForm() {
-  editingCustomerTask.value = null
-  taskAiParseInput.value = ''
-  taskSelectedParticipants.value = []
-  taskCustomerOptions.value = []
-  taskUserOptions.value = []
-  Object.assign(taskFormData, {
-    title: '',
-    description: '',
-    priority: 'MEDIUM',
-    dueDate: undefined,
-    status: undefined,
-    taskType: '',
-    customerId: '',
-    assignedToName: ''
-  })
-  const c = customer.value
-  if (c) {
-    taskFormData.customerId = String(c.customerId)
-    taskCustomerOptions.value = [{ value: String(c.customerId), label: c.companyName || '' }]
-  }
-}
-
-async function searchTaskCustomers(query: string) {
-  if (!query.trim()) {
-    taskCustomerOptions.value = []
-    return
-  }
-  taskCustomerSearchLoading.value = true
-  try {
-    const res = await queryCustomerList({ keyword: query, page: 1, limit: 20 })
-    taskCustomerOptions.value = (res.list || []).map((c: { customerId: string; companyName?: string }) => ({
-      value: String(c.customerId),
-      label: c.companyName || ''
-    }))
-  } catch (e) {
-    console.warn('客户搜索失败:', e)
-    taskCustomerOptions.value = []
-  } finally {
-    taskCustomerSearchLoading.value = false
-  }
-}
-
-async function searchTaskUsers(query: string) {
-  if (!query.trim()) {
-    taskUserOptions.value = []
-    return
-  }
-  taskUserSearchLoading.value = true
-  try {
-    const res = await queryUserList({ search: query })
-    taskUserOptions.value = (res.list || []).map((u: { realname?: string; username?: string }) => ({
-      value: u.realname || u.username || '',
-      label: u.realname || u.username || ''
-    }))
-  } catch (e) {
-    console.warn('用户搜索失败:', e)
-    taskUserOptions.value = []
-  } finally {
-    taskUserSearchLoading.value = false
-  }
-}
-
-async function handleCustomerTaskAiParse() {
-  if (!taskAiParseInput.value.trim()) return
-  taskAiParsing.value = true
-  try {
-    const result = await aiParseTask(taskAiParseInput.value)
-    if (result.title) taskFormData.title = result.title
-    if (result.dueDate) taskFormData.dueDate = result.dueDate
-    if (result.priority) taskFormData.priority = normalizeTaskPriority(result.priority)
-    if (result.taskType) taskFormData.taskType = result.taskType
-    if (result.customerName) {
-      const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
-      const list = res.list || []
-      if (list.length > 0) {
-        taskCustomerOptions.value = list.map((c: { customerId: string; companyName?: string }) => ({
-          value: String(c.customerId),
-          label: c.companyName || ''
-        }))
-        taskFormData.customerId = String(list[0].customerId)
-      }
-    }
-    if (result.participantNames) {
-      taskSelectedParticipants.value = result.participantNames.split(/[,，]\s*/).filter(Boolean)
-      taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
-    }
-    if (result.description) taskFormData.description = result.description
-    if (result.assignedToName) taskFormData.assignedToName = result.assignedToName
-    ElMessage.success('AI 解析完成，请确认并补充信息')
-  } catch (error) {
-    console.error('AI parse task failed:', error)
-  } finally {
-    taskAiParsing.value = false
-  }
 }
 
 function handleViewCustomerTask(task: Task) {
@@ -2145,28 +2022,13 @@ async function handleToggleFollowUpTask(task: FollowUpTask) {
 function handleAddTask() {
   if (!canCreateTasks.value) return
   if (!customer.value) return
-  resetCustomerTaskForm()
+  editingCustomerTask.value = null
   showTaskEditDialog.value = true
 }
 
 function handleEditCustomerTask(task: Task) {
   if (!canCreateTasks.value) return
   editingCustomerTask.value = task
-  Object.assign(taskFormData, {
-    title: task.title,
-    description: task.description || '',
-    priority: normalizeTaskPriority(task.priority),
-    dueDate: task.dueDate ? formatTaskDateTimeLocal(task.dueDate) : undefined,
-    status: task.status,
-    taskType: task.taskType || '',
-    customerId: task.customerId || '',
-    assignedToName: task.assignedToName || ''
-  })
-  if (task.customerId && task.customerName) {
-    taskCustomerOptions.value = [{ value: String(task.customerId), label: task.customerName }]
-  }
-  taskSelectedParticipants.value = task.participantNames ? task.participantNames.split(/[,，]\s*/).filter(Boolean) : []
-  taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
   showTaskEditDialog.value = true
 }
 
@@ -2175,39 +2037,9 @@ function handleCustomerTaskEditFromDetail(task: Task) {
   if (isMobile.value) selectedCustomerTask.value = null
 }
 
-async function handleTaskDialogSubmit() {
-  if (!taskFormData.title.trim()) {
-    ElMessage.warning('请输入任务标题')
-    return
-  }
-  if (!taskFormData.dueDate) {
-    ElMessage.warning('请选择截止时间')
-    return
-  }
-  taskFormSubmitting.value = true
-  try {
-    const submitData = {
-      title: taskFormData.title,
-      description: taskFormData.description,
-      priority: normalizeTaskPriority(taskFormData.priority),
-      dueDate: taskFormData.dueDate,
-      taskType: taskFormData.taskType,
-      participantNames: taskSelectedParticipants.value.join(', '),
-      customerId: taskFormData.customerId || undefined
-    }
-    if (editingCustomerTask.value) {
-      await taskStore.editTask({ ...submitData, taskId: editingCustomerTask.value.taskId, status: taskFormData.status })
-      ElMessage.success('更新成功')
-    } else {
-      await taskStore.createTask(submitData)
-      ElMessage.success('创建成功')
-    }
-    showTaskEditDialog.value = false
-    resetCustomerTaskForm()
-    await refreshCustomerAfterTaskMutation()
-  } finally {
-    taskFormSubmitting.value = false
-  }
+async function handleTaskDialogSaved() {
+  editingCustomerTask.value = null
+  await refreshCustomerAfterTaskMutation()
 }
 
 async function handleAddTag() {

@@ -280,35 +280,19 @@
 
     <TaskEditDialog
       v-model="showAddDialog"
-      :is-mobile="isMobile"
       :editing-task="editingTask"
-      :submitting="submitting"
-      :ai-parsing="aiParsing"
-      v-model:ai-parse-input="aiParseInput"
-      :form-data="formData"
-      v-model:selected-participants="selectedParticipants"
-      :user-options="userOptions"
-      :user-search-loading="userSearchLoading"
-      :customer-options="customerOptions"
-      :customer-search-loading="customerSearchLoading"
-      :search-users="searchUsers"
-      :search-customers="searchCustomers"
-      @ai-parse="handleAiParse"
-      @submit="handleSubmit"
+      @saved="handleTaskSaved"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/task'
 import { useResponsive } from '@/composables/useResponsive'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { aiParseTask } from '@/api/task'
-import { queryCustomerList } from '@/api/customer'
-import { queryUserList } from '@/api/auth'
-import type { Task, TaskAddBO, TaskStatus } from '@/types/common'
+import type { Task, TaskStatus } from '@/types/common'
 import { normalizeTaskPriority } from '@/utils/taskPriority'
 import TaskDetailDrawer from './components/TaskDetailDrawer.vue'
 import TaskEditDialog from './components/TaskEditDialog.vue'
@@ -323,71 +307,6 @@ const valueFilter = ref<'all' | 'high-impact'>('all')
 const showAddDialog = ref(false)
 const editingTask = ref<Task | null>(null)
 const selectedTask = ref<Task | null>(null)
-const submitting = ref(false)
-const aiParseInput = ref('')
-const aiParsing = ref(false)
-
-// Customer search
-const customerOptions = ref<{ value: string; label: string }[]>([])
-const customerSearchLoading = ref(false)
-
-async function searchCustomers(query: string) {
-  if (!query) {
-    customerOptions.value = []
-    return
-  }
-  customerSearchLoading.value = true
-  try {
-    const res = await queryCustomerList({ keyword: query, page: 1, limit: 20 })
-    customerOptions.value = (res.list || []).map((c: any) => ({
-      value: String(c.customerId),
-      label: c.companyName
-    }))
-  } catch (e) {
-    console.warn('客户搜索失败:', e)
-    customerOptions.value = []
-  } finally {
-    customerSearchLoading.value = false
-  }
-}
-
-// User search for participants
-const userOptions = ref<{ value: string; label: string }[]>([])
-const userSearchLoading = ref(false)
-
-async function searchUsers(query: string) {
-  if (!query) {
-    userOptions.value = []
-    return
-  }
-  userSearchLoading.value = true
-  try {
-    const res = await queryUserList({ search: query })
-    userOptions.value = (res.list || []).map((u: any) => ({
-      value: u.realname || u.username,
-      label: u.realname || u.username
-    }))
-  } catch (e) {
-    console.warn('用户搜索失败:', e)
-    userOptions.value = []
-  } finally {
-    userSearchLoading.value = false
-  }
-}
-
-// Selected participant names as array for el-select multiple
-const selectedParticipants = ref<string[]>([])
-
-const formData = reactive<TaskAddBO & { status?: TaskStatus; assignedToName?: string }>({
-  title: '',
-  description: '',
-  priority: 'MEDIUM',
-  dueDate: undefined,
-  status: undefined,
-  taskType: '',
-  customerId: '',
-  assignedToName: ''
-})
 
 // Computed properties
 const statusTabs = computed(() => {
@@ -427,6 +346,10 @@ const showTaskDetail = computed({
   set: (val: boolean) => {
     if (!val) selectedTask.value = null
   }
+})
+
+watch(showAddDialog, visible => {
+  if (!visible) editingTask.value = null
 })
 
 onMounted(() => {
@@ -540,33 +463,21 @@ async function handleTaskDetailMutated() {
 }
 
 function handleAddTask() {
-  resetForm()
+  editingTask.value = null
   showAddDialog.value = true
 }
 
 function handleEdit(task: Task) {
   editingTask.value = task
-  Object.assign(formData, {
-    title: task.title,
-    description: task.description || '',
-    priority: normalizeTaskPriority(task.priority),
-    dueDate: task.dueDate ? formatDateTimeLocal(task.dueDate) : undefined,
-    status: task.status,
-    taskType: task.taskType || '',
-    customerId: task.customerId || '',
-    assignedToName: task.assignedToName || ''
-  })
-  // Populate customer select options for edit mode
-  if (task.customerId && task.customerName) {
-    customerOptions.value = [{ value: String(task.customerId), label: task.customerName }]
-  }
-  // Populate participants
-  selectedParticipants.value = task.participantNames
-    ? task.participantNames.split(/[,，]\s*/).filter(Boolean)
-    : []
-  // Populate user options so selected values display labels
-  userOptions.value = selectedParticipants.value.map(name => ({ value: name, label: name }))
   showAddDialog.value = true
+}
+
+function handleTaskSaved() {
+  editingTask.value = null
+  const selectedTaskId = selectedTask.value?.taskId
+  if (selectedTaskId) {
+    selectedTask.value = taskStore.taskList.find(task => task.taskId === selectedTaskId) || selectedTask.value
+  }
 }
 
 async function handleDelete(task: Task) {
@@ -576,85 +487,6 @@ async function handleDelete(task: Task) {
     ElMessage.success('删除成功')
   } catch {
     // Cancelled
-  }
-}
-
-async function handleSubmit() {
-  if (!formData.title.trim()) {
-    ElMessage.warning('请输入任务标题')
-    return
-  }
-  if (!formData.dueDate) {
-    ElMessage.warning('请选择截止时间')
-    return
-  }
-
-  submitting.value = true
-  try {
-    const submitData: any = {
-      title: formData.title,
-      description: formData.description,
-      priority: normalizeTaskPriority(formData.priority),
-      dueDate: formData.dueDate,
-      taskType: formData.taskType,
-      participantNames: selectedParticipants.value.join(', '),
-      customerId: formData.customerId || undefined
-    }
-    if (editingTask.value) {
-      await taskStore.editTask({ ...submitData, taskId: editingTask.value.taskId, status: formData.status })
-      ElMessage.success('更新成功')
-    } else {
-      await taskStore.createTask(submitData)
-      ElMessage.success('创建成功')
-    }
-    showAddDialog.value = false
-    resetForm()
-  } finally {
-    submitting.value = false
-  }
-}
-
-function resetForm() {
-  editingTask.value = null
-  aiParseInput.value = ''
-  selectedParticipants.value = []
-  customerOptions.value = []
-  userOptions.value = []
-  Object.assign(formData, {
-    title: '', description: '', priority: 'MEDIUM', dueDate: undefined, status: undefined,
-    taskType: '', customerId: '', assignedToName: ''
-  })
-}
-
-async function handleAiParse() {
-  if (!aiParseInput.value.trim()) return
-  aiParsing.value = true
-  try {
-    const result = await aiParseTask(aiParseInput.value)
-    if (result.title) formData.title = result.title
-    if (result.dueDate) formData.dueDate = result.dueDate
-    if (result.priority) formData.priority = normalizeTaskPriority(result.priority)
-    if (result.taskType) formData.taskType = result.taskType
-    if (result.customerName) {
-      // AI parsed a customer name - search and try to match
-      const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
-      const list = res.list || []
-      if (list.length > 0) {
-        customerOptions.value = list.map((c: any) => ({ value: String(c.customerId), label: c.companyName }))
-        formData.customerId = String(list[0].customerId)
-      }
-    }
-    if (result.participantNames) {
-      selectedParticipants.value = result.participantNames.split(/[,，]\s*/).filter(Boolean)
-      userOptions.value = selectedParticipants.value.map(name => ({ value: name, label: name }))
-    }
-    if (result.description) formData.description = result.description
-    if (result.assignedToName) formData.assignedToName = result.assignedToName
-    ElMessage.success('AI 解析完成，请确认并补充信息')
-  } catch (error) {
-    console.error('AI parse task failed:', error)
-  } finally {
-    aiParsing.value = false
   }
 }
 
@@ -687,12 +519,6 @@ function isOverdue(task: Task): boolean {
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-function formatDateTimeLocal(dateStr: string): string {
-  const d = new Date(dateStr)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function getRelativeTime(dateStr: string): string {
