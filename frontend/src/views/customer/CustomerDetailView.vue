@@ -952,254 +952,14 @@
       @set-primary="handleSetPrimary"
     />
 
-    <el-drawer
+    <CustomerBasicInfoDrawer
       v-model="showBasicInfoDrawer"
-      direction="rtl"
-      :size="isMobile ? '100%' : '420px'"
-      :with-header="false"
-      destroy-on-close
-      class="customer-basic-info-drawer"
-    >
-      <div v-if="customer" class="flex h-full flex-col bg-white shadow-2xl">
-        <div class="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-5">
-          <div class="flex min-w-0 items-center gap-3">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <span class="material-symbols-outlined text-[20px] leading-none">info</span>
-            </div>
-            <div class="min-w-0">
-              <h3 class="truncate text-base font-bold text-slate-900">{{ basicInfoDrawerTitle }}</h3>
-              <p class="truncate text-xs text-slate-400">{{ basicInfoDrawerSubtitle }}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            class="flex size-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
-            @click="showBasicInfoDrawer = false"
-          >
-            <span class="material-symbols-outlined text-[18px] leading-none">close</span>
-          </button>
-        </div>
-
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-5">
-            <div class="flex items-center gap-4">
-              <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white text-2xl font-black text-slate-400">
-                <img
-                  v-if="customer.logoUrl"
-                  :src="customer.logoUrl"
-                  :alt="customer.companyName || 'company logo'"
-                  class="size-full object-contain"
-                />
-                <span v-else>{{ customer.companyName?.charAt(0) || '?' }}</span>
-              </div>
-              <div class="min-w-0">
-                <h4 class="truncate text-lg font-bold text-slate-900">{{ customer.companyName }}</h4>
-                <div class="mt-2 flex flex-wrap items-center gap-2">
-                  <span
-                    class="px-2 py-0.5 text-xs font-bold rounded uppercase"
-                    :class="getStageBadgeClass(customer.stage)"
-                  >{{ getStageLabel(customer.stage) }}</span>
-                  <span
-                    v-if="customer.level"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
-                    :class="{
-                      'bg-emerald-50 text-emerald-600': customer.level === 'A',
-                      'bg-blue-50 text-blue-600': customer.level === 'B',
-                      'bg-slate-100 text-slate-500': customer.level === 'C'
-                    }"
-                  >{{ customer.level }}级</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-5">
-            <section
-              v-if="currentAiReportVisible"
-              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-            >
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-base text-primary">auto_awesome</span>
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">{{ aiReportSummaryTitle }}</p>
-              </div>
-              <div v-if="currentAiStatusDetection" class="mt-3">
-                <span
-                  v-if="getAiStatusMeta(currentAiStatusDetection)"
-                  class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold shadow-sm"
-                  :class="getAiStatusMeta(currentAiStatusDetection)?.badgeClass"
-                >
-                  <span class="size-1.5 rounded-full mr-1.5" :class="getAiStatusMeta(currentAiStatusDetection)?.dotClass"></span>
-                  {{ getAiStatusMeta(currentAiStatusDetection)?.label }}
-                </span>
-                <p v-else class="text-sm leading-6 text-slate-700">{{ currentAiStatusDetection }}</p>
-              </div>
-              <p class="mt-3 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">
-                {{ currentAiInsight || '暂无 AI 报告摘要' }}
-              </p>
-            </section>
-
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">公司全称</p>
-              <InlineEditableField
-                :model-value="customer.companyName"
-                :field="customerInlineFields.companyName"
-                :display-value="customer.companyName || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('companyName', value)"
-              >
-                <p class="text-sm text-slate-900 font-medium">{{ customer.companyName }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">所属行业</p>
-              <InlineEditableField
-                :model-value="customer.industry"
-                :field="customerInlineFields.industry"
-                :display-value="customer.industry || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('industry', value)"
-              >
-                <p class="text-sm text-slate-900 font-medium">{{ customer.industry || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客户来源</p>
-              <InlineEditableField
-                :model-value="customer.source"
-                :field="customerInlineFields.source"
-                :display-value="customer.source || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('source', value)"
-              >
-                <p class="text-sm text-slate-900 font-medium">{{ customer.source || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">主要联系人</p>
-              <InlineEditableField
-                :model-value="primaryContact?.name"
-                :field="primaryContactInlineFields.primaryContactName"
-                :display-value="primaryContact?.name || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactName', value, 'contact')"
-              >
-                <p class="text-sm text-slate-900 font-medium">{{ primaryContact?.name || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">联系电话</p>
-              <InlineEditableField
-                :model-value="primaryContact?.phone"
-                :field="primaryContactInlineFields.primaryContactPhone"
-                :display-value="primaryContact?.phone || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactPhone', value, 'contact')"
-              >
-                <p class="text-sm text-slate-900 font-medium font-mono">{{ primaryContact?.phone || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">电子邮箱</p>
-              <InlineEditableField
-                :model-value="primaryContact?.email"
-                :field="primaryContactInlineFields.primaryContactEmail"
-                :display-value="primaryContact?.email || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('primaryContactEmail', value, 'contact')"
-              >
-                <p class="text-sm text-slate-900 font-medium break-all">{{ primaryContact?.email || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客户地址</p>
-              <InlineEditableField
-                :model-value="customer.address"
-                :field="customerInlineFields.address"
-                :display-value="customer.address || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('address', value)"
-              >
-                <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ customer.address || '-' }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">公司网站</p>
-              <InlineEditableField
-                :model-value="customer.website"
-                :field="customerInlineFields.website"
-                :display-value="customer.website || '-'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('website', value)"
-              >
-                <a
-                  v-if="customer.website"
-                  :href="customer.website"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-sm font-medium text-primary hover:underline break-all"
-                  data-row-action="true"
-                >
-                  {{ customer.website }}
-                </a>
-                <p v-else class="text-sm text-slate-900 font-medium">-</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">预计成交金额</p>
-              <InlineEditableField
-                :model-value="customer.quotation"
-                :field="customerInlineFields.quotation"
-                :display-value="formatAmount(customer.quotation)"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('quotation', value)"
-              >
-                <p class="text-sm text-slate-900 font-medium">{{ formatAmount(customer.quotation) }}</p>
-              </InlineEditableField>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">负责人</p>
-              <p class="text-sm text-slate-900 font-medium">{{ customer.ownerName || '-' }}</p>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">创建人</p>
-              <p class="text-sm text-slate-900 font-medium">{{ customer.createUserName || customer.createUserId || '-' }}</p>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">创建时间</p>
-              <p class="text-sm text-slate-900 font-medium">{{ formatDateTime(customer.createTime) }}</p>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">更新时间</p>
-              <p class="text-sm text-slate-900 font-medium">{{ formatDateTime(customer.updateTime) }}</p>
-            </div>
-            <div>
-              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">备注</p>
-              <InlineEditableField
-                :model-value="customer.remark"
-                :field="customerInlineFields.remark"
-                :display-value="customer.remark || '暂无备注'"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave('remark', value)"
-              >
-                <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">{{ customer.remark || '暂无备注' }}</p>
-              </InlineEditableField>
-            </div>
-            <div v-for="field in customFields" :key="`drawer-${field.fieldId}`">
-              <p class="text-xs font-bold text-slate-400 tracking-wider mb-1">{{ field.fieldLabel }}</p>
-              <InlineEditableField
-                :model-value="customer.customFields?.[field.fieldName]"
-                :field="field"
-                :display-value="formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName])"
-                :editable="canEditCustomer"
-                :save-handler="(value) => handleInlineDetailFieldSave(field.fieldName, value, 'custom')"
-              >
-                <p class="text-sm text-slate-900 font-medium whitespace-pre-wrap break-words">{{ formatCustomFieldDisplayValue(field, customer.customFields?.[field.fieldName]) }}</p>
-              </InlineEditableField>
-            </div>
-          </div>
-        </div>
-      </div>
-    </el-drawer>
+      :customer="customer"
+      :contacts="contacts"
+      :custom-fields="customFields"
+      :latest-ai-report="latestAiReport"
+      @contacts-updated="onBasicInfoContactsUpdated"
+    />
 
     <!-- Edit Customer Dialog -->
     <CustomerUpsertDialog
@@ -1274,34 +1034,22 @@
 
     <TaskEditDialog
       v-model="showTaskEditDialog"
-      :is-mobile="isMobile"
       :editing-task="editingCustomerTask"
-      :submitting="taskFormSubmitting"
-      :ai-parsing="taskAiParsing"
-      v-model:ai-parse-input="taskAiParseInput"
-      :form-data="taskFormData"
-      v-model:selected-participants="taskSelectedParticipants"
-      :user-options="taskUserOptions"
-      :user-search-loading="taskUserSearchLoading"
-      :customer-options="taskCustomerOptions"
-      :customer-search-loading="taskCustomerSearchLoading"
-      :search-users="searchTaskUsers"
-      :search-customers="searchTaskCustomers"
-      @ai-parse="handleCustomerTaskAiParse"
-      @submit="handleTaskDialogSubmit"
+      :default-customer="taskDefaultCustomer"
+      @saved="handleTaskDialogSaved"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCustomerStore } from '@/stores/customer'
 import { useTaskStore } from '@/stores/task'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
-import { addCustomerTag, generateCustomerAiReport, queryCustomerList, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
-import { aiParseTask, queryTaskList } from '@/api/task'
+import { addCustomerTag, generateCustomerAiReport, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
+import { queryTaskList } from '@/api/task'
 import type { CustomerAiParseVO } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
 import { addFollowUp, deleteFollowUp, queryFollowUpPageList, updateFollowUp } from '@/api/followup'
@@ -1309,17 +1057,16 @@ import { deleteContact, queryContactPageList, queryContactsByCustomer, setPrimar
 import { getEnabledFieldsByEntity } from '@/api/customField'
 import { downloadKnowledge, queryKnowledgeList } from '@/api/knowledge'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { Knowledge, Task, TaskAddBO, TaskStatus } from '@/types/common'
+import type { Knowledge, Task, TaskStatus } from '@/types/common'
 import type { Contact, CustomerAiReportVO, CustomerTag, FollowUp, FollowUpAddBO, FollowUpTask, FollowUpUpdateBO } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { compactCustomerAiInsight, getCustomerAiStatusMeta } from '@/utils/customerAi'
-import { formatCustomFieldValue as formatCustomFieldDisplayValue } from '@/utils/customFieldDisplay'
-import { normalizeTaskPriority } from '@/utils/taskPriority'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
 import FollowUpUpsertDialog from '@/components/customer/FollowUpUpsertDialog.vue'
 import type { FollowUpUpsertSubmitPayload } from '@/components/customer/FollowUpUpsertDialog.vue'
 import AiParseInsightSidebar from '@/components/crm/AiParseInsightSidebar.vue'
 import FollowUpCard from '@/components/customer/FollowUpCard.vue'
+import CustomerBasicInfoDrawer from '@/views/customer/components/CustomerBasicInfoDrawer.vue'
 import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDialog.vue'
 import ContactUpsertDialog from '@/views/contact/components/ContactUpsertDialog.vue'
 import ContactDetailDrawer from '@/views/contact/components/ContactDetailDrawer.vue'
@@ -1327,7 +1074,6 @@ import TaskDetailDrawer from '@/views/task/components/TaskDetailDrawer.vue'
 import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
 import KnowledgeDetailModal from '@/components/knowledge/KnowledgeDetailModal.vue'
 import KnowledgeUploadDialog from '@/components/knowledge/KnowledgeUploadDialog.vue'
-import InlineEditableField from '@/components/common/InlineEditableField.vue'
 import {
   CUSTOMER_DETAIL_LIST_PAGE_QUERY_KEY,
   CUSTOMER_LIST_PAGE_QUERY_KEY
@@ -1399,20 +1145,6 @@ const knowledgeUploadDialogRef = ref<InstanceType<typeof KnowledgeUploadDialog> 
 const selectedKnowledgeId = ref('')
 const showKnowledgeDetailModal = ref(false)
 const customFields = ref<CustomField[]>([])
-const customerInlineFields: Record<string, Partial<CustomField>> = {
-  companyName: { fieldName: 'companyName', fieldLabel: '公司全称', fieldType: 'text', isRequired: true },
-  industry: { fieldName: 'industry', fieldLabel: '所属行业', fieldType: 'text' },
-  source: { fieldName: 'source', fieldLabel: '客户来源', fieldType: 'text' },
-  address: { fieldName: 'address', fieldLabel: '客户地址', fieldType: 'textarea' },
-  website: { fieldName: 'website', fieldLabel: '公司网站', fieldType: 'text' },
-  quotation: { fieldName: 'quotation', fieldLabel: '预计成交金额', fieldType: 'number' },
-  remark: { fieldName: 'remark', fieldLabel: '备注', fieldType: 'textarea' }
-}
-const primaryContactInlineFields: Record<string, Partial<CustomField>> = {
-  primaryContactName: { fieldName: 'primaryContactName', fieldLabel: '主要联系人', fieldType: 'text' },
-  primaryContactPhone: { fieldName: 'primaryContactPhone', fieldLabel: '联系电话', fieldType: 'text' },
-  primaryContactEmail: { fieldName: 'primaryContactEmail', fieldLabel: '电子邮箱', fieldType: 'text' }
-}
 const generatingAiReport = ref(false)
 const latestAiReport = ref<CustomerAiReportVO | null>(null)
 const ownerSearch = ref('')
@@ -1427,23 +1159,16 @@ const showCustomerTaskDetail = computed({
 })
 const showTaskEditDialog = ref(false)
 const editingCustomerTask = ref<Task | null>(null)
-const taskFormSubmitting = ref(false)
-const taskAiParseInput = ref('')
-const taskAiParsing = ref(false)
-const taskCustomerOptions = ref<{ value: string; label: string }[]>([])
-const taskCustomerSearchLoading = ref(false)
-const taskUserOptions = ref<{ value: string; label: string }[]>([])
-const taskUserSearchLoading = ref(false)
-const taskSelectedParticipants = ref<string[]>([])
-const taskFormData = reactive<TaskAddBO & { status?: TaskStatus; assignedToName?: string }>({
-  title: '',
-  description: '',
-  priority: 'MEDIUM',
-  dueDate: undefined,
-  status: undefined,
-  taskType: '',
-  customerId: '',
-  assignedToName: ''
+const taskDefaultCustomer = computed(() => customer.value
+  ? {
+      customerId: customer.value.customerId,
+      companyName: customer.value.companyName || ''
+    }
+  : null
+)
+
+watch(showTaskEditDialog, visible => {
+  if (!visible) editingCustomerTask.value = null
 })
 
 interface TransferUserOption {
@@ -1470,10 +1195,7 @@ const sectionIconBgColors = {
 const savedAiAnalysisTitle = '\u0041\u0049 \u667a\u80fd\u5206\u6790'
 const emptyAiAnalysisTitle = '\u6682\u65e0 AI \u5206\u6790'
 const emptyAiAnalysisDescription = '\u4fdd\u5b58\u5ba2\u6237\u540e\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u89e6\u53d1 AI \u5206\u6790\uff0c\u7ed3\u679c\u4f1a\u5c55\u793a\u5728\u8fd9\u91cc\u3002'
-const aiReportSummaryTitle = 'AI \u62a5\u544a\u6458\u8981'
 const viewBasicInfoButtonText = '\u57fa\u672c\u4fe1\u606f'
-const basicInfoDrawerTitle = '\u57fa\u672c\u4fe1\u606f'
-const basicInfoDrawerSubtitle = '\u67e5\u770b\u5e76\u7ef4\u62a4\u5ba2\u6237\u8be6\u7ec6\u8d44\u6599'
 const AI_ANALYSIS_POLL_INTERVAL_MS = 2500
 const AI_ANALYSIS_POLL_MAX_ATTEMPTS = 24
 
@@ -1535,6 +1257,11 @@ function syncCurrentContact(customerId: string) {
   }
 }
 
+function onBasicInfoContactsUpdated(newContacts: Contact[]) {
+  contacts.value = newContacts
+  if (customer.value) syncCurrentContact(customer.value.customerId)
+}
+
 async function maybeOpenContactFromQuery(customerId: string) {
   const openContactId = typeof route.query.openContactId === 'string' ? route.query.openContactId : ''
   if (!openContactId || !canViewContacts.value) return
@@ -1591,9 +1318,7 @@ function applyPrimaryContactLocally(contactId: string) {
 }
 
 const primaryContact = computed(() => contacts.value.find(contact => isPrimaryContact(contact)) || contacts.value[0] || null)
-const currentAiStatusDetection = computed(() => (latestAiReport.value?.aiStatusDetection || customer.value?.aiStatusDetection || '').trim())
 const currentAiInsight = computed(() => compactCustomerAiInsight(latestAiReport.value?.aiInsight || customer.value?.aiInsight))
-const currentAiReportVisible = computed(() => !!currentAiStatusDetection.value || !!currentAiInsight.value)
 const savedAiParseResult = computed<CustomerAiParseVO | null>(() => {
   const snapshot = customer.value?.aiParseSnapshot
 
@@ -2090,23 +1815,6 @@ async function handleEditSuccess(payload: { mode: 'create' | 'edit'; customerId?
   }
 }
 
-async function handleInlineDetailFieldSave(fieldName: string, value: any, fieldSource: 'system' | 'custom' | 'contact' = 'system') {
-  if (!customer.value) return
-  const customerId = customer.value.customerId
-  const detail = await customerStore.editCustomerField({
-    customerId,
-    fieldName,
-    fieldSource,
-    value
-  }, { refreshList: false })
-
-  if (fieldSource === 'contact') {
-    contacts.value = detail.contacts || []
-    syncCurrentContact(customerId)
-  }
-  ElMessage.success('保存成功')
-}
-
 async function handleDeleteCustomer() {
   if (!canDeleteCustomer.value) return
   if (!customer.value) return
@@ -2251,12 +1959,6 @@ async function handleSetPrimary(contactId: string) {
   }
 }
 
-function formatTaskDateTimeLocal(dateStr: string): string {
-  const d = new Date(dateStr)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 async function refreshCustomerAfterTaskMutation() {
   if (!customer.value) return
   await refreshFollowUpContext(customer.value.customerId)
@@ -2269,103 +1971,6 @@ async function refreshCustomerAfterTaskMutation() {
 function isCustomerTaskOverdue(task: Task): boolean {
   if (!task.dueDate || task.status === 'COMPLETED') return false
   return new Date(task.dueDate) < new Date()
-}
-
-function resetCustomerTaskForm() {
-  editingCustomerTask.value = null
-  taskAiParseInput.value = ''
-  taskSelectedParticipants.value = []
-  taskCustomerOptions.value = []
-  taskUserOptions.value = []
-  Object.assign(taskFormData, {
-    title: '',
-    description: '',
-    priority: 'MEDIUM',
-    dueDate: undefined,
-    status: undefined,
-    taskType: '',
-    customerId: '',
-    assignedToName: ''
-  })
-  const c = customer.value
-  if (c) {
-    taskFormData.customerId = String(c.customerId)
-    taskCustomerOptions.value = [{ value: String(c.customerId), label: c.companyName || '' }]
-  }
-}
-
-async function searchTaskCustomers(query: string) {
-  if (!query.trim()) {
-    taskCustomerOptions.value = []
-    return
-  }
-  taskCustomerSearchLoading.value = true
-  try {
-    const res = await queryCustomerList({ keyword: query, page: 1, limit: 20 })
-    taskCustomerOptions.value = (res.list || []).map((c: { customerId: string; companyName?: string }) => ({
-      value: String(c.customerId),
-      label: c.companyName || ''
-    }))
-  } catch (e) {
-    console.warn('客户搜索失败:', e)
-    taskCustomerOptions.value = []
-  } finally {
-    taskCustomerSearchLoading.value = false
-  }
-}
-
-async function searchTaskUsers(query: string) {
-  if (!query.trim()) {
-    taskUserOptions.value = []
-    return
-  }
-  taskUserSearchLoading.value = true
-  try {
-    const res = await queryUserList({ search: query })
-    taskUserOptions.value = (res.list || []).map((u: { realname?: string; username?: string }) => ({
-      value: u.realname || u.username || '',
-      label: u.realname || u.username || ''
-    }))
-  } catch (e) {
-    console.warn('用户搜索失败:', e)
-    taskUserOptions.value = []
-  } finally {
-    taskUserSearchLoading.value = false
-  }
-}
-
-async function handleCustomerTaskAiParse() {
-  if (!taskAiParseInput.value.trim()) return
-  taskAiParsing.value = true
-  try {
-    const result = await aiParseTask(taskAiParseInput.value)
-    if (result.title) taskFormData.title = result.title
-    if (result.dueDate) taskFormData.dueDate = result.dueDate
-    if (result.priority) taskFormData.priority = normalizeTaskPriority(result.priority)
-    if (result.taskType) taskFormData.taskType = result.taskType
-    if (result.customerName) {
-      const res = await queryCustomerList({ keyword: result.customerName, page: 1, limit: 5 })
-      const list = res.list || []
-      if (list.length > 0) {
-        taskCustomerOptions.value = list.map((c: { customerId: string; companyName?: string }) => ({
-          value: String(c.customerId),
-          label: c.companyName || ''
-        }))
-        taskFormData.customerId = String(list[0].customerId)
-      }
-    }
-    if (result.participantNames) {
-      taskSelectedParticipants.value = result.participantNames.split(/[,，]\s*/).filter(Boolean)
-      taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
-    }
-    if (result.description) taskFormData.description = result.description
-    if (result.assignedToName) taskFormData.assignedToName = result.assignedToName
-    ElMessage.success('AI 解析完成，请确认并补充信息')
-  } catch (error) {
-    console.error('AI parse task failed:', error)
-  } finally {
-    taskAiParsing.value = false
-  }
 }
 
 function handleViewCustomerTask(task: Task) {
@@ -2419,28 +2024,13 @@ async function handleToggleFollowUpTask(task: FollowUpTask) {
 function handleAddTask() {
   if (!canCreateTasks.value) return
   if (!customer.value) return
-  resetCustomerTaskForm()
+  editingCustomerTask.value = null
   showTaskEditDialog.value = true
 }
 
 function handleEditCustomerTask(task: Task) {
   if (!canCreateTasks.value) return
   editingCustomerTask.value = task
-  Object.assign(taskFormData, {
-    title: task.title,
-    description: task.description || '',
-    priority: normalizeTaskPriority(task.priority),
-    dueDate: task.dueDate ? formatTaskDateTimeLocal(task.dueDate) : undefined,
-    status: task.status,
-    taskType: task.taskType || '',
-    customerId: task.customerId || '',
-    assignedToName: task.assignedToName || ''
-  })
-  if (task.customerId && task.customerName) {
-    taskCustomerOptions.value = [{ value: String(task.customerId), label: task.customerName }]
-  }
-  taskSelectedParticipants.value = task.participantNames ? task.participantNames.split(/[,，]\s*/).filter(Boolean) : []
-  taskUserOptions.value = taskSelectedParticipants.value.map(name => ({ value: name, label: name }))
   showTaskEditDialog.value = true
 }
 
@@ -2449,39 +2039,9 @@ function handleCustomerTaskEditFromDetail(task: Task) {
   if (isMobile.value) selectedCustomerTask.value = null
 }
 
-async function handleTaskDialogSubmit() {
-  if (!taskFormData.title.trim()) {
-    ElMessage.warning('请输入任务标题')
-    return
-  }
-  if (!taskFormData.dueDate) {
-    ElMessage.warning('请选择截止时间')
-    return
-  }
-  taskFormSubmitting.value = true
-  try {
-    const submitData = {
-      title: taskFormData.title,
-      description: taskFormData.description,
-      priority: normalizeTaskPriority(taskFormData.priority),
-      dueDate: taskFormData.dueDate,
-      taskType: taskFormData.taskType,
-      participantNames: taskSelectedParticipants.value.join(', '),
-      customerId: taskFormData.customerId || undefined
-    }
-    if (editingCustomerTask.value) {
-      await taskStore.editTask({ ...submitData, taskId: editingCustomerTask.value.taskId, status: taskFormData.status })
-      ElMessage.success('更新成功')
-    } else {
-      await taskStore.createTask(submitData)
-      ElMessage.success('创建成功')
-    }
-    showTaskEditDialog.value = false
-    resetCustomerTaskForm()
-    await refreshCustomerAfterTaskMutation()
-  } finally {
-    taskFormSubmitting.value = false
-  }
+async function handleTaskDialogSaved() {
+  editingCustomerTask.value = null
+  await refreshCustomerAfterTaskMutation()
 }
 
 async function handleAddTag() {
@@ -2565,18 +2125,6 @@ async function handleDeleteFollowUp(followUpId: string) {
     if (customer.value) await refreshFollowUpContext(customer.value.customerId)
     ElMessage.success('跟进记录已删除')
   } catch { /* Error handled */ }
-}
-
-function getStageBadgeClass(stage: string): string {
-  const classes: Record<string, string> = {
-    lead: 'bg-slate-100 text-slate-800',
-    qualified: 'bg-blue-100 text-blue-800',
-    proposal: 'bg-amber-100 text-amber-800',
-    negotiation: 'bg-purple-100 text-purple-800',
-    closed: 'bg-green-100 text-green-800',
-    lost: 'bg-red-100 text-red-800'
-  }
-  return classes[stage] || 'bg-slate-100 text-slate-800'
 }
 
 function getStageLabel(stage: string): string {
@@ -2744,16 +2292,6 @@ function formatDateTime(dateStr?: string): string {
   return new Date(dateStr).toLocaleString('zh-CN')
 }
 
-function formatAmount(value?: number | null): string {
-  if (value === null || value === undefined) return '-'
-  const amount = Number(value)
-  if (!Number.isFinite(amount)) return '-'
-  return `¥ ${amount.toLocaleString('zh-CN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  })}`
-}
-
 /* Legacy helper kept only as a reference during the custom field display refactor.
 function formatCustomFieldValue(field: CustomField, value: any): string {
   if (value === null || value === undefined || value === '') return '-'
@@ -2777,11 +2315,6 @@ function formatCustomFieldValue(field: CustomField, value: any): string {
 </script>
 
 <style>
-.customer-basic-info-drawer .el-drawer__body {
-  padding: 0 !important;
-}
-
-.wk-stage-result-popover.el-popper,
 .wk-stage-result-popover.el-popover {
   padding: 0;
   border: 1px solid rgb(226 232 240);
