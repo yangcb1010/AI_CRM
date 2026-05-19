@@ -315,9 +315,9 @@ export const useChatStore = defineStore('chat', () => {
         effectiveAppCode === KNOWLEDGE_APP_CODE,
         selectedModel.value?.provider,
         selectedModel.value?.modelName,
+        selectedModel.value?.modelSource,
         knowledgeIds,
-        abortController.signal,
-        selectedModel.value?.modelSource
+        abortController.signal
       )
     } catch (error) {
       console.error('sendMessage error:', error)
