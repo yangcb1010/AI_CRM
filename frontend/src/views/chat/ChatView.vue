@@ -179,7 +179,7 @@
           <!-- Messages Area -->
           <div
             ref="messagesContainer"
-            class="p-4 md:p-8 space-y-8 scroll-smooth"
+            class="p-4 md:p-8"
             :class="isChatEmpty ? 'overflow-hidden' : 'flex-1 overflow-y-auto pb-4'"
             @scroll="handleMessagesScroll"
           >
@@ -243,7 +243,7 @@
                 </div>
 
                 <!-- AI Message -->
-                <div v-if="message.role !== 'user'" class="flex gap-4 md:gap-5">
+                <div v-if="message.role !== 'user'" class="flex gap-4 md:gap-5 mb-[60px]">
                   <div v-if="false" class="size-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
                     <WkIcon name="ai" class="text-lg" />
                   </div>
@@ -566,7 +566,7 @@
                       rows="1"
                       class="w-full bg-transparent border-none focus:ring-0 focus:outline-none px-3 pt-3 text-[#0d0d0d] text-[16px] leading-[26px] placeholder:text-[#909090] placeholder:text-[16px] resize-none font-weight: overflow-x-hidden overflow-y-auto min-h-[50px]"
                       :placeholder="chatInputPlaceholder"
-                      :disabled="chatStore.isStreaming || isUploading"
+                      :disabled="isUploading"
                       style="min-height: 90px;"
                       @input="resizeChatTextarea"
                       @keydown.enter.exact.prevent="handleSend"
@@ -604,7 +604,11 @@
                             </span>
                           </button>
                         </template>
-                        <div class="wk-chat-upload-menu">
+                        <div
+                          class="wk-chat-upload-menu"
+                          @mouseenter="clearChatUploadMenuLeaveTimer"
+                          @mouseleave="handleChatUploadMenuMouseLeave"
+                        >
                           <button
                             type="button"
                             class="wk-chat-upload-menu__item"
@@ -648,7 +652,11 @@
                                 <span class="wk-chat-upload-menu__chevron material-symbols-outlined">chevron_right</span>
                               </div>
                             </template>
-                            <div class="wk-chat-upload-submenu">
+                            <div
+                              class="wk-chat-upload-submenu"
+                              @mouseenter="clearChatUploadMenuLeaveTimer"
+                              @mouseleave="handleChatUploadMenuMouseLeave"
+                            >
                               <button
                                 type="button"
                                 class="wk-chat-upload-menu__item wk-chat-upload-submenu__btn"
@@ -883,7 +891,11 @@
                           <span class="material-symbols-outlined text-[0.875rem] leading-none">add</span>
                         </button>
                       </template>
-                      <div class="wk-chat-upload-menu">
+                      <div
+                        class="wk-chat-upload-menu"
+                        @mouseenter="clearChatUploadMenuLeaveTimer"
+                        @mouseleave="handleChatUploadMenuMouseLeave"
+                      >
                         <button
                           type="button"
                           class="wk-chat-upload-menu__item"
@@ -924,7 +936,11 @@
                               <span class="wk-chat-upload-menu__chevron material-symbols-outlined">chevron_right</span>
                             </div>
                           </template>
-                          <div class="wk-chat-upload-submenu">
+                          <div
+                            class="wk-chat-upload-submenu"
+                            @mouseenter="clearChatUploadMenuLeaveTimer"
+                            @mouseleave="handleChatUploadMenuMouseLeave"
+                          >
                             <button
                               type="button"
                               class="wk-chat-upload-menu__item wk-chat-upload-submenu__btn"
@@ -969,7 +985,7 @@
                       rows="1"
                       class="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none pl-1 pr-3 py-3 text-[#0d0d0d] text-[16px] leading-[26px] placeholder:text-[#0d0d0d] placeholder:text-[16px] resize-none overflow-x-hidden overflow-y-auto min-h-[50px]"
                       :placeholder="chatInputPlaceholder"
-                      :disabled="chatStore.isStreaming || isUploading"
+                      :disabled="isUploading"
                       @input="resizeChatTextarea"
                       @keydown.enter.exact.prevent="handleSend"
                       @paste="handlePaste"
@@ -1079,8 +1095,8 @@
               </div>
 
               <!-- Quick Action Chips -->
-              <div v-if="chatStore.messages.length === 0" class="flex flex-wrap gap-2 justify-center mt-6 min-h-[88px]">
-                <div v-if="selectedChatAppLabel === 'CRM管理'" >
+              <div v-if="chatStore.messages.length === 0" class="mt-6 min-h-[88px]">
+                <div v-if="selectedChatAppLabel === 'CRM管理'" class="flex flex-wrap gap-2 justify-center" >
                   <button
                     v-for="action in quickActions"
                     :key="action.label"
@@ -1273,9 +1289,43 @@ function activeChatInputEl(): HTMLTextAreaElement | null {
 
 const chatUploadMenuVisible = ref(false)
 const chatUploadSubmenuVisible = ref(false)
+let chatUploadMenuLeaveTimer: ReturnType<typeof setTimeout> | null = null
+/** 关闭上传菜单后跳过自动聚焦（如打开知识库选择器） */
+let skipComposerFocusOnUploadMenuClose = false
+
+function clearChatUploadMenuLeaveTimer() {
+  if (chatUploadMenuLeaveTimer != null) {
+    clearTimeout(chatUploadMenuLeaveTimer)
+    chatUploadMenuLeaveTimer = null
+  }
+}
+
+function isInsideChatUploadMenuPopover(target: EventTarget | null): boolean {
+  if (!(target instanceof Node)) return false
+  const el = target instanceof Element ? target : target.parentElement
+  return Boolean(el?.closest('.wk-chat-upload-menu-popper'))
+}
+
+function handleChatUploadMenuMouseLeave(event: MouseEvent) {
+  if (isInsideChatUploadMenuPopover(event.relatedTarget)) {
+    clearChatUploadMenuLeaveTimer()
+    return
+  }
+  clearChatUploadMenuLeaveTimer()
+  chatUploadMenuLeaveTimer = setTimeout(() => {
+    chatUploadMenuLeaveTimer = null
+    chatUploadMenuVisible.value = false
+    chatUploadSubmenuVisible.value = false
+  }, 120)
+}
+
 watch(chatUploadMenuVisible, (visible) => {
   if (!visible) {
     chatUploadSubmenuVisible.value = false
+    clearChatUploadMenuLeaveTimer()
+    if (!skipComposerFocusOnUploadMenuClose) {
+      void nextTick(() => focusChatTextarea())
+    }
   }
 })
 const chatKnowledgePickerVisible = ref(false)
@@ -1633,7 +1683,7 @@ function handleInputBoxMouseDown(event: MouseEvent) {
   if (!target) return
   // Don't steal focus from controls embedded in the composer.
   if (target.closest('button, input, textarea, select, a, [role="button"], .el-select, .el-input')) return
-  if (chatStore.isStreaming || isUploading.value) return
+  if (isUploading.value) return
   activeChatInputEl()?.focus()
 }
 
@@ -1744,19 +1794,22 @@ onBeforeUnmount(() => {
   disconnectComposerAttachmentScrollResizeObserver()
 })
 
-// Auto scroll to bottom when new messages arrive or during streaming (only while pinned)
+// Auto scroll to bottom when new messages arrive or during streaming (only while pinned).
+// No debounce when not streaming so session switches jump instantly (no smooth scroll).
 let scrollTimer: ReturnType<typeof setTimeout> | null = null
 function scrollToBottom() {
   if (!isPinnedToBottom.value) return
   if (scrollTimer) return
+  const delayMs = chatStore.currentSessionIsStreaming ? 100 : 0
   scrollTimer = setTimeout(() => {
     scrollTimer = null
     if (!isPinnedToBottom.value) return
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    const el = messagesContainer.value
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'auto' })
       updateScrollToBottomVisibility()
     }
-  }, 100)
+  }, delayMs)
 }
 
 watch(
@@ -1860,13 +1913,16 @@ async function handleSend() {
 
   // Switch to chat view when sending
   currentView.value = 'chat'
-  await chatStore.sendMessage(
+  const sendPromise = chatStore.sendMessage(
     content,
     attachmentDTOs,
     attachmentVOs,
     effectiveAppCode,
     knowledgeIdsPayload
   )
+  await nextTick()
+  focusChatTextarea()
+  await sendPromise
 }
 
 function handleSendBarClick() {
@@ -2104,8 +2160,12 @@ async function handleChatUploadMenuChooseKnowledge() {
     ElMessage.warning(`最多只能上传${MAX_CHAT_ATTACHMENT_COUNT}个文件`)
     return
   }
+  skipComposerFocusOnUploadMenuClose = true
   chatUploadMenuVisible.value = false
   chatKnowledgePickerVisible.value = true
+  void nextTick(() => {
+    skipComposerFocusOnUploadMenuClose = false
+  })
 }
 
 function handleChatUploadMenuSelectApp(appCode: string) {

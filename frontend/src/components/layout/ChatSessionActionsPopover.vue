@@ -26,11 +26,11 @@
           >more_horiz</span>
         </template>
         <div class="wk-chat-session-menu">
-          <button type="button" class="wk-chat-session-menu__item" @click="onShare">
+          <!-- <button type="button" class="wk-chat-session-menu__item" @click="onShare">
             <span class="material-symbols-outlined wk-chat-session-menu__icon">upload</span>
             <span class="wk-chat-session-menu__label">分享</span>
-          </button>
-          <div class="wk-chat-session-menu__divider" role="separator" />
+          </button> -->
+          <!-- <div class="wk-chat-session-menu__divider" role="separator" /> -->
           <button type="button" class="wk-chat-session-menu__item wk-chat-session-menu__item--danger" @click="onDelete">
             <span class="material-symbols-outlined wk-chat-session-menu__icon">delete</span>
             <span class="wk-chat-session-menu__label">删除</span>

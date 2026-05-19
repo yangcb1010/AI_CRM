@@ -160,11 +160,11 @@
             >
               <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#0d0d0d]">最近</span>
               <span
-                class="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150 "
+                class="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150 pr-[2px]"
                 :class="recentChatSessionsExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'"
                 aria-hidden="true"
               >
-                <span class="material-symbols-outlined inline-flex h-5 shrink-0 items-center justify-center self-center text-[18px] leading-none text-[#c9c9c9]">
+                <span class="material-symbols-outlined inline-flex h-5 shrink-0 items-center justify-end self-center text-[18px] leading-none text-[#c9c9c9]">
                   {{ recentChatSessionsExpanded ? 'keyboard_arrow_down' : 'chevron_right' }}
                 </span>
               </span>

@@ -114,10 +114,14 @@ html, body {
   scrollbar-gutter: stable;
 }
 
-/* Primary sidebar nav — thumb:hover is unreliable in WebKit; hover the gutter instead */
+/* Primary sidebar nav — thumb:hover is unreliable in WebKit; hover the scroll area instead */
 .wk-primary-nav-scroll {
-  scrollbar-width: thin;
+  scrollbar-width: 8px;
   scrollbar-color: #e8e8e8 transparent;
+}
+
+.wk-primary-nav-scroll:hover {
+  scrollbar-color: #999999 transparent;
 }
 
 .wk-primary-nav-scroll::-webkit-scrollbar {
@@ -132,10 +136,11 @@ html, body {
 .wk-primary-nav-scroll::-webkit-scrollbar-thumb {
   background: #e8e8e8;
   border-radius: 3px;
+  transition: background-color 150ms ease;
 }
 
-.wk-primary-nav-scroll::-webkit-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: #d2d2d2;
+.wk-primary-nav-scroll:hover::-webkit-scrollbar-thumb {
+  background: #999999;
 }
 
 /* Glass panel effect */
