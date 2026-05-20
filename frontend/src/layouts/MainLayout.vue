@@ -161,7 +161,7 @@
               aria-controls="recent-chat-sessions-panel"
               @click="recentChatSessionsExpanded = !recentChatSessionsExpanded"
             >
-              <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#0d0d0d]">最近</span>
+              <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#8f8f8f]">Recents</span>
               <span
                 class="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150 pr-[2px]"
                 :class="recentChatSessionsExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'"
@@ -183,91 +183,45 @@
             </div>
 
             <template v-else>
-              <template v-if="groupedRecentChatSessions.today.length > 0">
-                <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">今天</p> -->
-                <button
-                  v-for="session in groupedRecentChatSessions.today"
-                  :key="session.sessionId"
-                  class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
-                  :class="isSessionActive(session.sessionId)
-                    ? 'bg-[#f3f3f3]'
-                    : 'hover:bg-[#f9f9f9]'"
-                  @click="handleSelectSession(session.sessionId)"
-                >
-                  <ChatSessionActionsPopover
-                    :session="session"
-                    :active="isSessionActive(session.sessionId)"
-                    @share="handleShareChatSession"
-                    @delete="handleDeleteSession"
-                  />
-                  <!-- <span class="text-xs font-medium text-slate-400">{{ formatSessionTime(session.updateTime || session.createTime) }}</span> -->
-                </button>
-              </template>
-
-              <template v-if="groupedRecentChatSessions.yesterday.length > 0">
-                <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">昨天</p> -->
-                <button
-                  v-for="session in groupedRecentChatSessions.yesterday"
-                  :key="session.sessionId"
-                  class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[0px] ml-[2px] mr-[6px] text-left transition-all"
-                  :class="isSessionActive(session.sessionId)
-                    ? 'bg-[#f3f3f3]'
-                    : 'hover:bg-[#f9f9f9]'"
-                  @click="handleSelectSession(session.sessionId)"
-                >
-                  <ChatSessionActionsPopover
-                    :session="session"
-                    :active="isSessionActive(session.sessionId)"
-                    @share="handleShareChatSession"
-                    @delete="handleDeleteSession"
-                  />
-                  <!-- <span class="text-xs font-medium text-slate-400">{{ formatSessionTime(session.updateTime || session.createTime) }}</span> -->
-                </button>
-              </template>
-
-              <template v-if="groupedRecentChatSessions.earlier.length > 0">
-                <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">更早</p> -->
-                <button
-                  v-for="session in groupedRecentChatSessions.earlier"
-                  :key="session.sessionId"
-                  class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
-                  :class="isSessionActive(session.sessionId)
-                    ? 'bg-[#f3f3f3]'
-                    : 'hover:bg-[#f9f9f9]'"
-                  @click="handleSelectSession(session.sessionId)"
-                >
-                  <ChatSessionActionsPopover
-                    :session="session"
-                    :active="isSessionActive(session.sessionId)"
-                    @share="handleShareChatSession"
-                    @delete="handleDeleteSession"
-                  />
-                  <!-- <span class="text-xs font-medium text-slate-400">{{ formatSessionTime(session.updateTime || session.createTime) }}</span> -->
-                </button>
-              </template>
+              <button
+                v-for="session in limitedRecentChatSessions"
+                :key="session.sessionId"
+                class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
+                :class="isSessionActive(session.sessionId)
+                  ? 'bg-[#f3f3f3]'
+                  : 'hover:bg-[#f9f9f9]'"
+                @click="handleSelectSession(session.sessionId)"
+              >
+                <ChatSessionActionsPopover
+                  :session="session"
+                  :active="isSessionActive(session.sessionId)"
+                  @share="handleShareChatSession"
+                  @delete="handleDeleteSession"
+                />
+              </button>
+              <button
+                v-if="chatStore.sessions.length > RECENT_CHAT_SESSION_LIMIT"
+                type="button"
+                class="group flex w-full min-w-0 items-center gap-3 rounded-[8px] pl-[10px] pr-[10px] py-[7px] mt-[1px] ml-[2px] mr-[6px] text-left text-[14px] text-[#6f6f6f] transition-all hover:bg-[#f9f9f9]"
+                @click="recentChatSessionsMoreVisible = true"
+              >
+                <span class="material-symbols-outlined text-[20px] leading-none text-[#9a9a9a]">more_horiz</span>
+                <span>More</span>
+              </button>
             </template>
-
-            <button
-              v-if="chatStore.sessions.length > 5"
-              type="button"
-              class="mt-1 flex w-full items-center justify-between rounded-[8px] px-[10px] py-[7px] text-left text-sm text-[#5f6368] transition-colors hover:bg-[#f9f9f9]"
-              @click="recentHistoryDrawerOpen = true"
-            >
-              <span>更多</span>
-              <span class="material-symbols-outlined text-[18px] text-[#c9c9c9]">chevron_right</span>
-            </button>
             </div>
           </div>
 
-          <div v-if="showSidebarCustomers" class="space-y-1 pt-2">
+          <div v-if="showSidebarCustomers" class="space-y-1 pt-3">
             <button
               type="button"
-              class="group flex w-full items-center justify-between gap-1 rounded-lg pb-0 pl-3 pr-1 text-left transition-colors mt-[10px] mb-[0px]"
+              class="group flex w-full items-center justify-between gap-1 rounded-lg pb-0 pl-3 pr-1 text-left transition-colors mt-[12px] mb-[0px]"
+              :title="sidebarCustomersExpanded ? '收起客户列表' : '展开客户列表'"
               :aria-expanded="sidebarCustomersExpanded"
               aria-controls="sidebar-customers-panel"
               @click="sidebarCustomersExpanded = !sidebarCustomersExpanded"
             >
-              <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#0d0d0d]">客户</span>
+              <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#8f8f8f]">Customers</span>
               <span
                 class="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150 pr-[2px]"
                 :class="sidebarCustomersExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'"
@@ -278,49 +232,93 @@
                 </span>
               </span>
             </button>
-
             <div id="sidebar-customers-panel" v-show="sidebarCustomersExpanded">
-              <div v-if="sidebarCustomersLoading" class="flex justify-center py-4">
+              <div v-if="sidebarCustomersLoading && sidebarCustomers.length === 0" class="flex justify-center py-6">
                 <span class="material-symbols-outlined animate-spin text-slate-300">progress_activity</span>
               </div>
-              <div v-else-if="sidebarCustomers.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
-                暂无客户
+              <div v-else-if="sidebarCustomers.length === 0" class="px-3 py-6 text-center text-xs text-slate-400">
+                暂无客户数据
               </div>
-              <template v-else>
-                <button
-                  v-for="customer in sidebarCustomers"
-                  :key="customer.customerId"
-                  type="button"
-                  class="group flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
-                  :class="isSidebarCustomerActive(customer.customerId) ? 'bg-[#f3f3f3]' : 'hover:bg-[#f9f9f9]'"
-                  @click="handleSelectSidebarCustomer(customer)"
-                >
-                  <span class="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#f3f4f6] text-[11px] font-semibold text-[#5f6368]">
-                    <img
-                      v-if="customer.logoUrl || customer.logo"
-                      :src="customer.logoUrl || customer.logo"
-                      class="h-full w-full object-cover"
-                      alt=""
-                    />
-                    <span v-else>{{ getCustomerInitial(customer.companyName) }}</span>
-                  </span>
-                  <span class="min-w-0 flex-1 truncate text-sm text-[#0d0d0d]">{{ customer.companyName }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="mt-1 flex w-full items-center justify-between rounded-[8px] px-[10px] py-[7px] text-left text-sm text-[#5f6368] transition-colors hover:bg-[#f9f9f9]"
-                  @click="goCustomerList"
-                >
-                  <span>查看更多</span>
-                  <span class="material-symbols-outlined text-[18px] text-[#c9c9c9]">chevron_right</span>
-                </button>
-              </template>
+              <button
+                v-for="customer in sidebarCustomers"
+                :key="customer.customerId"
+                type="button"
+                class="group flex w-full min-w-0 items-center gap-3 rounded-[8px] pl-[10px] pr-[10px] py-[7px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
+                :class="isCustomerActive(customer.customerId) ? 'bg-[#f3f3f3]' : 'hover:bg-[#f9f9f9]'"
+                @click="handleSelectCustomerChat(customer)"
+              >
+                <WkIcon name="customer" :size="14" class="shrink-0 text-[#9a9a9a]" />
+                <span class="min-w-0 flex-1 truncate text-[14px] font-normal text-[#5f5f5f]" :title="customer.companyName">
+                  {{ customer.companyName }}
+                </span>
+              </button>
             </div>
           </div>
           </template>
 
         </div>
       </nav>
+
+      <Transition name="drawer-panel">
+        <div
+          v-if="recentChatSessionsMoreVisible && !primarySidebarCollapsed"
+          class="absolute inset-0 z-50 flex flex-col bg-white"
+        >
+          <div class="flex h-12 shrink-0 items-center justify-between border-b border-[#ececec] px-3">
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-[#0d0d0d] transition-colors hover:bg-[#f5f5f5]"
+              @click="recentChatSessionsMoreVisible = false"
+            >
+              <span class="material-symbols-outlined text-[18px] leading-none text-[#8f8f8f]">arrow_back</span>
+              Recents
+            </button>
+            <button
+              type="button"
+              class="flex size-8 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#f5f5f5] hover:text-[#0d0d0d]"
+              @click="recentChatSessionsMoreVisible = false"
+            >
+              <span class="material-symbols-outlined text-[18px] leading-none">close</span>
+            </button>
+          </div>
+          <div class="shrink-0 px-3 py-2">
+            <el-input
+              v-model="recentHistoryKeyword"
+              clearable
+              placeholder="搜索对话"
+            />
+          </div>
+          <div class="wk-primary-nav-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+            <div v-if="filteredHistorySessions.length === 0" class="px-3 py-8 text-center text-sm text-slate-400">
+              暂无匹配对话
+            </div>
+            <template v-else>
+              <template v-for="group in historySessionGroups" :key="group.key">
+                <div v-if="group.sessions.length > 0" class="mb-3">
+                  <p class="px-1 pb-1 text-xs font-semibold text-slate-400">{{ group.label }}</p>
+                  <button
+                    v-for="session in group.sessions"
+                    :key="session.sessionId"
+                    type="button"
+                    class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
+                    :class="isSessionActive(session.sessionId)
+                      ? 'bg-[#f3f3f3]'
+                      : 'hover:bg-[#f9f9f9]'"
+                    @click="handleSelectSessionFromMore(session.sessionId)"
+                  >
+                    <ChatSessionActionsPopover
+                      :session="session"
+                      :active="isSessionActive(session.sessionId)"
+                      @share="handleShareChatSession"
+                      @delete="handleDeleteSession"
+                    />
+                  </button>
+                </div>
+              </template>
+            </template>
+          </div>
+        </div>
+      </Transition>
 
       <div v-if="false && showConfigSection" class="shrink-0 border-t border-slate-200 px-4 py-3">
         <div class="pb-2 pt-1">
@@ -339,36 +337,40 @@
       </div>
 
       <div class="border-t border-[#ececec] p-3" :class="primarySidebarContentCollapsed ? '!px-2 !py-2' : ''">
-        <button
-          type="button"
-          class="mb-1 flex w-full items-center rounded-xl text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary"
-          :class="primarySidebarContentCollapsed ? 'justify-center p-2' : 'gap-3 p-2'"
-          :title="themeButtonLabel"
-          :aria-label="themeButtonLabel"
-          @click="toggleTheme"
-        >
-          <span class="material-symbols-outlined text-[20px] leading-none">{{ themeIcon }}</span>
-          <span v-if="!primarySidebarContentCollapsed" class="text-xs font-semibold">{{ themeButtonLabel }}</span>
-        </button>
-        <div
-          class="flex cursor-pointer items-center rounded-xl bg-[#fff] transition-colors hover:bg-[#f9f9f9]"
-          :class="primarySidebarContentCollapsed ? 'justify-center' : 'gap-3 p-2'"
-          :title="primarySidebarContentCollapsed ? (userStore.realname || userStore.username || '用户') : undefined"
-          @click="showUserMenu = !showUserMenu"
-        >
-          <div v-if="userStore.avatar" class="size-8 overflow-hidden rounded-full">
-            <img :src="userStore.avatar" class="h-full w-full object-cover" alt="avatar" />
-          </div>
-          <div v-else class="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-            {{ userStore.realname?.charAt(0) || 'U' }}
-          </div>
-          <template v-if="!primarySidebarContentCollapsed">
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-xs font-semibold text-slate-900">{{ userStore.realname || userStore.username }}</p>
-              <p class="truncate text-xs text-slate-500">{{ userStore.userInfo?.deptName || '用户' }}</p>
+        <div class="space-y-1">
+          <button
+            type="button"
+            class="flex w-full items-center rounded-xl text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-primary"
+            :class="primarySidebarContentCollapsed ? 'justify-center p-2' : 'gap-3 p-2'"
+            :title="themeButtonLabel"
+            :aria-label="themeButtonLabel"
+            @click="toggleTheme"
+          >
+            <span class="material-symbols-outlined text-[20px] leading-none">{{ themeIcon }}</span>
+            <span v-if="!primarySidebarContentCollapsed" class="text-xs font-semibold">{{ themeButtonLabel }}</span>
+          </button>
+          <div
+            class="flex cursor-pointer items-center rounded-xl bg-[#fff] transition-colors hover:bg-[#f9f9f9] dark:bg-slate-900 dark:hover:bg-slate-800"
+            :class="primarySidebarContentCollapsed ? 'justify-center' : 'gap-3 p-2'"
+            :title="primarySidebarContentCollapsed ? (userStore.realname || userStore.username || '用户') : undefined"
+            @click="showUserMenu = !showUserMenu"
+          >
+            <div v-if="userStore.avatar" class="size-8 overflow-hidden rounded-full">
+              <img :src="userStore.avatar" class="h-full w-full object-cover" alt="avatar" />
             </div>
-            <!-- <span class="material-symbols-outlined text-sm text-slate-400">unfold_more</span> -->
-          </template>
+            <div v-else class="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+              {{ userStore.realname?.charAt(0) || 'U' }}
+            </div>
+            <template v-if="!primarySidebarContentCollapsed">
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-semibold text-slate-900">{{ userStore.realname || userStore.username }}</p>
+                <p class="truncate text-xs text-slate-500">{{ userStore.userInfo?.deptName || '用户' }}</p>
+              </div>
+            </template>
+          </div>
+          <div v-if="!primarySidebarContentCollapsed" class="px-1">
+            <AiQuotaHeaderPopover compact />
+          </div>
         </div>
       </div>
 
@@ -547,15 +549,6 @@
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          class="flex size-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary"
-          :aria-label="themeButtonLabel"
-          @click="toggleTheme"
-        >
-          <span class="material-symbols-outlined text-[20px] leading-none">{{ themeIcon }}</span>
-        </button>
-        <AiQuotaHeaderPopover />
         <!-- <button class="flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100">
           <span class="material-symbols-outlined">notifications</span>
         </button> -->
@@ -822,7 +815,7 @@
       :class="{ 'pt-14': isMobile }"
     >
       <header
-        v-if="showDesktopHeader || showChatDesktopQuotaBar"
+        v-if="showDesktopHeader"
         class="relative z-[100] flex h-16 shrink-0 items-center bg-white px-[10px] md:px-8"
         :class="showDesktopHeader ? 'justify-between border-b border-slate-200' : 'border-b-0'"
       >
@@ -887,16 +880,6 @@
         </div>
 
         <div class="flex items-center gap-3">
-          <AiQuotaHeaderPopover />
-          <button
-            type="button"
-            class="flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary"
-            :aria-label="themeButtonLabel"
-            :title="themeButtonLabel"
-            @click="toggleTheme"
-          >
-            <span class="material-symbols-outlined text-[20px] leading-none">{{ themeIcon }}</span>
-          </button>
           <button class="flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100">
             <span class="material-symbols-outlined">notifications</span>
           </button>
@@ -909,24 +892,6 @@
           </button>
         </div>
         </template>
-        <template v-else>
-          <div
-            class="flex w-full min-w-0 items-center gap-3 justify-end"
-          >
-            <div class="flex shrink-0 items-center gap-3">
-              <AiQuotaHeaderPopover />
-              <button
-                type="button"
-                class="flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary"
-                :aria-label="themeButtonLabel"
-                :title="themeButtonLabel"
-                @click="toggleTheme"
-              >
-                <span class="material-symbols-outlined text-[20px] leading-none">{{ themeIcon }}</span>
-              </button>
-            </div>
-          </div>
-        </template>
       </header>
 
       <main class="flex-1 overflow-y-auto wk-safe-bottom">
@@ -937,50 +902,6 @@
         </router-view>
       </main>
     </div>
-
-    <el-drawer
-      v-model="recentHistoryDrawerOpen"
-      title="历史对话"
-      direction="ltr"
-      size="360px"
-      :append-to-body="true"
-      custom-class="recent-history-drawer"
-    >
-      <div class="flex h-full min-h-0 flex-col">
-        <el-input
-          v-model="recentHistoryKeyword"
-          clearable
-          placeholder="搜索对话"
-          class="mb-3"
-        />
-        <div class="min-h-0 flex-1 overflow-y-auto pr-1">
-          <div v-if="filteredHistorySessions.length === 0" class="px-3 py-8 text-center text-sm text-slate-400">
-            暂无匹配对话
-          </div>
-          <template v-else>
-            <template v-for="group in historySessionGroups" :key="group.key">
-              <div v-if="group.sessions.length > 0" class="mb-3">
-                <p class="px-1 pb-1 text-xs font-semibold text-slate-400">{{ group.label }}</p>
-                <button
-                  v-for="session in group.sessions"
-                  :key="session.sessionId"
-                  class="group w-full min-w-0 overflow-hidden rounded-[8px] px-[10px] py-[7px] text-left transition-all"
-                  :class="isSessionActive(session.sessionId) ? 'bg-[#f3f3f3]' : 'hover:bg-[#f9f9f9]'"
-                  @click="handleSelectHistorySession(session.sessionId)"
-                >
-                  <ChatSessionActionsPopover
-                    :session="session"
-                    :active="isSessionActive(session.sessionId)"
-                    @share="handleShareChatSession"
-                    @delete="handleDeleteSession"
-                  />
-                </button>
-              </div>
-            </template>
-          </template>
-        </div>
-      </div>
-    </el-drawer>
 
     <CustomerUpsertDialog v-model="showCreateCustomer" mode="create" @success="handleCreateCustomerSuccess" />
     <AccountSettingsModal v-model="showAccountSettingsModal" />
@@ -1104,9 +1025,11 @@ function onPrimaryNavScroll() {
 }
 /** PC 侧栏「最近」对话列表折叠 */
 const recentChatSessionsExpanded = ref(true)
-const recentHistoryDrawerOpen = ref(false)
 const recentHistoryKeyword = ref('')
 const sidebarCustomersExpanded = ref(true)
+const recentChatSessionsMoreVisible = ref(false)
+const RECENT_CHAT_SESSION_LIMIT = 5
+const SIDEBAR_CUSTOMER_LIMIT = 8
 const sidebarCustomers = ref<CustomerListVO[]>([])
 const sidebarCustomersLoading = ref(false)
 const showUserMenu = ref(false)
@@ -1234,9 +1157,6 @@ const showDesktopHeader = computed(() => {
   if (isMobile.value) return false
   return !route.path.startsWith('/knowledge') && !route.path.startsWith('/chat')
 })
-
-/** 桌面端 Chat：顶栏样式与主站一致，仅展示 AI 额度入口 */
-const showChatDesktopQuotaBar = computed(() => !isMobile.value && route.path.startsWith('/chat'))
 
 const selectedPrimaryKey = ref<string>('')
 
@@ -1470,11 +1390,12 @@ watch(
     isMobile.value,
     primarySidebarCollapsed.value,
     recentChatSessionsExpanded.value,
+    sidebarCustomersExpanded.value,
     pcMainNavGroups.value.length,
     chatStore.sessions.length,
     chatStore.sessionsLoading,
     sidebarCustomers.value.length,
-    sidebarCustomersExpanded.value,
+    sidebarCustomersLoading.value,
   ],
   () => {
     queueMicrotask(() => updatePrimaryNavScrollbar())
@@ -1550,9 +1471,7 @@ function groupSessionsByTime(sessions: ChatSession[]): ChatSessionGroups {
   return { today, yesterday, earlier }
 }
 
-const sidebarRecentSessions = computed(() => chatStore.sessions.slice(0, 5))
-
-const groupedRecentChatSessions = computed(() => groupSessionsByTime(sidebarRecentSessions.value))
+const limitedRecentChatSessions = computed(() => chatStore.sessions.slice(0, RECENT_CHAT_SESSION_LIMIT))
 
 const filteredHistorySessions = computed(() => {
   const keyword = recentHistoryKeyword.value.trim().toLowerCase()
@@ -1563,6 +1482,29 @@ const filteredHistorySessions = computed(() => {
     return title.includes(keyword) || customerName.includes(keyword)
   })
 })
+
+async function fetchSidebarCustomers() {
+  if (sidebarCustomersLoading.value) return
+  if (!showSidebarCustomers.value) {
+    sidebarCustomers.value = []
+    return
+  }
+  sidebarCustomersLoading.value = true
+  try {
+    const result = await queryCustomerList({
+      page: 1,
+      limit: SIDEBAR_CUSTOMER_LIMIT,
+      sortBy: 'createTime',
+      sortOrder: 'desc'
+    })
+    sidebarCustomers.value = result.list || []
+  } catch (error) {
+    console.error('Load sidebar customers failed:', error)
+    sidebarCustomers.value = []
+  } finally {
+    sidebarCustomersLoading.value = false
+  }
+}
 
 const groupedHistoryChatSessions = computed(() => groupSessionsByTime(filteredHistorySessions.value))
 
@@ -1597,50 +1539,25 @@ async function handleSelectSession(sessionId: string) {
   chatStore.requestComposerFocus()
 }
 
-async function handleSelectHistorySession(sessionId: string) {
-  recentHistoryDrawerOpen.value = false
+async function handleSelectSessionFromMore(sessionId: string) {
+  recentChatSessionsMoreVisible.value = false
   await handleSelectSession(sessionId)
-}
-
-async function fetchSidebarCustomers() {
-  if (!showSidebarCustomers.value) {
-    sidebarCustomers.value = []
-    return
-  }
-  sidebarCustomersLoading.value = true
-  try {
-    const result = await queryCustomerList({ page: 1, limit: 10 })
-    sidebarCustomers.value = result.list || []
-  } catch (error) {
-    console.error('Load sidebar customers failed:', error)
-    sidebarCustomers.value = []
-  } finally {
-    sidebarCustomersLoading.value = false
-  }
-}
-
-async function handleSelectSidebarCustomer(customer: CustomerListVO) {
-  selectedPrimaryKey.value = ''
-  await router.push('/chat')
-  await chatStore.openCustomerChat(customer)
-  chatStore.requestComposerFocus()
-}
-
-function goCustomerList() {
-  selectedPrimaryKey.value = 'crm'
-  navigateTo('/customer')
-}
-
-function getCustomerInitial(name?: string) {
-  return (name || '客').trim().charAt(0) || '客'
-}
-
-function isSidebarCustomerActive(customerId?: string): boolean {
-  return route.path.startsWith('/chat') && String(chatStore.currentSession?.customerId || '') === String(customerId || '')
 }
 
 function isSessionActive(sessionId: string): boolean {
   return route.path.startsWith('/chat') && chatStore.currentSessionId === sessionId
+}
+
+function isCustomerActive(customerId: string): boolean {
+  const raw = route.query.customerId
+  const current = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : ''
+  return route.path.startsWith('/chat') && String(current) === String(customerId)
+}
+
+async function handleSelectCustomerChat(customer: CustomerListVO) {
+  selectedPrimaryKey.value = ''
+  await router.push({ path: '/chat', query: { customerId: customer.customerId } })
+  chatStore.requestComposerFocus()
 }
 
 async function handleDeleteSession(sessionId: string) {
@@ -1855,6 +1772,7 @@ async function handleLogout() {
 
 function handleCreateCustomerSuccess(payload: { mode: 'create' | 'edit'; customerId?: string }) {
   appEvents.emit(APP_EVENT.CUSTOMER_LIST_REFRESH)
+  void fetchSidebarCustomers()
   if (payload.mode === 'create' && payload.customerId) {
     void router.push(`/customer/${payload.customerId}`)
   }
