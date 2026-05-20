@@ -245,6 +245,10 @@ public class CustomerTools {
             String normalizedCompanyName = normalizeOptionalText(companyName);
             boolean companyNameUsedForLookup = normalizedCustomerIdentifier == null && normalizedCompanyName != null;
             String customerIdentifier = companyNameUsedForLookup ? normalizedCompanyName : normalizedCustomerIdentifier;
+            if (customerIdentifier == null) {
+                Long boundCustomerId = AiContextHolder.getCurrentCustomerId();
+                customerIdentifier = boundCustomerId == null ? null : String.valueOf(boundCustomerId);
+            }
 
             if (customerIdentifier == null) {
                 return "更新客户失败: 缺少客户标识参数";
@@ -363,6 +367,10 @@ public class CustomerTools {
 
         try {
             String normalizedIdentifier = normalizeRequiredText(customerIdentifier);
+            if (normalizedIdentifier == null) {
+                Long boundCustomerId = AiContextHolder.getCurrentCustomerId();
+                normalizedIdentifier = boundCustomerId == null ? null : String.valueOf(boundCustomerId);
+            }
             if (normalizedIdentifier == null) {
                 return "获取客户详情失败: 缺少客户标识参数";
             }

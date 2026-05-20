@@ -63,6 +63,8 @@ public class KnowledgeTools {
                 } catch (NumberFormatException ignore) {
                     log.debug("忽略无效的 customerId: {}", customerIdStr);
                 }
+            } else {
+                customerId = AiContextHolder.getCurrentCustomerId();
             }
 
             KnowledgeQueryBO queryBO = new KnowledgeQueryBO();

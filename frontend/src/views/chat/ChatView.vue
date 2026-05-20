@@ -370,6 +370,14 @@
                       <WkIcon name="copy" :box-size="18" class="shrink-0 material-symbols-outlined leading-none" title="复制内容" />
                     </button>
                   </div>
+                  <div
+                    v-if="boundCustomerName"
+                    class="flex min-w-0 items-center gap-1.5 px-2 pb-1 pt-2 text-[12px] leading-5 text-[#5f6368]"
+                  >
+                    <WkIcon name="customer" :size="14" class="shrink-0 text-[#8f8f8f]" />
+                    <span class="shrink-0">当前客户：</span>
+                    <span class="min-w-0 truncate font-medium text-[#0d0d0d]">{{ boundCustomerName }}</span>
+                  </div>
                 </div>
               </div>
             </template>
@@ -1228,6 +1236,12 @@
       </template>
     </div>
 
+    <CustomerChatInfoPanel
+      v-if="boundCustomerId && !isMobile && currentView === 'chat'"
+      :customer-id="boundCustomerId"
+      class="shrink-0"
+    />
+
     <ChatKnowledgePickerModal
       v-model="chatKnowledgePickerVisible"
       :remaining-slots="Math.max(0, MAX_FILE_COUNT - selectedFiles.length - selectedKnowledgeItems.length)"
@@ -1274,6 +1288,7 @@ import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO, Knowledge, ChatM
 import { wkIconNames } from '@/components/common/wkIcon'
 import type { WkIconName } from '@/components/common/wkIcon'
 import ChatKnowledgePickerModal from '@/components/chat/ChatKnowledgePickerModal.vue'
+import CustomerChatInfoPanel from '@/views/chat/components/CustomerChatInfoPanel.vue'
 import dashscopeBrandUrl from '@/assets/model-provider-brands/dashscope.svg?url'
 import openaiBrandUrl from '@/assets/model-provider-brands/openai.svg?url'
 import deepseekBrandUrl from '@/assets/model-provider-brands/deepseek.svg?url'
@@ -1293,6 +1308,13 @@ const userStore = useUserStore()
 const enterpriseStore = useEnterpriseStore()
 const { isMobile } = useResponsive()
 const { aiConfig, loadAiConfig, ensureAiAvailableForSend } = useAiQuota()
+const boundCustomerId = computed(() => {
+  const customerId = chatStore.currentSession?.customerId
+  return customerId ? String(customerId) : ''
+})
+const boundCustomerName = computed(() =>
+  boundCustomerId.value ? (chatStore.currentSession?.customerName || chatStore.currentSession?.title || '') : ''
+)
 
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)

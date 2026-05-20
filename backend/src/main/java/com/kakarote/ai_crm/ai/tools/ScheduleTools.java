@@ -2,6 +2,7 @@ package com.kakarote.ai_crm.ai.tools;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.tools.support.AiCustomerMatcher;
 import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.entity.BO.ScheduleAddBO;
@@ -234,6 +235,10 @@ public class ScheduleTools {
      */
     private CustomerResolveResult resolveCustomerById(String customerIdStr, String actionName) {
         String normalizedCustomerId = normalizeOptionalText(customerIdStr);
+        if (normalizedCustomerId == null) {
+            Long boundCustomerId = AiContextHolder.getCurrentCustomerId();
+            normalizedCustomerId = boundCustomerId == null ? null : String.valueOf(boundCustomerId);
+        }
         if (normalizedCustomerId == null) {
             return new CustomerResolveResult(null, null);
         }

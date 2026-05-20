@@ -180,10 +180,10 @@
             </div>
 
             <template v-else>
-              <template v-if="groupedChatSessions.today.length > 0">
+              <template v-if="groupedRecentChatSessions.today.length > 0">
                 <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">今天</p> -->
                 <button
-                  v-for="session in groupedChatSessions.today"
+                  v-for="session in groupedRecentChatSessions.today"
                   :key="session.sessionId"
                   class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
                   :class="isSessionActive(session.sessionId)
@@ -201,10 +201,10 @@
                 </button>
               </template>
 
-              <template v-if="groupedChatSessions.yesterday.length > 0">
+              <template v-if="groupedRecentChatSessions.yesterday.length > 0">
                 <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">昨天</p> -->
                 <button
-                  v-for="session in groupedChatSessions.yesterday"
+                  v-for="session in groupedRecentChatSessions.yesterday"
                   :key="session.sessionId"
                   class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[0px] ml-[2px] mr-[6px] text-left transition-all"
                   :class="isSessionActive(session.sessionId)
@@ -222,10 +222,10 @@
                 </button>
               </template>
 
-              <template v-if="groupedChatSessions.earlier.length > 0">
+              <template v-if="groupedRecentChatSessions.earlier.length > 0">
                 <!-- <p class="px-3 pt-2 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">更早</p> -->
                 <button
-                  v-for="session in groupedChatSessions.earlier"
+                  v-for="session in groupedRecentChatSessions.earlier"
                   :key="session.sessionId"
                   class="group w-full min-w-0 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
                   :class="isSessionActive(session.sessionId)
@@ -243,6 +243,75 @@
                 </button>
               </template>
             </template>
+
+            <button
+              v-if="chatStore.sessions.length > 5"
+              type="button"
+              class="mt-1 flex w-full items-center justify-between rounded-[8px] px-[10px] py-[7px] text-left text-sm text-[#5f6368] transition-colors hover:bg-[#f9f9f9]"
+              @click="recentHistoryDrawerOpen = true"
+            >
+              <span>更多</span>
+              <span class="material-symbols-outlined text-[18px] text-[#c9c9c9]">chevron_right</span>
+            </button>
+            </div>
+          </div>
+
+          <div v-if="showSidebarCustomers" class="space-y-1 pt-2">
+            <button
+              type="button"
+              class="group flex w-full items-center justify-between gap-1 rounded-lg pb-0 pl-3 pr-1 text-left transition-colors mt-[10px] mb-[0px]"
+              :aria-expanded="sidebarCustomersExpanded"
+              aria-controls="sidebar-customers-panel"
+              @click="sidebarCustomersExpanded = !sidebarCustomersExpanded"
+            >
+              <span class="min-w-0 text-[14px] font-semibold tracking-tight text-[#0d0d0d]">客户</span>
+              <span
+                class="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150 pr-[2px]"
+                :class="sidebarCustomersExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'"
+                aria-hidden="true"
+              >
+                <span class="material-symbols-outlined inline-flex h-5 shrink-0 items-center justify-end self-center text-[18px] leading-none text-[#c9c9c9]">
+                  {{ sidebarCustomersExpanded ? 'keyboard_arrow_down' : 'chevron_right' }}
+                </span>
+              </span>
+            </button>
+
+            <div id="sidebar-customers-panel" v-show="sidebarCustomersExpanded">
+              <div v-if="sidebarCustomersLoading" class="flex justify-center py-4">
+                <span class="material-symbols-outlined animate-spin text-slate-300">progress_activity</span>
+              </div>
+              <div v-else-if="sidebarCustomers.length === 0" class="px-3 py-4 text-center text-xs text-slate-400">
+                暂无客户
+              </div>
+              <template v-else>
+                <button
+                  v-for="customer in sidebarCustomers"
+                  :key="customer.customerId"
+                  type="button"
+                  class="group flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-[8px] pl-[10px] pr-[10px] py-[6px] mt-[1px] ml-[2px] mr-[6px] text-left transition-all"
+                  :class="isSidebarCustomerActive(customer.customerId) ? 'bg-[#f3f3f3]' : 'hover:bg-[#f9f9f9]'"
+                  @click="handleSelectSidebarCustomer(customer)"
+                >
+                  <span class="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#f3f4f6] text-[11px] font-semibold text-[#5f6368]">
+                    <img
+                      v-if="customer.logoUrl || customer.logo"
+                      :src="customer.logoUrl || customer.logo"
+                      class="h-full w-full object-cover"
+                      alt=""
+                    />
+                    <span v-else>{{ getCustomerInitial(customer.companyName) }}</span>
+                  </span>
+                  <span class="min-w-0 flex-1 truncate text-sm text-[#0d0d0d]">{{ customer.companyName }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="mt-1 flex w-full items-center justify-between rounded-[8px] px-[10px] py-[7px] text-left text-sm text-[#5f6368] transition-colors hover:bg-[#f9f9f9]"
+                  @click="goCustomerList"
+                >
+                  <span>查看更多</span>
+                  <span class="material-symbols-outlined text-[18px] text-[#c9c9c9]">chevron_right</span>
+                </button>
+              </template>
             </div>
           </div>
           </template>
@@ -866,6 +935,50 @@
       </main>
     </div>
 
+    <el-drawer
+      v-model="recentHistoryDrawerOpen"
+      title="历史对话"
+      direction="ltr"
+      size="360px"
+      :append-to-body="true"
+      custom-class="recent-history-drawer"
+    >
+      <div class="flex h-full min-h-0 flex-col">
+        <el-input
+          v-model="recentHistoryKeyword"
+          clearable
+          placeholder="搜索对话"
+          class="mb-3"
+        />
+        <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div v-if="filteredHistorySessions.length === 0" class="px-3 py-8 text-center text-sm text-slate-400">
+            暂无匹配对话
+          </div>
+          <template v-else>
+            <template v-for="group in historySessionGroups" :key="group.key">
+              <div v-if="group.sessions.length > 0" class="mb-3">
+                <p class="px-1 pb-1 text-xs font-semibold text-slate-400">{{ group.label }}</p>
+                <button
+                  v-for="session in group.sessions"
+                  :key="session.sessionId"
+                  class="group w-full min-w-0 overflow-hidden rounded-[8px] px-[10px] py-[7px] text-left transition-all"
+                  :class="isSessionActive(session.sessionId) ? 'bg-[#f3f3f3]' : 'hover:bg-[#f9f9f9]'"
+                  @click="handleSelectHistorySession(session.sessionId)"
+                >
+                  <ChatSessionActionsPopover
+                    :session="session"
+                    :active="isSessionActive(session.sessionId)"
+                    @share="handleShareChatSession"
+                    @delete="handleDeleteSession"
+                  />
+                </button>
+              </div>
+            </template>
+          </template>
+        </div>
+      </div>
+    </el-drawer>
+
     <CustomerUpsertDialog v-model="showCreateCustomer" mode="create" @success="handleCreateCustomerSuccess" />
     <AccountSettingsModal v-model="showAccountSettingsModal" />
     <FloatingActionButton v-if="route.path !== '/chat' && !chatDrawerOpen" />
@@ -888,6 +1001,7 @@ import ChatSessionActionsPopover from '@/components/layout/ChatSessionActionsPop
 import CustomerUpsertDialog from '@/views/customer/components/CustomerUpsertDialog.vue'
 import type { WkIconName } from '@/components/common/wkIcon'
 import { queryGlobalSearch, type GlobalSearchResult } from '@/api/search'
+import { queryCustomerList } from '@/api/customer'
 import { useChatDrawer } from '@/composables/useChatDrawer'
 import { useEnterpriseStore } from '@/stores/enterprise'
 import { useResponsive } from '@/composables/useResponsive'
@@ -897,6 +1011,7 @@ import { useUserStore } from '@/stores/user'
 import { appEvents, APP_EVENT } from '@/utils/events'
 import { confirmDeleteChatSession } from '@/utils/confirmDeleteChatSession'
 import type { ChatSession } from '@/types/common'
+import type { CustomerListVO } from '@/types/customer'
 
 const route = useRoute()
 const router = useRouter()
@@ -982,6 +1097,11 @@ function onPrimaryNavScroll() {
 }
 /** PC 侧栏「最近」对话列表折叠 */
 const recentChatSessionsExpanded = ref(true)
+const recentHistoryDrawerOpen = ref(false)
+const recentHistoryKeyword = ref('')
+const sidebarCustomersExpanded = ref(true)
+const sidebarCustomers = ref<CustomerListVO[]>([])
+const sidebarCustomersLoading = ref(false)
 const showUserMenu = ref(false)
 const showAccountSettingsModal = ref(false)
 const showCreateCustomer = ref(false)
@@ -996,6 +1116,17 @@ const searchPanelRef = ref<HTMLElement | null>(null)
 
 let globalSearchTimer: ReturnType<typeof setTimeout> | null = null
 let globalSearchRequestId = 0
+
+const showSidebarCustomers = computed(() => userStore.hasPermission('customer'))
+
+watch(showSidebarCustomers, visible => {
+  if (visible && sidebarCustomers.value.length === 0) {
+    void fetchSidebarCustomers()
+  }
+  if (!visible) {
+    sidebarCustomers.value = []
+  }
+})
 
 type MainNavItem = {
   key: string
@@ -1251,6 +1382,9 @@ function updatePrimaryNavScrollbar() {
 onMounted(() => {
   enterpriseStore.loadConfig()
   void chatStore.fetchSessions()
+  if (showSidebarCustomers.value) {
+    void fetchSidebarCustomers()
+  }
   document.addEventListener('click', handleDocumentClick)
 
   if (typeof ResizeObserver !== 'undefined') {
@@ -1308,6 +1442,8 @@ watch(
     pcMainNavGroups.value.length,
     chatStore.sessions.length,
     chatStore.sessionsLoading,
+    sidebarCustomers.value.length,
+    sidebarCustomersExpanded.value,
   ],
   () => {
     queueMicrotask(() => updatePrimaryNavScrollbar())
@@ -1355,7 +1491,13 @@ function handlePrimaryNavClick(item: MainNavItem) {
   navigateTo(item.route)
 }
 
-const groupedChatSessions = computed(() => {
+type ChatSessionGroups = {
+  today: ChatSession[]
+  yesterday: ChatSession[]
+  earlier: ChatSession[]
+}
+
+function groupSessionsByTime(sessions: ChatSession[]): ChatSessionGroups {
   const today: ChatSession[] = []
   const yesterday: ChatSession[] = []
   const earlier: ChatSession[] = []
@@ -1363,7 +1505,7 @@ const groupedChatSessions = computed(() => {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const yesterdayStart = todayStart - 86400000
 
-  for (const session of chatStore.sessions) {
+  for (const session of sessions) {
     const time = new Date(session.updateTime || session.createTime).getTime()
     if (time >= todayStart) {
       today.push(session)
@@ -1375,7 +1517,29 @@ const groupedChatSessions = computed(() => {
   }
 
   return { today, yesterday, earlier }
+}
+
+const sidebarRecentSessions = computed(() => chatStore.sessions.slice(0, 5))
+
+const groupedRecentChatSessions = computed(() => groupSessionsByTime(sidebarRecentSessions.value))
+
+const filteredHistorySessions = computed(() => {
+  const keyword = recentHistoryKeyword.value.trim().toLowerCase()
+  if (!keyword) return chatStore.sessions
+  return chatStore.sessions.filter(session => {
+    const title = (session.title || '').toLowerCase()
+    const customerName = (session.customerName || '').toLowerCase()
+    return title.includes(keyword) || customerName.includes(keyword)
+  })
 })
+
+const groupedHistoryChatSessions = computed(() => groupSessionsByTime(filteredHistorySessions.value))
+
+const historySessionGroups = computed(() => [
+  { key: 'today', label: '今天', sessions: groupedHistoryChatSessions.value.today },
+  { key: 'yesterday', label: '昨天', sessions: groupedHistoryChatSessions.value.yesterday },
+  { key: 'earlier', label: '更早', sessions: groupedHistoryChatSessions.value.earlier },
+])
 
 async function handleNewSession() {
   selectedPrimaryKey.value = ''
@@ -1400,6 +1564,48 @@ async function handleSelectSession(sessionId: string) {
   await router.push('/chat')
   await chatStore.selectSession(sessionId)
   chatStore.requestComposerFocus()
+}
+
+async function handleSelectHistorySession(sessionId: string) {
+  recentHistoryDrawerOpen.value = false
+  await handleSelectSession(sessionId)
+}
+
+async function fetchSidebarCustomers() {
+  if (!showSidebarCustomers.value) {
+    sidebarCustomers.value = []
+    return
+  }
+  sidebarCustomersLoading.value = true
+  try {
+    const result = await queryCustomerList({ page: 1, limit: 10 })
+    sidebarCustomers.value = result.list || []
+  } catch (error) {
+    console.error('Load sidebar customers failed:', error)
+    sidebarCustomers.value = []
+  } finally {
+    sidebarCustomersLoading.value = false
+  }
+}
+
+async function handleSelectSidebarCustomer(customer: CustomerListVO) {
+  selectedPrimaryKey.value = ''
+  await router.push('/chat')
+  await chatStore.openCustomerChat(customer)
+  chatStore.requestComposerFocus()
+}
+
+function goCustomerList() {
+  selectedPrimaryKey.value = 'crm'
+  navigateTo('/customer')
+}
+
+function getCustomerInitial(name?: string) {
+  return (name || '客').trim().charAt(0) || '客'
+}
+
+function isSidebarCustomerActive(customerId?: string): boolean {
+  return route.path.startsWith('/chat') && String(chatStore.currentSession?.customerId || '') === String(customerId || '')
 }
 
 function isSessionActive(sessionId: string): boolean {

@@ -2,6 +2,7 @@ package com.kakarote.ai_crm.ai.tools;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.tools.support.AiCustomerMatcher;
 import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.entity.BO.FollowUpAddBO;
@@ -143,6 +144,14 @@ public class FollowupTools {
 
         try {
             if (StrUtil.isBlank(customerName) || "null".equalsIgnoreCase(customerName)) {
+                CustomerResolveResult boundCustomerResolve = resolveCustomerById(null, "queryFollowUps");
+                if (boundCustomerResolve.errorMessage() != null) {
+                    return boundCustomerResolve.errorMessage();
+                }
+                if (boundCustomerResolve.customer() != null) {
+                    List<FollowUpVO> followUps = followUpService.queryByCustomer(boundCustomerResolve.customer().getCustomerId());
+                    return formatFollowUpList(boundCustomerResolve.customer().getCompanyName(), followUps);
+                }
                 return "查询跟进记录失败: 缺少客户名称";
             }
 
@@ -158,21 +167,7 @@ public class FollowupTools {
             }
 
             List<FollowUpVO> followUps = followUpService.queryByCustomer(customerMatch.getCustomer().getCustomerId());
-            if (followUps.isEmpty()) {
-                return "该客户暂无跟进记录。";
-            }
-
-            StringBuilder sb = new StringBuilder();
-            sb.append(String.format("## %s 的跟进记录（共%d条）%n%n", customerMatch.getCustomer().getCompanyName(), followUps.size()));
-            for (FollowUpVO vo : followUps) {
-                String time = vo.getFollowTime() != null ? formatDateTime(vo.getFollowTime()) : "未知";
-                sb.append(String.format("- **[%s]** %s - %s", getTypeName(vo.getType()), time, vo.getContent()));
-                if (vo.getNextFollowTime() != null) {
-                    sb.append(String.format("（下次跟进: %s）", formatDateTime(vo.getNextFollowTime())));
-                }
-                sb.append("\n");
-            }
-            return sb.toString();
+            return formatFollowUpList(customerMatch.getCustomer().getCompanyName(), followUps);
         } catch (Exception e) {
             return "查询跟进记录失败: " + e.getMessage();
         }
@@ -262,6 +257,10 @@ public class FollowupTools {
     private CustomerResolveResult resolveCustomerById(String customerIdStr, String actionName) {
         String normalizedCustomerId = normalizeOptionalText(customerIdStr);
         if (normalizedCustomerId == null) {
+            Long boundCustomerId = AiContextHolder.getCurrentCustomerId();
+            normalizedCustomerId = boundCustomerId == null ? null : String.valueOf(boundCustomerId);
+        }
+        if (normalizedCustomerId == null) {
             return new CustomerResolveResult(null, null);
         }
 
@@ -293,6 +292,24 @@ public class FollowupTools {
             return null;
         }
         return normalized;
+    }
+
+    private String formatFollowUpList(String companyName, List<FollowUpVO> followUps) {
+        if (followUps.isEmpty()) {
+            return "该客户暂无跟进记录。";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("## %s 的跟进记录（共%d条）%n%n", companyName, followUps.size()));
+        for (FollowUpVO vo : followUps) {
+            String time = vo.getFollowTime() != null ? formatDateTime(vo.getFollowTime()) : "未知";
+            sb.append(String.format("- **[%s]** %s - %s", getTypeName(vo.getType()), time, vo.getContent()));
+            if (vo.getNextFollowTime() != null) {
+                sb.append(String.format("（下次跟进: %s）", formatDateTime(vo.getNextFollowTime())));
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 
     private record CustomerResolveResult(Customer customer, String errorMessage) {

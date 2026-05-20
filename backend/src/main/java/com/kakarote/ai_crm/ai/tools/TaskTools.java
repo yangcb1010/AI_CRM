@@ -1,11 +1,14 @@
 package com.kakarote.ai_crm.ai.tools;
 
 import cn.hutool.core.util.StrUtil;
+import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.tools.support.AiCustomerMatcher;
 import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.entity.BO.TaskAddBO;
 import com.kakarote.ai_crm.entity.BO.TaskUpdateBO;
+import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.VO.TaskVO;
+import com.kakarote.ai_crm.service.ICustomerService;
 import com.kakarote.ai_crm.service.ITaskService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -25,6 +28,9 @@ public class TaskTools {
 
     @Autowired
     private ITaskService taskService;
+
+    @Autowired
+    private ICustomerService customerService;
 
     @Autowired
     private AiCustomerMatcher aiCustomerMatcher;
@@ -116,6 +122,12 @@ public class TaskTools {
                 } else {
                     log.info("未找到客户「{}」，中止创建任务并提示先创建客户", customerName);
                     return "创建任务失败: 系统中未找到名为「" + customerName + "」的客户。请先创建该客户后再创建任务，或确认客户名称是否正确。";
+                }
+            } else {
+                Customer boundCustomer = resolveBoundCustomer();
+                if (boundCustomer != null) {
+                    customerId = boundCustomer.getCustomerId();
+                    matchedCompanyName = boundCustomer.getCompanyName();
                 }
             }
 
@@ -273,6 +285,18 @@ public class TaskTools {
      */
     private boolean hasTextValue(String value) {
         return StrUtil.isNotBlank(value) && !"null".equalsIgnoreCase(StrUtil.trim(value));
+    }
+
+    private Customer resolveBoundCustomer() {
+        Long customerId = AiContextHolder.getCurrentCustomerId();
+        if (customerId == null) {
+            return null;
+        }
+        Customer customer = customerService.getById(customerId);
+        if (customer == null || Integer.valueOf(0).equals(customer.getStatus())) {
+            return null;
+        }
+        return customer;
     }
 
     /**

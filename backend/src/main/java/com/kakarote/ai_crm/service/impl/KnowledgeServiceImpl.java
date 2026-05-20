@@ -181,6 +181,50 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return knowledge.getKnowledgeId();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long archiveExistingFile(String fileName, String filePath, Long fileSize, String mimeType, Long customerId, String summary) {
+        if (customerId == null) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不能为空");
+        }
+        Customer customer = customerMapper.selectById(customerId);
+        if (ObjectUtil.isNull(customer)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不存在或无权限访问");
+        }
+        if (StrUtil.isBlank(filePath)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "文件路径不能为空");
+        }
+
+        String normalizedFileName = StrUtil.blankToDefault(fileName, FileUtil.getName(filePath));
+        Knowledge knowledge = new Knowledge();
+        knowledge.setName(normalizedFileName);
+        knowledge.setType("document");
+        knowledge.setCustomerId(customerId);
+        knowledge.setFilePath(filePath);
+        knowledge.setFileSize(fileSize);
+        knowledge.setMimeType(mimeType);
+        knowledge.setSummary(summary);
+        knowledge.setContentText(extractSearchableContent(filePath, mimeType, normalizedFileName));
+        knowledge.setUploadUserId(UserUtil.getUserId());
+
+        boolean weKnoraSupported = weKnoraClient.isSupportedFileType(normalizedFileName);
+        if (weKnoraSupported) {
+            knowledge.setWeKnoraParseStatus("pending");
+        } else {
+            knowledge.setWeKnoraParseStatus("unsupported");
+            log.info("聊天附件类型不被 WeKnora 支持，跳过 RAG 解析: {}", normalizedFileName);
+        }
+
+        save(knowledge);
+
+        if (weKnoraClient.isEnabled() && weKnoraSupported) {
+            self.asyncUploadToWeKnora(knowledge.getKnowledgeId(), filePath, normalizedFileName, UserUtil.getTenantId());
+        }
+
+        globalSearchIndexService.refreshKnowledgeIndex(knowledge.getKnowledgeId());
+        return knowledge.getKnowledgeId();
+    }
+
     /**
      * 异步上传文件到 WeKnora（传入 tenantId 解决 @Async 线程上下文丢失问题）
      */

@@ -24,6 +24,11 @@ public interface IKnowledgeService extends IService<Knowledge> {
     Long uploadFile(MultipartFile file, String type, Long customerId, String summary);
 
     /**
+     * 将已经上传到文件存储的文件归档到知识库/文档中心。
+     */
+    Long archiveExistingFile(String fileName, String filePath, Long fileSize, String mimeType, Long customerId, String summary);
+
+    /**
      * 删除知识库文件
      */
     void deleteKnowledge(Long knowledgeId);

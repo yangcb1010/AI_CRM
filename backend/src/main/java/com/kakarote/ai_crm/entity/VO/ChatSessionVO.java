@@ -30,6 +30,9 @@ public class ChatSessionVO {
     @Schema(description = "关联客户名称")
     private String customerName;
 
+    @Schema(description = "关联客户Logo访问地址")
+    private String customerLogoUrl;
+
     @Schema(description = "会话标题")
     private String title;
 

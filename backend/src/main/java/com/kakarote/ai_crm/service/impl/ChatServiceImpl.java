@@ -22,6 +22,7 @@ import com.kakarote.ai_crm.entity.BO.SessionCreateBO;
 import com.kakarote.ai_crm.entity.PO.ChatAttachment;
 import com.kakarote.ai_crm.entity.PO.ChatMessage;
 import com.kakarote.ai_crm.entity.PO.ChatSession;
+import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.VO.ChatAppOptionVO;
 import com.kakarote.ai_crm.entity.VO.AiModelOptionVO;
 import com.kakarote.ai_crm.entity.VO.ChatMessageVO;
@@ -29,6 +30,7 @@ import com.kakarote.ai_crm.entity.VO.ChatSessionVO;
 import com.kakarote.ai_crm.entity.VO.KnowledgeVO;
 import com.kakarote.ai_crm.mapper.ChatMessageMapper;
 import com.kakarote.ai_crm.mapper.ChatSessionMapper;
+import com.kakarote.ai_crm.mapper.CustomerMapper;
 import com.kakarote.ai_crm.service.*;
 import com.kakarote.ai_crm.utils.AiMediaUtil;
 import com.kakarote.ai_crm.utils.DocumentTextExtractor;
@@ -73,6 +75,9 @@ public class ChatServiceImpl implements IChatService {
     private ChatSessionMapper chatSessionMapper;
 
     @Autowired
+    private CustomerMapper customerMapper;
+
+    @Autowired
     private ChatMessageMapper chatMessageMapper;
 
     @Autowired
@@ -101,6 +106,12 @@ public class ChatServiceImpl implements IChatService {
 
     @Autowired
     private ICrmTenantService tenantService;
+
+    @Autowired
+    private CustomerLogoService customerLogoService;
+
+    @Autowired
+    private PermissionService permissionService;
 
     private static final int MAX_EXTRACTED_TEXT_LENGTH = 3000;
 
@@ -262,11 +273,18 @@ public class ChatServiceImpl implements IChatService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createSession(SessionCreateBO sessionCreateBO) {
+        Customer boundCustomer = validateVisibleCustomer(sessionCreateBO.getCustomerId());
+        String appCode = sessionCreateBO.getAppCode();
+        if (boundCustomer != null && StrUtil.isBlank(appCode)) {
+            appCode = ChatApplicationCodes.CRM;
+        }
+
         ChatSession session = new ChatSession();
-        session.setTitle(sessionCreateBO.getTitle());
+        session.setTitle(StrUtil.blankToDefault(sessionCreateBO.getTitle(),
+            boundCustomer != null ? boundCustomer.getCompanyName() : sessionCreateBO.getTitle()));
         session.setAgentId(sessionCreateBO.getAgentId());
         session.setCustomerId(sessionCreateBO.getCustomerId());
-        session.setAppCode(chatApplicationRegistry.normalize(sessionCreateBO.getAppCode()));
+        session.setAppCode(chatApplicationRegistry.normalize(appCode));
         session.setUserId(UserUtil.getUserId());
         session.setCreateTime(new Date());
         session.setUpdateTime(new Date());
@@ -285,7 +303,9 @@ public class ChatServiceImpl implements IChatService {
                 .eq(ChatSession::getUserId, userId)
                 .orderByDesc(ChatSession::getUpdateTime)
         );
-        return BeanUtil.copyToList(sessions, ChatSessionVO.class);
+        List<ChatSessionVO> voList = BeanUtil.copyToList(sessions, ChatSessionVO.class);
+        populateSessionCustomerFields(voList);
+        return voList;
     }
 
     /**
@@ -401,16 +421,19 @@ public class ChatServiceImpl implements IChatService {
         ChatSession session = getRequiredSession(sessionId);
         ChatApplicationDefinition application = resolveChatApplication(sendBO, session);
         persistSessionAppCodeIfNeeded(session, application.code());
+        Customer boundCustomer = resolveSessionCustomer(session);
         if (currentUserId != null) {
             // Spring Security 上下文不会自动透传到 Reactor 线程，这里先把会话级上下文放进自定义 Holder 供工具调用读取。
-            AiContextHolder.setContext(sessionId, currentUserId, currentTenantId);
-            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}", sessionId, currentUserId, currentTenantId);
+            AiContextHolder.setContext(sessionId, currentUserId, currentTenantId, session.getCustomerId());
+            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}, customerId={}",
+                sessionId, currentUserId, currentTenantId, session.getCustomerId());
         }
 
         Long messageId = saveMessage(sessionId, "user", content);
 
         if (CollUtil.isNotEmpty(attachments)) {
             chatAttachmentService.saveBatchAttachments(messageId, attachments);
+            archiveCustomerChatAttachments(session, messageId, attachments);
         }
 
         boolean ragEnabled = resolveRagEnabled(sendBO, application);
@@ -444,6 +467,10 @@ public class ChatServiceImpl implements IChatService {
         String enhancedSystemPrompt = buildSystemPrompt(application);
         if (StrUtil.isNotBlank(knowledgeToolPrompt)) {
             enhancedSystemPrompt = enhancedSystemPrompt + "\n\n" + knowledgeToolPrompt;
+        }
+        String customerContext = buildBoundCustomerContext(boundCustomer);
+        if (StrUtil.isNotBlank(customerContext)) {
+            enhancedSystemPrompt = enhancedSystemPrompt + "\n\n" + customerContext;
         }
 
         String enhancedContent = content;
@@ -606,15 +633,18 @@ public class ChatServiceImpl implements IChatService {
         ChatSession session = getRequiredSession(sessionId);
         ChatApplicationDefinition application = resolveChatApplication(sendBO, session);
         persistSessionAppCodeIfNeeded(session, application.code());
+        Customer boundCustomer = resolveSessionCustomer(session);
         if (currentUserId != null) {
-            AiContextHolder.setContext(sessionId, currentUserId, currentTenantId);
-            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}", sessionId, currentUserId, currentTenantId);
+            AiContextHolder.setContext(sessionId, currentUserId, currentTenantId, session.getCustomerId());
+            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}, customerId={}",
+                sessionId, currentUserId, currentTenantId, session.getCustomerId());
         }
 
         Long messageId = saveMessage(sessionId, "user", content);
 
         if (CollUtil.isNotEmpty(attachments)) {
             chatAttachmentService.saveBatchAttachments(messageId, attachments);
+            archiveCustomerChatAttachments(session, messageId, attachments);
         }
 
         boolean ragEnabled = resolveRagEnabled(sendBO, application);
@@ -644,6 +674,10 @@ public class ChatServiceImpl implements IChatService {
         String enhancedSystemPrompt = buildSystemPrompt(application);
         if (StrUtil.isNotBlank(knowledgeToolPrompt)) {
             enhancedSystemPrompt = enhancedSystemPrompt + "\n\n" + knowledgeToolPrompt;
+        }
+        String customerContext = buildBoundCustomerContext(boundCustomer);
+        if (StrUtil.isNotBlank(customerContext)) {
+            enhancedSystemPrompt = enhancedSystemPrompt + "\n\n" + customerContext;
         }
 
         String enhancedContent = content;
@@ -1065,6 +1099,115 @@ public class ChatServiceImpl implements IChatService {
         return session;
     }
 
+    private Customer validateVisibleCustomer(Long customerId) {
+        if (customerId == null) {
+            return null;
+        }
+        Customer customer = customerMapper.selectById(customerId);
+        if (customer == null || Integer.valueOf(0).equals(customer.getStatus())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不存在或无权限访问");
+        }
+        return customer;
+    }
+
+    private Customer resolveSessionCustomer(ChatSession session) {
+        return session == null ? null : validateVisibleCustomer(session.getCustomerId());
+    }
+
+    private void populateSessionCustomerFields(List<ChatSessionVO> sessions) {
+        if (CollUtil.isEmpty(sessions)) {
+            return;
+        }
+        Set<Long> customerIds = sessions.stream()
+            .map(ChatSessionVO::getCustomerId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        if (customerIds.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Customer> customerMap = customerMapper.selectBatchIds(customerIds).stream()
+            .collect(Collectors.toMap(Customer::getCustomerId, customer -> customer, (left, right) -> left));
+        for (ChatSessionVO session : sessions) {
+            Customer customer = customerMap.get(session.getCustomerId());
+            if (customer == null) {
+                continue;
+            }
+            session.setCustomerName(customer.getCompanyName());
+            session.setCustomerLogoUrl(customerLogoService.resolveLogoUrl(customer.getLogo()));
+        }
+    }
+
+    private String buildBoundCustomerContext(Customer customer) {
+        if (customer == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("[当前绑定客户]\n")
+            .append("- customerId: ").append(customer.getCustomerId()).append("\n")
+            .append("- 公司名称: ").append(StrUtil.blankToDefault(customer.getCompanyName(), "未命名客户")).append("\n");
+        appendCustomerContextLine(builder, "行业", customer.getIndustry());
+        appendCustomerContextLine(builder, "阶段", customer.getStage());
+        appendCustomerContextLine(builder, "等级", customer.getLevel());
+        appendCustomerContextLine(builder, "来源", customer.getSource());
+        appendCustomerContextLine(builder, "主要联系人", customer.getPrimaryContactName());
+        appendCustomerContextLine(builder, "AI状态", customer.getAiStatusDetection());
+        appendCustomerContextLine(builder, "AI洞察", customer.getAiInsight());
+        if (customer.getLastContactTime() != null) {
+            builder.append("- 最后联系时间: ").append(customer.getLastContactTime()).append("\n");
+        }
+        if (customer.getNextFollowTime() != null) {
+            builder.append("- 下次跟进时间: ").append(customer.getNextFollowTime()).append("\n");
+        }
+        builder.append("当用户未显式指定其他客户时，客户、跟进、任务、日程和知识库工具默认围绕该 customerId 执行。");
+        return builder.toString();
+    }
+
+    private void appendCustomerContextLine(StringBuilder builder, String label, String value) {
+        if (StrUtil.isNotBlank(value)) {
+            builder.append("- ").append(label).append(": ").append(value).append("\n");
+        }
+    }
+
+    private void archiveCustomerChatAttachments(ChatSession session, Long messageId, List<ChatSendBO.AttachmentDTO> attachments) {
+        if (session == null || session.getCustomerId() == null || CollUtil.isEmpty(attachments)) {
+            return;
+        }
+        boolean canArchive;
+        try {
+            canArchive = permissionService.hasPermission("knowledge:upload");
+        } catch (Exception exception) {
+            log.info("检查知识库上传权限失败，跳过客户会话附件归档: sessionId={}, messageId={}, customerId={}, error={}",
+                session.getSessionId(), messageId, session.getCustomerId(), exception.getMessage());
+            return;
+        }
+        if (!canArchive) {
+            log.info("用户无知识库上传权限，跳过客户会话附件归档: sessionId={}, messageId={}, customerId={}",
+                session.getSessionId(), messageId, session.getCustomerId());
+            return;
+        }
+
+        for (ChatSendBO.AttachmentDTO attachment : attachments) {
+            if (attachment == null || StrUtil.isBlank(attachment.getFilePath())) {
+                continue;
+            }
+            try {
+                knowledgeService.archiveExistingFile(
+                    attachment.getFileName(),
+                    attachment.getFilePath(),
+                    attachment.getFileSize(),
+                    attachment.getMimeType(),
+                    session.getCustomerId(),
+                    "聊天附件自动归档，消息ID: " + messageId
+                );
+            } catch (Exception exception) {
+                log.warn("客户会话附件归档失败: sessionId={}, messageId={}, customerId={}, fileName={}, error={}",
+                    session.getSessionId(), messageId, session.getCustomerId(), attachment.getFileName(),
+                    exception.getMessage(), exception);
+            }
+        }
+    }
+
     private ChatApplicationDefinition resolveChatApplication(ChatSendBO sendBO, ChatSession session) {
         String requestedAppCode = sendBO.getAppCode();
         if (StrUtil.isBlank(requestedAppCode) && Boolean.TRUE.equals(sendBO.getRagEnabled())) {
@@ -1072,6 +1215,9 @@ public class ChatServiceImpl implements IChatService {
         }
         if (StrUtil.isBlank(requestedAppCode) && session != null && StrUtil.isNotBlank(session.getAppCode())) {
             requestedAppCode = session.getAppCode();
+        }
+        if (StrUtil.isBlank(requestedAppCode) && session != null && session.getCustomerId() != null) {
+            requestedAppCode = ChatApplicationCodes.CRM;
         }
         return chatApplicationRegistry.resolve(requestedAppCode);
     }

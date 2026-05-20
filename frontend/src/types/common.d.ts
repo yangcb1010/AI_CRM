@@ -177,6 +177,8 @@ export interface ChatSession {
   appCode?: string
   agentId?: string
   customerId?: string
+  customerName?: string
+  customerLogoUrl?: string
   createTime: string
   updateTime: string
 }

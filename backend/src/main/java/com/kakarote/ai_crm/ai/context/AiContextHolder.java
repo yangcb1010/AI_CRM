@@ -38,6 +38,8 @@ public class AiContextHolder {
      */
     private static final Map<Long, Long> SESSION_TENANT_MAP = new ConcurrentHashMap<>();
 
+    private static final Map<Long, Long> SESSION_CUSTOMER_MAP = new ConcurrentHashMap<>();
+
     /**
      * 当前正在处理的会话ID
      * 通过 Micrometer context-propagation 实现跨线程传递
@@ -49,6 +51,8 @@ public class AiContextHolder {
      * 通过 Micrometer context-propagation 实现跨线程传递
      */
     private static final ThreadLocal<Long> CURRENT_USER_ID = new ThreadLocal<>();
+
+    private static final ThreadLocal<Long> CURRENT_CUSTOMER_ID = new ThreadLocal<>();
 
     /**
      * 设置会话上下文
@@ -70,6 +74,10 @@ public class AiContextHolder {
      * @param tenantId  租户ID
      */
     public static void setContext(Long sessionId, Long userId, Long tenantId) {
+        setContext(sessionId, userId, tenantId, null);
+    }
+
+    public static void setContext(Long sessionId, Long userId, Long tenantId, Long customerId) {
         if (sessionId != null && userId != null) {
             // 存储到 Map 中（线程安全，全局可访问）
             SESSION_USER_MAP.put(sessionId, userId);
@@ -81,8 +89,15 @@ public class AiContextHolder {
                 SESSION_TENANT_MAP.put(sessionId, tenantId);
                 TenantContextHolder.setTenantId(tenantId);
             }
-            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}, 线程={}",
-                sessionId, userId, tenantId, Thread.currentThread().getName());
+            if (customerId != null) {
+                SESSION_CUSTOMER_MAP.put(sessionId, customerId);
+                CURRENT_CUSTOMER_ID.set(customerId);
+            } else {
+                SESSION_CUSTOMER_MAP.remove(sessionId);
+                CURRENT_CUSTOMER_ID.remove();
+            }
+            log.debug("设置 AI 上下文: sessionId={}, userId={}, tenantId={}, customerId={}, 线程={}",
+                sessionId, userId, tenantId, customerId, Thread.currentThread().getName());
         }
     }
 
@@ -92,6 +107,7 @@ public class AiContextHolder {
      */
     public static void bindThreadContext(Long userId, Long tenantId) {
         CURRENT_SESSION_ID.remove();
+        CURRENT_CUSTOMER_ID.remove();
         if (userId == null) {
             CURRENT_USER_ID.remove();
         } else {
@@ -134,7 +150,13 @@ public class AiContextHolder {
         if (tenantId != null) {
             TenantContextHolder.setTenantId(tenantId);
         }
-        log.trace("恢复 AI 上下文: sessionId={}, userId={}, tenantId={}", sessionId, userId, tenantId);
+        Long customerId = SESSION_CUSTOMER_MAP.get(sessionId);
+        if (customerId != null) {
+            CURRENT_CUSTOMER_ID.set(customerId);
+        } else {
+            CURRENT_CUSTOMER_ID.remove();
+        }
+        log.trace("恢复 AI 上下文: sessionId={}, userId={}, tenantId={}, customerId={}", sessionId, userId, tenantId, customerId);
     }
 
     /**
@@ -166,6 +188,17 @@ public class AiContextHolder {
         return CURRENT_SESSION_ID.get();
     }
 
+    public static Long getCurrentCustomerId() {
+        Long sessionId = CURRENT_SESSION_ID.get();
+        if (sessionId != null) {
+            Long customerId = SESSION_CUSTOMER_MAP.get(sessionId);
+            if (customerId != null) {
+                return customerId;
+            }
+        }
+        return CURRENT_CUSTOMER_ID.get();
+    }
+
     /**
      * 获取会话对应的用户ID（从全局 Map 中）
      *
@@ -187,6 +220,7 @@ public class AiContextHolder {
         // SESSION_USER_MAP 的清理应该通过 clearSession 方法显式调用
         CURRENT_SESSION_ID.remove();
         CURRENT_USER_ID.remove();
+        CURRENT_CUSTOMER_ID.remove();
     }
 
     /**
@@ -196,6 +230,7 @@ public class AiContextHolder {
         log.trace("清理线程 AI 上下文: thread={}", Thread.currentThread().getName());
         CURRENT_SESSION_ID.remove();
         CURRENT_USER_ID.remove();
+        CURRENT_CUSTOMER_ID.remove();
         TenantContextHolder.clear();
     }
 
@@ -209,6 +244,7 @@ public class AiContextHolder {
         if (sessionId != null) {
             SESSION_USER_MAP.remove(sessionId);
             SESSION_TENANT_MAP.remove(sessionId);
+            SESSION_CUSTOMER_MAP.remove(sessionId);
             log.trace("移除会话: sessionId={}", sessionId);
         }
     }

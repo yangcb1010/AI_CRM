@@ -11,6 +11,7 @@ import {
   sendMessageSync
 } from '@/api/chat'
 import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO, ChatMessage, ChatModelOption, ChatAppOption } from '@/types/common'
+import type { CustomerListVO } from '@/types/customer'
 
 interface LocalMessage {
   id: string
@@ -275,6 +276,27 @@ export const useChatStore = defineStore('chat', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function openCustomerChat(customer: Pick<CustomerListVO, 'customerId' | 'companyName'>): Promise<string> {
+    const customerId = String(customer.customerId)
+    if (sessions.value.length === 0 && !sessionsLoading.value) {
+      await fetchSessions()
+    }
+    const existingSession = sessions.value
+      .filter(session => String(session.customerId || '') === customerId)
+      .sort((a, b) => new Date(b.updateTime || b.createTime).getTime() - new Date(a.updateTime || a.createTime).getTime())[0]
+
+    if (existingSession) {
+      await selectSession(existingSession.sessionId)
+      setSelectedAppCode(CRM_APP_CODE)
+      requestComposerFocus()
+      return existingSession.sessionId
+    }
+
+    const sessionId = await startNewSession(customer.companyName || '客户对话', undefined, customerId, CRM_APP_CODE)
+    requestComposerFocus()
+    return sessionId
   }
 
   async function removeSession(sessionId: string) {
@@ -704,6 +726,7 @@ export const useChatStore = defineStore('chat', () => {
     startNewSession,
     startNewSessionIfNeeded,
     selectSession,
+    openCustomerChat,
     removeSession,
     sendMessage,
     sendMessageWithSync,
