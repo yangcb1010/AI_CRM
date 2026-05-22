@@ -154,7 +154,7 @@
               <span class="material-symbols-outlined text-base">auto_awesome</span>
               <span class="text-sm font-semibold">AI 深度洞察</span>
             </div>
-            <p class="mt-2 text-sm leading-6 text-slate-600">{{ attachment.analysisContent }}</p>
+            <p class="mt-2 text-[12px] leading-6 text-slate-600">{{ attachment.analysisContent }}</p>
           </template>
 
           <template v-else>

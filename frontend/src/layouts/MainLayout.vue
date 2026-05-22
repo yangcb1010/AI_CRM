@@ -136,7 +136,13 @@
                   : 'ml-[2px] mr-[2px] w-full gap-2 pl-[10px] pr-[8px]',
               ]"
             >
-              <WkIcon :name="item.icon" :box-size="20" class="shrink-0" />
+              <span
+                v-if="item.materialIcon"
+                class="material-symbols-outlined inline-flex size-5 shrink-0 items-center justify-center text-[20px] leading-none"
+              >
+                {{ item.materialIcon }}
+              </span>
+              <WkIcon v-else :name="item.icon" :box-size="20" class="shrink-0" />
               <span v-if="!primarySidebarContentCollapsed" class="truncate text-sm font-normal">{{ item.label }}</span>
               <span
                 v-if="item.children?.length && !primarySidebarContentCollapsed"
@@ -213,7 +219,7 @@
             </div>
 
           <div v-if="showSidebarCustomers" class="space-y-1 pt-1">
-            <div class="mt-[12px] mb-[10px] flex w-full items-center gap-2 rounded-lg pl-3 pr-1">
+            <div class="group/customer-header mt-[12px] mb-[10px] flex w-full items-center gap-2 rounded-lg pl-3 pr-1">
               <button
                 type="button"
                 class="group flex shrink-0 items-center gap-1 text-left transition-colors"
@@ -225,7 +231,7 @@
                 <span class="text-[14px] font-semibold uppercase tracking-tight text-[#0d0d0d]">客户</span>
                 <span
                   class="flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-all duration-150"
-                  :class="sidebarCustomersExpanded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'"
+                  :class="sidebarCustomersExpanded ? 'opacity-0 group-hover/customer-header:opacity-100' : 'opacity-100'"
                   aria-hidden="true"
                 >
                   <span class="material-symbols-outlined inline-flex h-5 shrink-0 items-center justify-center self-center text-[18px] leading-none text-[#c9c9c9]">
@@ -233,26 +239,6 @@
                   </span>
                 </span>
               </button>
-              <div class="relative min-w-0 flex-1" @click.stop>
-                <span class="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[16px] leading-none text-[#c9c9c9]">search</span>
-                <input
-                  v-model="sidebarCustomerKeyword"
-                  type="text"
-                  class="h-7 w-full rounded-md border border-[#ececec] bg-white py-1 pl-7 pr-7 text-[12px] text-[#0d0d0d] outline-none transition-colors placeholder:text-[#b8b8b8] focus:border-[#d9d9d9] focus:bg-[#fafafa]"
-                  placeholder="搜索客户"
-                  @input="handleSidebarCustomerSearchInput"
-                />
-                <button
-                  v-if="sidebarCustomerKeyword"
-                  type="button"
-                  class="absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-[#b8b8b8] transition-colors hover:bg-[#f5f5f5] hover:text-[#6f6f6f]"
-                  aria-label="清空客户搜索"
-                  title="清空客户搜索"
-                  @click.stop="clearSidebarCustomerSearch"
-                >
-                  <span class="material-symbols-outlined text-[15px] leading-none">close</span>
-                </button>
-              </div>
             </div>
             <div id="sidebar-customers-panel" v-show="sidebarCustomersExpanded">
               <div v-if="sidebarCustomersLoading && sidebarCustomers.length === 0" class="flex justify-center py-6">
@@ -638,7 +624,13 @@
                   :class="isPrimaryActive(item) ? 'bg-primary/10 text-primary' : 'text-[#0d0d0d] hover:bg-slate-100'"
                   @click="handleMobilePrimaryNavClick(item)"
                 >
-                  <WkIcon :name="item.icon" :size="22" class="shrink-0" />
+                  <span
+                    v-if="item.materialIcon"
+                    class="material-symbols-outlined inline-flex size-[22px] shrink-0 items-center justify-center text-[22px] leading-none"
+                  >
+                    {{ item.materialIcon }}
+                  </span>
+                  <WkIcon v-else :name="item.icon" :size="22" class="shrink-0" />
                   <span class="text-sm font-normal">{{ item.label }}</span>
                   <span
                     v-if="item.children?.length"
@@ -951,6 +943,89 @@
 
     <CustomerUpsertDialog v-model="showCreateCustomer" mode="create" @success="handleCreateCustomerSuccess" />
     <AccountSettingsModal v-model="showAccountSettingsModal" />
+    <Teleport to="body">
+      <Transition name="customer-search-dialog">
+        <div
+          v-if="customerSearchDialogVisible"
+          class="fixed inset-0 z-[300] flex items-center justify-center bg-transparent px-4 py-8"
+          @click="closeCustomerSearchDialog"
+        >
+          <div
+            class="flex max-h-[min(560px,calc(100vh-4rem))] w-full max-w-[680px] flex-col overflow-hidden rounded-2xl border border-[#d9d9d9] bg-white shadow-[0_24px_80px_rgb(15,23,42,0.18)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="搜索客户"
+            @click.stop
+          >
+            <div class="flex h-16 shrink-0 items-center gap-3 border-b border-[#ececec] px-6">
+              <!-- <span class="material-symbols-outlined shrink-0 text-[20px] leading-none text-[#8f8f8f]">search</span> -->
+              <input
+                ref="customerSearchInputRef"
+                v-model="customerSearchKeyword"
+                type="text"
+                class="min-w-0 flex-1 border-none bg-transparent text-[16px] font-medium text-[#0d0d0d] outline-none placeholder:text-[#8f8f8f]"
+                placeholder="搜索客户..."
+                @input="handleCustomerSearchInput"
+                @keydown.esc.prevent="closeCustomerSearchDialog"
+              />
+              <button
+                type="button"
+                class="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#f3f3f3] hover:text-[#0d0d0d]"
+                aria-label="关闭搜索"
+                title="关闭搜索"
+                @click="closeCustomerSearchDialog"
+              >
+                <span class="material-symbols-outlined text-[22px] leading-none">close</span>
+              </button>
+            </div>
+
+            <div class="min-h-[320px] flex-1 overflow-y-auto px-4 py-3">
+              <div v-if="customerSearchLoading && customerSearchCustomers.length === 0" class="flex h-56 items-center justify-center">
+                <span class="material-symbols-outlined animate-spin text-2xl leading-none text-[#c9c9c9]">progress_activity</span>
+              </div>
+              <div v-else-if="customerSearchCustomers.length === 0" class="flex h-56 flex-col items-center justify-center text-center">
+                <span class="material-symbols-outlined mb-2 text-4xl leading-none text-[#d8d8d8]">search_off</span>
+                <p class="text-sm text-[#8f8f8f]">{{ customerSearchKeyword.trim() ? '没有找到匹配客户' : '暂无客户数据' }}</p>
+              </div>
+              <template v-else>
+                <p class="px-2 pb-2 pt-1 text-[13px] font-medium text-[#8f8f8f]">
+                  {{ customerSearchKeyword.trim() ? '搜索结果' : '' }}
+                </p>
+                <button
+                  v-for="customer in customerSearchCustomers"
+                  :key="customer.customerId"
+                  type="button"
+                  class="group flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f9f9f9]"
+                  @click="handleSelectCustomerFromSearch(customer)"
+                >
+                  <div class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#ececec] bg-white">
+                    <img
+                      v-if="customer.logoUrl"
+                      :src="customer.logoUrl"
+                      :alt="customer.companyName || 'company logo'"
+                      class="size-full object-contain"
+                    />
+                    <span v-else class="flex size-full items-center justify-center bg-primary/10 text-sm font-semibold text-primary">
+                      {{ customer.companyName?.charAt(0) || '?' }}
+                    </span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-[15px] font-medium leading-5 text-[#0d0d0d]">{{ customer.companyName }}</p>
+                    <p class="mt-1 truncate text-xs leading-4 text-[#8f8f8f]">
+                      {{ getCustomerSearchSubtitle(customer) }}
+                    </p>
+                  </div>
+                  <!-- <span class="material-symbols-outlined shrink-0 text-[18px] leading-none text-[#c9c9c9] transition-colors group-hover:text-[#8f8f8f]">chevron_right</span> -->
+                </button>
+                <div v-if="customerSearchLoading" class="flex justify-center py-3">
+                  <span class="material-symbols-outlined animate-spin text-[18px] leading-none text-[#c9c9c9]">progress_activity</span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <FloatingActionButton v-if="route.path !== '/chat' && !chatDrawerOpen" />
     <AiChatDrawer />
     <AiQuotaModals />
@@ -1091,6 +1166,7 @@ const sidebarCustomerKeyword = ref('')
 const recentChatSessionsMoreVisible = ref(false)
 const RECENT_CHAT_SESSION_LIMIT = 5
 const SIDEBAR_CUSTOMER_LIMIT = 10
+const CUSTOMER_SEARCH_LIMIT = 10
 const SIDEBAR_CUSTOMER_SCROLL_THRESHOLD_PX = 120
 const sidebarCustomers = ref<CustomerListVO[]>([])
 const sidebarCustomersLoading = ref(false)
@@ -1100,6 +1176,11 @@ const sidebarCustomersHasMore = ref(true)
 const showUserMenu = ref(false)
 const showAccountSettingsModal = ref(false)
 const showCreateCustomer = ref(false)
+const customerSearchDialogVisible = ref(false)
+const customerSearchKeyword = ref('')
+const customerSearchCustomers = ref<CustomerListVO[]>([])
+const customerSearchLoading = ref(false)
+const customerSearchInputRef = ref<HTMLInputElement | null>(null)
 
 const globalSearchKeyword = ref('')
 const globalSearchLoading = ref(false)
@@ -1111,7 +1192,9 @@ const searchPanelRef = ref<HTMLElement | null>(null)
 
 let globalSearchTimer: ReturnType<typeof setTimeout> | null = null
 let sidebarCustomerSearchTimer: ReturnType<typeof setTimeout> | null = null
+let customerSearchTimer: ReturnType<typeof setTimeout> | null = null
 let globalSearchRequestId = 0
+let customerSearchRequestId = 0
 let removeChatComposerNarrowListener: (() => void) | null = null
 
 type ChatComposerNarrowPayload = {
@@ -1187,9 +1270,11 @@ watch(showSidebarCustomers, visible => {
 type MainNavItem = {
   key: string
   icon: WkIconName
+  materialIcon?: string
   label: string
   route: string
   permission: string
+  action?: 'customerSearch'
   groupTitle?: string
   secondaryTitle?: string
   children?: SecondaryNavItem[]
@@ -1214,6 +1299,7 @@ type SecondaryNavItem = {
 const allMainNavItems: MainNavItem[] = [
   { key: 'chat', icon: 'ai', label: 'AI 助手', route: '/chat', permission: 'chat', groupTitle: 'AI 助手' },
   { key: 'knowledge', icon: 'knowledge-1', label: '知识库', route: '/knowledge', permission: 'knowledge' },
+  { key: 'customer-search', icon: 'customer', materialIcon: 'search', label: '搜索', route: '', permission: 'customer', action: 'customerSearch' },
   {
     key: 'crm',
     icon: 'crm',
@@ -1224,11 +1310,11 @@ const allMainNavItems: MainNavItem[] = [
     secondaryTitle: 'CRM管理',
     children: [
       { key: 'crm-customer', icon: 'customer', label: '客户管理', route: '/customer' },
-      { key: 'crm-task', icon: 'task-1', label: '任务管理', route: '/task' },
-      { key: 'crm-calendar', icon: 'event', label: '日程安排', route: '/calendar' },
       { key: 'crm-settings', icon: 'set', label: '系统设置', route: '/settings/role', query: { scope: 'crm' } },
     ],
   },
+  { key: 'task', icon: 'task-1', label: '任务管理', route: '/task', permission: 'task', groupTitle: '悟空技能' },
+  { key: 'calendar', icon: 'event', label: '日程安排', route: '/calendar', permission: 'schedule', groupTitle: '悟空技能' },
 ]
 
 const allConfigNavItems: ConfigNavItem[] = [
@@ -1329,6 +1415,11 @@ function toggleMobilePrimaryExpanded(key: string) {
 }
 
 function handleMobilePrimaryNavClick(item: MainNavItem) {
+  if (item.action === 'customerSearch') {
+    drawerVisible.value = false
+    openCustomerSearchDialog()
+    return
+  }
   if (item.children?.length) {
     toggleMobilePrimaryExpanded(item.key)
     return
@@ -1523,6 +1614,10 @@ onBeforeUnmount(() => {
     clearTimeout(sidebarCustomerSearchTimer)
     sidebarCustomerSearchTimer = null
   }
+  if (customerSearchTimer) {
+    clearTimeout(customerSearchTimer)
+    customerSearchTimer = null
+  }
 })
 
 watch(
@@ -1566,12 +1661,18 @@ function isPrimarySelected(item: MainNavItem) {
 }
 
 function isPrimaryActive(item: MainNavItem) {
+  if (item.action === 'customerSearch') return customerSearchDialogVisible.value
   if (isPrimarySelected(item)) return true
   if (item.children?.some(child => isActive(child.route, child.query))) return true
   return isActive(item.route)
 }
 
 function handlePrimaryNavClick(item: MainNavItem) {
+  if (item.action === 'customerSearch') {
+    selectedPrimaryKey.value = ''
+    openCustomerSearchDialog()
+    return
+  }
   if (item.children?.length) {
     selectedPrimaryKey.value = item.key
     const firstChild = item.children[0]
@@ -1787,6 +1888,80 @@ async function handleSelectCustomerChat(customer: CustomerListVO) {
   selectedPrimaryKey.value = ''
   await router.push({ path: '/chat', query: { customerId: customer.customerId } })
   chatStore.requestComposerFocus()
+}
+
+function openCustomerSearchDialog() {
+  selectedPrimaryKey.value = ''
+  showUserMenu.value = false
+  closeGlobalSearchDropdown()
+  customerSearchKeyword.value = ''
+  customerSearchDialogVisible.value = true
+  void fetchCustomerSearchCustomers()
+  void nextTick(() => customerSearchInputRef.value?.focus())
+}
+
+function closeCustomerSearchDialog() {
+  customerSearchDialogVisible.value = false
+  if (customerSearchTimer) {
+    clearTimeout(customerSearchTimer)
+    customerSearchTimer = null
+  }
+}
+
+function handleCustomerSearchInput() {
+  if (customerSearchTimer) {
+    clearTimeout(customerSearchTimer)
+  }
+  customerSearchTimer = setTimeout(() => {
+    void fetchCustomerSearchCustomers()
+  }, 250)
+}
+
+async function fetchCustomerSearchCustomers() {
+  const requestId = ++customerSearchRequestId
+  customerSearchLoading.value = true
+  try {
+    const result = await queryCustomerList({
+      page: 1,
+      limit: CUSTOMER_SEARCH_LIMIT,
+      keyword: customerSearchKeyword.value.trim() || undefined,
+      sortBy: 'createTime',
+      sortOrder: 'desc',
+    })
+    if (requestId !== customerSearchRequestId) return
+    customerSearchCustomers.value = result.list || []
+  } catch (error) {
+    if (requestId !== customerSearchRequestId) return
+    console.error('Search customers failed:', error)
+    customerSearchCustomers.value = []
+    ElMessage.warning('客户搜索失败')
+  } finally {
+    if (requestId === customerSearchRequestId) {
+      customerSearchLoading.value = false
+    }
+  }
+}
+
+async function handleSelectCustomerFromSearch(customer: CustomerListVO) {
+  closeCustomerSearchDialog()
+  await handleSelectCustomerChat(customer)
+}
+
+function getCustomerSearchSubtitle(customer: CustomerListVO): string {
+  const stageLabels: Record<string, string> = {
+    lead: '线索',
+    qualified: '已验证',
+    proposal: '方案阶段',
+    negotiation: '谈判中',
+    closed: '已成交',
+    lost: '已流失',
+  }
+  const parts = [
+    customer.industry,
+    stageLabels[customer.stage],
+    customer.ownerName ? `负责人 ${customer.ownerName}` : '',
+  ].filter(Boolean)
+  return parts.join(' · ') || '点击进入客户对话'
 }
 
 async function handleDeleteSession(sessionId: string) {
@@ -2060,6 +2235,17 @@ function handleCreateCustomerSuccess(payload: { mode: 'create' | 'edit'; custome
 .secondary-panel-leave-to {
   opacity: 0;
   transform: translateX(-8px);
+}
+
+.customer-search-dialog-enter-active,
+.customer-search-dialog-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.customer-search-dialog-enter-from,
+.customer-search-dialog-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
 }
 
 .line-clamp-2 {

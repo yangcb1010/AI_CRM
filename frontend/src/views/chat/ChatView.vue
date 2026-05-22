@@ -433,7 +433,7 @@
                   </div>
                   <div class="min-w-[50px] space-y-3" :class="isMobile ? 'max-w-[88%]' : 'max-w-[72%]'">
                     <!-- <div class="bg-primary text-white rounded-2xl rounded-tr-none p-4 shadow-lg shadow-primary/10 text-sm leading-relaxed"> -->
-                    <div class="rounded-[24px] bg-[#f4f4f4] px-4 py-2.5 text-[16px] leading-7 text-[#0d0d0d]">
+                    <div class="rounded-[24px] bg-[#f4f4f4] px-4 py-2.5 text-[15px] leading-7 text-[#0d0d0d]">
                       <div class="whitespace-pre-wrap">{{ message.content || '...' }}</div>
                     </div>
                     <!-- User Attachments -->
@@ -2644,9 +2644,55 @@ function formatModelMultiplier(value?: number | null) {
 
 function renderAssistantMessage(content: string, isStreaming = false): string {
   const normalized = normalizeAssistantMessageContent(content, isStreaming)
-  return renderMarkdown(normalized || getAssistantMessagePlaceholder(isStreaming), {
+  const html = renderMarkdown(normalized || getAssistantMessagePlaceholder(isStreaming), {
     streaming: isStreaming
   })
+  return wrapMarkdownHeadingLeadingEmoji(html)
+}
+
+const HEADING_LEADING_EMOJI_PATTERN = /^([\u2600-\u27BF]\uFE0F?|\p{Extended_Pictographic}\uFE0F?)/u
+
+function wrapMarkdownHeadingLeadingEmoji(html: string): string {
+  if (!html.includes('<h')) return html
+
+  const template = document.createElement('template')
+  template.innerHTML = html
+
+  template.content.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(heading => {
+    const textNode = findFirstNonEmptyTextNode(heading)
+    if (!textNode) return
+
+    const text = textNode.data
+    const leadingWhitespaceLength = text.search(/\S/)
+    const contentStart = leadingWhitespaceLength < 0 ? 0 : leadingWhitespaceLength
+    const content = text.slice(contentStart)
+    const match = content.match(HEADING_LEADING_EMOJI_PATTERN)
+    if (!match) return
+
+    const icon = match[0]
+    const iconSpan = document.createElement('span')
+    iconSpan.className = 'wk-markdown-heading-icon'
+    iconSpan.textContent = icon
+
+    const fragment = document.createDocumentFragment()
+    if (contentStart > 0) {
+      fragment.appendChild(document.createTextNode(text.slice(0, contentStart)))
+    }
+    fragment.appendChild(iconSpan)
+    fragment.appendChild(document.createTextNode(content.slice(icon.length)))
+    textNode.replaceWith(fragment)
+  })
+
+  return template.innerHTML
+}
+
+function findFirstNonEmptyTextNode(root: Element): Text | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text
+    if (node.data.trim()) return node
+  }
+  return null
 }
 
 function htmlToText(html: string): string {
@@ -3117,7 +3163,7 @@ void _formatTime
 
 .wk-chat-message--assistant :deep(.wk-markdown) {
   color: var(--wk-text-primary);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.75;
 }
 
@@ -3131,6 +3177,14 @@ void _formatTime
 
 .wk-chat-message--assistant :deep(.wk-markdown p) {
   margin: 0 0 0.85em;
+}
+
+.wk-chat-message--assistant :deep(.wk-markdown-heading-icon) {
+  display: inline-block;
+  margin-right: 0.18em;
+  font-size: 0.72em;
+  line-height: 1;
+  vertical-align: 0.04em;
 }
 
 .wk-chat-message--assistant :deep(.wk-markdown ul),
