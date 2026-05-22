@@ -441,7 +441,7 @@
                 <!-- 下：更新时间 -->
                 <div class="flex justify-end">
                   <p class="text-right text-xs leading-relaxed text-slate-400">
-                    更新于：{{ aiAnalysisDisplayTime }}
+                    {{ aiAnalysisDisplayTime }}更新
                   </p>
                 </div>
               </div>

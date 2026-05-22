@@ -7,7 +7,6 @@
     :show-close="false"
     class="wk-knowledge-upload-dialog"
     :class="isMobile ? 'is-mobile' : ''"
-    modal-class="wk-knowledge-upload-dialog__overlay"
     :destroy-on-close="destroyOnClose"
   >
     <div class="wk-knowledge-upload-dialog__content">
@@ -331,11 +330,6 @@ defineExpose({
   box-shadow: none;
 }
 
-.wk-knowledge-upload-dialog__overlay {
-  background: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(10px);
-}
-
 .wk-knowledge-upload-dialog .el-textarea__inner {
   border-radius: 14px;
 }
@@ -368,6 +362,12 @@ defineExpose({
 
 .wk-knowledge-upload-dialog .el-dialog__footer {
   flex: 0 0 auto;
+}
+
+/* Keep the mask behavior aligned with the task dialog: only the body scrolls. */
+.el-overlay:has(.wk-knowledge-upload-dialog),
+.el-overlay-dialog:has(.wk-knowledge-upload-dialog) {
+  overflow: hidden;
 }
 
 </style>

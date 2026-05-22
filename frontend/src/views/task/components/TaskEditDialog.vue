@@ -511,7 +511,8 @@ function formatDateTimeLocal(dateStr: string): string {
   overflow: hidden;
 }
 .task-dialog--desktop.el-dialog {
-  max-height: 90vh;
+  max-height: calc(100vh - 20vh);
+  margin-bottom: 10vh;
 }
 .task-dialog--mobile.el-dialog {
   height: calc(100vh - 32px);
@@ -520,7 +521,8 @@ function formatDateTimeLocal(dateStr: string): string {
   border-radius: 1rem !important;
 }
 /* Prevent overlay from scrolling — dialog body scrolls internally */
-.el-overlay:has(.task-dialog) {
+.el-overlay:has(.task-dialog),
+.el-overlay-dialog:has(.task-dialog) {
   overflow: hidden;
 }
 
