@@ -4,8 +4,6 @@
 logs/**
 *.log
 test
-!backend/src/test/
-!backend/src/test/**
 target
 */target/**
 frontend/node_modules
