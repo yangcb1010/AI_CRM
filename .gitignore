@@ -4,12 +4,15 @@
 logs/**
 *.log
 test
+!backend/src/test/
+!backend/src/test/**
 target
 */target/**
 frontend/node_modules
 frontend/dist
 frontend/.env.local
 frontend/.env.*.local
+frontend/vite.config.d.ts
 frontend/tsconfig.tsbuildinfo
 frontend/tsconfig.node.tsbuildinfo
 mcp_server/node_modules

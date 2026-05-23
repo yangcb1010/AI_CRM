@@ -1762,25 +1762,6 @@ function loadMoreSidebarCustomers() {
   void fetchSidebarCustomers()
 }
 
-function handleSidebarCustomerSearchInput() {
-  if (sidebarCustomerSearchTimer) {
-    clearTimeout(sidebarCustomerSearchTimer)
-  }
-  sidebarCustomerSearchTimer = setTimeout(() => {
-    void fetchSidebarCustomers({ reset: true, preserveScroll: true })
-  }, 250)
-}
-
-function clearSidebarCustomerSearch() {
-  if (!sidebarCustomerKeyword.value) return
-  sidebarCustomerKeyword.value = ''
-  if (sidebarCustomerSearchTimer) {
-    clearTimeout(sidebarCustomerSearchTimer)
-    sidebarCustomerSearchTimer = null
-  }
-  void fetchSidebarCustomers({ reset: true, preserveScroll: true })
-}
-
 async function fetchSidebarCustomers(options: { reset?: boolean; preserveScroll?: boolean } = {}) {
   if (sidebarCustomersLoading.value) return
   const preservedScrollTop = options.preserveScroll ? getPrimaryNavScrollTop() : null
