@@ -2247,9 +2247,12 @@ const groupedSessions = computed(() => {
   return { today, yesterday, earlier }
 })
 
-async function ensureSelectedCustomerDetail(customerId: string) {
+async function ensureSelectedCustomerDetail(customerId: string, options: { silent?: boolean } = {}) {
   const requestCustomerId = String(customerId)
-  selectedCustomerLoading.value = true
+  const silent = Boolean(options.silent)
+  if (!silent) {
+    selectedCustomerLoading.value = true
+  }
   try {
     const detail = await getCustomerDetail(requestCustomerId)
     if (selectedCustomerId.value && selectedCustomerId.value !== requestCustomerId) return
@@ -2260,7 +2263,7 @@ async function ensureSelectedCustomerDetail(customerId: string) {
       ElMessage.warning('客户详情加载失败')
     }
   } finally {
-    if (!selectedCustomerId.value || selectedCustomerId.value === requestCustomerId) {
+    if (!silent && (!selectedCustomerId.value || selectedCustomerId.value === requestCustomerId)) {
       selectedCustomerLoading.value = false
     }
   }
@@ -2538,19 +2541,29 @@ async function handleSend() {
   )
   await nextTick()
   focusChatTextarea()
-  await sendPromise
-  await refreshCrmContextAfterSend(effectiveAppCode)
+  const completedSessionId = await sendPromise
+  await refreshCrmContextAfterSend(effectiveAppCode, completedSessionId)
 }
 
-async function refreshCrmContextAfterSend(effectiveAppCode: string) {
+function getSessionCustomerId(sessionId?: string) {
+  if (!sessionId) return ''
+  const session = chatStore.sessions.find(item => item.sessionId === sessionId)
+  return session?.customerId ? String(session.customerId) : ''
+}
+
+async function refreshCrmContextAfterSend(effectiveAppCode: string, completedSessionId?: string) {
   if (effectiveAppCode !== 'crm') return
 
   appEvents.emit(APP_EVENT.CUSTOMER_LIST_REFRESH, { source: 'chat' })
 
-  const customerId = currentSessionCustomerId.value
+  const customerId = getSessionCustomerId(completedSessionId)
   if (!customerId) return
   appEvents.emit(APP_EVENT.CUSTOMER_DETAIL_REFRESH, { customerId, source: 'chat' })
-  await ensureSelectedCustomerDetail(customerId)
+
+  const activeCustomerId = currentSessionCustomerId.value || selectedCustomerId.value || ''
+  if (activeCustomerId === customerId) {
+    await ensureSelectedCustomerDetail(customerId, { silent: Boolean(selectedCustomer.value) })
+  }
 }
 
 function handleSendBarClick() {
