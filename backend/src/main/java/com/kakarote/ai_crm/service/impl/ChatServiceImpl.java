@@ -20,6 +20,7 @@ import com.kakarote.ai_crm.ai.memory.CrmChatMemoryService;
 import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.ai.state.PendingCustomerCreationStore;
 import com.kakarote.ai_crm.ai.tools.KnowledgeTools;
+import com.kakarote.ai_crm.ai.tools.support.CrmRequiredToolCallAdvisor;
 import com.kakarote.ai_crm.ai.tools.support.AiToolExecutionRecorder;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
@@ -87,6 +88,9 @@ public class ChatServiceImpl implements IChatService {
 
     @Autowired
     private CrmChatMemoryService crmChatMemoryService;
+
+    @Autowired
+    private CrmRequiredToolCallAdvisor crmRequiredToolCallAdvisor;
 
     @Autowired
     private ChatSessionMapper chatSessionMapper;
@@ -591,17 +595,13 @@ public class ChatServiceImpl implements IChatService {
 
         aiToolExecutionRecorder.begin(sessionId);
 
-        ChatClient chatClient = chatClientProvider.getChatClient(
-            billingContext.modelSource(),
-            billingContext.runtimeConfig().providerCode(),
-            billingContext.runtimeConfig().model(),
-            application.code()
-        );
+        boolean crmToolCallRequired = shouldRequireCrmToolCall(application.code(), capabilities);
+        ChatClient chatClient = resolveChatClient(billingContext, application.code());
 
         final String finalSystemPrompt = enhancedSystemPrompt;
         final String finalContent = enhancedContent;
         ChatClient.ChatClientRequestSpec requestSpec = buildChatRequestSpec(
-            chatClient, finalSystemPrompt, finalContent, mediaList, sessionId, messageId);
+            chatClient, finalSystemPrompt, finalContent, mediaList, sessionId, messageId, crmToolCallRequired);
         Runnable finalizeSuccessfulStream = () -> {
             if (!streamFinalized.compareAndSet(false, true)) {
                 return;
@@ -812,17 +812,13 @@ public class ChatServiceImpl implements IChatService {
 
             aiToolExecutionRecorder.begin(sessionId);
 
-            ChatClient chatClient = chatClientProvider.getChatClient(
-                billingContext.modelSource(),
-                billingContext.runtimeConfig().providerCode(),
-                billingContext.runtimeConfig().model(),
-                application.code()
-            );
+            boolean crmToolCallRequired = shouldRequireCrmToolCall(application.code(), capabilities);
+            ChatClient chatClient = resolveChatClient(billingContext, application.code());
 
             final String finalSystemPrompt = enhancedSystemPrompt;
             final String finalContent = enhancedContent;
             ChatClient.ChatClientRequestSpec requestSpec = buildChatRequestSpec(
-                chatClient, finalSystemPrompt, finalContent, mediaList, sessionId, messageId);
+                chatClient, finalSystemPrompt, finalContent, mediaList, sessionId, messageId, crmToolCallRequired);
 
             var chatResponse = requestSpec.call().chatResponse();
             String response = chatResponse.getResult().getOutput().getText();
@@ -898,10 +894,6 @@ public class ChatServiceImpl implements IChatService {
         if (failure != null) {
             return buildToolFailureReply(failure);
         }
-        if (looksLikeUnsupportedWriteSuccess(modelResponse)
-            && !aiToolExecutionRecorder.hasSuccessfulWrite(sessionId)) {
-            return "操作未确认成功：未检测到系统工具返回的创建、更新或删除成功结果，本次未确认写入业务数据。请重试或补充必要信息。";
-        }
         return modelResponse;
     }
 
@@ -909,22 +901,6 @@ public class ChatServiceImpl implements IChatService {
         String reason = failure == null ? null : failure.errorReason();
         reason = StrUtil.blankToDefault(reason, "工具调用失败，但未返回具体错误信息。");
         return "工具调用失败：" + reason;
-    }
-
-    private boolean looksLikeUnsupportedWriteSuccess(String response) {
-        if (StrUtil.isBlank(response)) {
-            return false;
-        }
-        return response.contains("创建成功")
-            || response.contains("已创建")
-            || response.contains("已为您创建")
-            || response.contains("新增成功")
-            || response.contains("更新成功")
-            || response.contains("已更新")
-            || response.contains("修改成功")
-            || response.contains("已修改")
-            || response.contains("删除成功")
-            || response.contains("已删除");
     }
 
     /**
@@ -1023,18 +999,38 @@ public class ChatServiceImpl implements IChatService {
                                                                   String content,
                                                                   List<Media> mediaList,
                                                                   Long sessionId,
-                                                                  Long messageId) {
+                                                                  Long messageId,
+                                                                  boolean crmToolCallRequired) {
         ChatClient.ChatClientRequestSpec requestSpec = chatClient.prompt()
             .system(systemPrompt)
-            .advisors(advisor -> advisor
-                .advisors(crmChatMemoryAdvisor)
-                .param(ChatMemory.CONVERSATION_ID, sessionId)
-                .param(CrmChatMemoryAdvisor.CURRENT_MESSAGE_ID, messageId));
+            .advisors(advisor -> {
+                advisor.advisors(crmChatMemoryAdvisor)
+                    .param(ChatMemory.CONVERSATION_ID, sessionId)
+                    .param(CrmChatMemoryAdvisor.CURRENT_MESSAGE_ID, messageId);
+                if (crmToolCallRequired) {
+                    advisor.advisors(crmRequiredToolCallAdvisor);
+                }
+            });
 
         if (CollUtil.isNotEmpty(mediaList)) {
             return requestSpec.user(user -> user.text(content).media(mediaList.toArray(new Media[0])));
         }
         return requestSpec.user(content);
+    }
+
+    private boolean shouldRequireCrmToolCall(String appCode, AiModelCapabilities capabilities) {
+        return capabilities != null
+            && capabilities.isSupportsToolCall()
+            && ChatApplicationCodes.CRM.equals(chatApplicationRegistry.normalize(appCode));
+    }
+
+    private ChatClient resolveChatClient(ChatBillingContext billingContext, String appCode) {
+        return chatClientProvider.getChatClient(
+            billingContext.modelSource(),
+            billingContext.runtimeConfig().providerCode(),
+            billingContext.runtimeConfig().model(),
+            appCode
+        );
     }
 
     /**
@@ -1442,7 +1438,7 @@ public class ChatServiceImpl implements IChatService {
                     attachment.getFileSize(),
                     attachment.getMimeType(),
                     session.getCustomerId(),
-                    "聊天附件自动归档，消息ID: " + messageId
+                    null
                 );
             } catch (Exception exception) {
                 log.warn("客户会话附件归档失败: sessionId={}, messageId={}, customerId={}, fileName={}, error={}",

@@ -10,6 +10,7 @@ import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.ai.provider.AiProviderDescriptor;
 import com.kakarote.ai_crm.ai.provider.AiProviderRegistry;
 import com.kakarote.ai_crm.ai.tools.ContactTools;
+import com.kakarote.ai_crm.ai.tools.CrmNoopTools;
 import com.kakarote.ai_crm.ai.tools.CustomerTools;
 import com.kakarote.ai_crm.ai.tools.FollowupTools;
 import com.kakarote.ai_crm.ai.tools.KnowledgeTools;
@@ -98,6 +99,9 @@ public class DynamicChatClientProvider {
 
     @Autowired
     private ScheduleTools scheduleTools;
+
+    @Autowired
+    private CrmNoopTools crmNoopTools;
 
     @Autowired
     private ToolCallingManager toolCallingManager;
@@ -372,6 +376,10 @@ public class DynamicChatClientProvider {
                                        boolean registerTools, String appCode) {
         OpenAiApi openAiApi = buildOpenAiApi(providerCode, baseUrl, apiKey, extraHeadersJson);
         OpenAiChatOptions options = buildChatOptions(providerCode, baseUrl, model, temperature, maxTokens);
+        boolean toolCallingEnabled = registerTools && capabilities != null && capabilities.isSupportsToolCall();
+        if (toolCallingEnabled && supportsParallelToolCalls(providerCode, baseUrl)) {
+            options.setParallelToolCalls(Boolean.TRUE);
+        }
 
         ObservationRegistry obsRegistry = observationRegistry != null
                 ? observationRegistry : ObservationRegistry.NOOP;
@@ -380,7 +388,7 @@ public class DynamicChatClientProvider {
                 RetryTemplate.builder().build(), obsRegistry);
 
         ChatClient.Builder builder = ChatClient.builder(chatModel);
-        if (registerTools && capabilities != null && capabilities.isSupportsToolCall()) {
+        if (toolCallingEnabled) {
             Object[] tools = resolveDefaultTools(appCode);
             if (tools.length > 0) {
                 builder.defaultTools(tools);
@@ -497,7 +505,7 @@ public class DynamicChatClientProvider {
             return new Object[]{knowledgeTools};
         }
         if (ChatApplicationCodes.CRM.equals(normalizedAppCode)) {
-            return new Object[]{customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools};
+            return new Object[]{customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools, crmNoopTools};
         }
         return new Object[0];
     }
@@ -1033,6 +1041,12 @@ public class DynamicChatClientProvider {
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    private boolean supportsParallelToolCalls(String providerCode, String baseUrl) {
+        String resolvedProviderCode = AiProviderRegistry.resolve(providerCode, baseUrl).getCode();
+        return "openai".equals(resolvedProviderCode)
+                || "dashscope".equals(resolvedProviderCode);
     }
 
     /**
