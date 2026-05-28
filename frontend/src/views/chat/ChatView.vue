@@ -776,7 +776,7 @@
                           >
                             <WkIcon name="file" :box-size="18" class="shrink-0" />
                             <!-- <span class="wk-chat-upload-menu__icon material-symbols-outlined">attach_file</span> -->
-                            <span class="wk-chat-upload-menu__label">上传照片和文件</span>
+                            <span class="wk-chat-upload-menu__label">上传图片和文件</span>
                           </button>
                           <button
                             type="button"
@@ -1104,7 +1104,7 @@
                           @click="handleChatUploadMenuAddFile"
                         >
                           <span class="wk-chat-upload-menu__icon material-symbols-outlined">attach_file</span>
-                          <span class="wk-chat-upload-menu__label">上传照片和文件</span>
+                          <span class="wk-chat-upload-menu__label">上传图片和文件</span>
                         </button>
                         <button
                           type="button"
