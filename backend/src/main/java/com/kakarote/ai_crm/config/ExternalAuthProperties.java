@@ -12,6 +12,8 @@ public class ExternalAuthProperties {
 
     private ProviderConfig google = new ProviderConfig();
 
+    private ProviderConfig outlook = new ProviderConfig();
+
     private ProviderConfig wechat = new ProviderConfig();
 
     private ProviderConfig wecom = new ProviderConfig();
@@ -22,9 +24,12 @@ public class ExternalAuthProperties {
 
     private Integer ticketTtlSeconds = 300;
 
+    private ProxyConfig proxy = new ProxyConfig();
+
     public ProviderConfig getProvider(String provider) {
         return switch (StrUtil.emptyToDefault(provider, "").toLowerCase()) {
             case "google" -> google;
+            case "outlook" -> outlook;
             case "wechat" -> wechat;
             case "wecom" -> wecom;
             default -> null;
@@ -37,6 +42,7 @@ public class ExternalAuthProperties {
         private String clientId;
         private String clientSecret;
         private String redirectUri;
+        private String tenant = "common";
         private String corpId;
         private String agentId;
 
@@ -55,6 +61,16 @@ public class ExternalAuthProperties {
                 return corpId;
             }
             return clientId;
+        }
+    }
+
+    @Data
+    public static class ProxyConfig {
+        private Boolean enabled = Boolean.FALSE;
+        private String url;
+
+        public boolean isUsable() {
+            return Boolean.TRUE.equals(enabled) && StrUtil.isNotBlank(url);
         }
     }
 }

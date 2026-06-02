@@ -30,6 +30,7 @@ import com.kakarote.ai_crm.service.ExternalAuthService;
 import com.kakarote.ai_crm.service.ManageUserService;
 import com.kakarote.ai_crm.service.RegistrationService;
 import com.kakarote.ai_crm.utils.UserUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.Data;
@@ -37,7 +38,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
@@ -46,9 +49,13 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +66,8 @@ import java.util.Set;
 @Service
 public class ExternalAuthServiceImpl implements ExternalAuthService {
 
-    private static final Set<String> PROVIDERS = Set.of("google", "wechat", "wecom");
+    private static final List<String> PROVIDER_ORDER = List.of("google", "outlook", "wechat", "wecom");
+    private static final Set<String> PROVIDERS = Set.copyOf(PROVIDER_ORDER);
     private static final String SCENE_LOGIN = "LOGIN";
     private static final String SCENE_BIND = "BIND";
     private static final int ENABLED_STATUS = 1;
@@ -87,10 +95,36 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
     @Autowired
     private AuthSessionService authSessionService;
 
+    @PostConstruct
+    void configureRestTemplateProxy() {
+        ExternalAuthProperties.ProxyConfig proxyConfig = properties.getProxy();
+        if (proxyConfig == null || !proxyConfig.isUsable()) {
+            return;
+        }
+        URI proxyUri;
+        try {
+            proxyUri = parseProxyUri(proxyConfig.getUrl());
+        } catch (IllegalArgumentException e) {
+            log.warn("External auth proxy is ignored because url is invalid: {}", proxyConfig.getUrl());
+            return;
+        }
+        String host = proxyUri.getHost();
+        int port = proxyUri.getPort();
+        if (StrUtil.isBlank(host) || port < 0) {
+            log.warn("External auth proxy is ignored because url is invalid: {}", proxyConfig.getUrl());
+            return;
+        }
+
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setProxy(new Proxy(resolveProxyType(proxyUri.getScheme()), new InetSocketAddress(host, port)));
+        restTemplate.setRequestFactory(requestFactory);
+        log.info("External auth proxy enabled: {}://{}:{}", StrUtil.blankToDefault(proxyUri.getScheme(), "http"), host, port);
+    }
+
     @Override
     public List<ExternalAuthProviderVO> listProviders() {
         List<ExternalAuthProviderVO> providers = new ArrayList<>();
-        for (String provider : List.of("google", "wechat", "wecom")) {
+        for (String provider : PROVIDER_ORDER) {
             ExternalAuthProviderVO vo = new ExternalAuthProviderVO();
             vo.setProvider(provider);
             vo.setName(providerName(provider));
@@ -204,9 +238,8 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "External identity is already bound");
         }
 
-        String email = resolveRegistrationEmail(registerBO, profile);
-        String realname = StrUtil.blankToDefault(StrUtil.trim(registerBO.getRealname()), profile.getDisplayName());
-        boolean emailVerificationRequired = !isTrustedProfileEmail(profile, email);
+        String email = resolveRegistrationEmail(profile);
+        String realname = StrUtil.blankToDefault(StrUtil.trim(profile.getDisplayName()), email);
 
         ManagerUser user;
         if ("wecom".equals(profile.getProvider()) && StrUtil.isNotBlank(profile.getExternalTenantKey())) {
@@ -214,29 +247,30 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
             if (binding == null) {
                 ExternalTenantRegisterBO tenantRegisterBO = new ExternalTenantRegisterBO();
                 tenantRegisterBO.setEmail(email);
-                tenantRegisterBO.setVerificationCode(registerBO.getVerificationCode());
+                tenantRegisterBO.setPassword(registerBO.getPassword());
                 tenantRegisterBO.setCompanyName(StrUtil.blankToDefault(
                         StrUtil.trim(registerBO.getCompanyName()),
                         StrUtil.blankToDefault(profile.getExternalTenantName(), "WeCom Enterprise")
                 ));
                 tenantRegisterBO.setRealname(realname);
-                tenantRegisterBO.setEmailVerificationRequired(emailVerificationRequired);
+                tenantRegisterBO.setEmailVerificationRequired(Boolean.FALSE);
                 user = registrationService.registerExternalTenant(tenantRegisterBO);
                 saveTenantBinding(profile, user.getTenantId(), tenantRegisterBO.getCompanyName());
             } else {
                 ExternalTenantMemberRegisterBO memberRegisterBO = new ExternalTenantMemberRegisterBO();
                 memberRegisterBO.setTenantId(binding.getTenantId());
                 memberRegisterBO.setEmail(email);
+                memberRegisterBO.setPassword(registerBO.getPassword());
                 memberRegisterBO.setRealname(realname);
                 user = registrationService.registerExternalTenantMember(memberRegisterBO);
             }
         } else {
             ExternalTenantRegisterBO tenantRegisterBO = new ExternalTenantRegisterBO();
             tenantRegisterBO.setEmail(email);
-            tenantRegisterBO.setVerificationCode(registerBO.getVerificationCode());
+            tenantRegisterBO.setPassword(registerBO.getPassword());
             tenantRegisterBO.setCompanyName(StrUtil.trim(registerBO.getCompanyName()));
             tenantRegisterBO.setRealname(realname);
-            tenantRegisterBO.setEmailVerificationRequired(emailVerificationRequired);
+            tenantRegisterBO.setEmailVerificationRequired(Boolean.FALSE);
             user = registrationService.registerExternalTenant(tenantRegisterBO);
         }
 
@@ -258,7 +292,7 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
         );
 
         List<ExternalAuthBindingVO> result = new ArrayList<>();
-        for (String provider : List.of("google", "wechat", "wecom")) {
+        for (String provider : PROVIDER_ORDER) {
             ExternalAuthIdentity identity = identities.stream()
                     .filter(item -> provider.equals(item.getProvider()))
                     .findFirst()
@@ -304,6 +338,15 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
                     .queryParam("access_type", "offline")
                     .build()
                     .toUriString();
+            case "outlook" -> UriComponentsBuilder.fromHttpUrl(outlookOAuthUrl(config, "authorize"))
+                    .queryParam("client_id", clientId)
+                    .queryParam("redirect_uri", callbackUri)
+                    .queryParam("response_type", "code")
+                    .queryParam("response_mode", "query")
+                    .queryParam("scope", "openid email profile")
+                    .queryParam("state", state)
+                    .build()
+                    .toUriString();
             case "wechat" -> UriComponentsBuilder.fromHttpUrl("https://open.weixin.qq.com/connect/qrconnect")
                     .queryParam("appid", clientId)
                     .queryParam("redirect_uri", callbackUri)
@@ -337,6 +380,7 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
         try {
             return switch (provider) {
                 case "google" -> fetchGoogleProfile(code, callbackUri, config);
+                case "outlook" -> fetchOutlookProfile(code, callbackUri, config);
                 case "wechat" -> fetchWechatProfile(code, config);
                 case "wecom" -> fetchWecomProfile(code, config);
                 default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Unsupported provider");
@@ -388,6 +432,69 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
         profile.setDisplayName(userInfo.getString("name"));
         profile.setAvatarUrl(userInfo.getString("picture"));
         profile.setRawJson(userInfo.toJSONString());
+        validateProfile(profile);
+        return profile;
+    }
+
+    private ExternalProfile fetchOutlookProfile(String code,
+                                                String callbackUri,
+                                                ExternalAuthProperties.ProviderConfig config) {
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("code", code);
+        body.add("client_id", config.getClientId());
+        body.add("client_secret", config.getClientSecret());
+        body.add("redirect_uri", callbackUri);
+        body.add("grant_type", "authorization_code");
+        body.add("scope", "openid email profile");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        String tokenJson = restTemplate.postForObject(
+                outlookOAuthUrl(config, "token"),
+                new HttpEntity<>(body, headers),
+                String.class
+        );
+        JSONObject token = JSON.parseObject(tokenJson);
+        String accessToken = token.getString("access_token");
+        if (StrUtil.isBlank(accessToken)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Outlook token exchange failed");
+        }
+
+        HttpHeaders userInfoHeaders = new HttpHeaders();
+        userInfoHeaders.setBearerAuth(accessToken);
+        String userInfoJson = restTemplate.exchange(
+                "https://graph.microsoft.com/oidc/userinfo",
+                HttpMethod.GET,
+                new HttpEntity<>(userInfoHeaders),
+                String.class
+        ).getBody();
+        JSONObject userInfo = JSON.parseObject(userInfoJson);
+        JSONObject idClaims = parseJwtPayload(token.getString("id_token"));
+
+        String email = firstNotBlank(
+                userInfo.getString("email"),
+                idClaims.getString("email"),
+                idClaims.getString("preferred_username"),
+                userInfo.getString("preferred_username")
+        );
+        String subject = firstNotBlank(userInfo.getString("sub"), idClaims.getString("sub"), idClaims.getString("oid"));
+        String displayName = firstNotBlank(userInfo.getString("name"), idClaims.getString("name"), email, subject);
+
+        JSONObject rawProfile = new JSONObject();
+        rawProfile.put("userinfo", userInfo);
+        if (!idClaims.isEmpty()) {
+            rawProfile.put("idTokenClaims", idClaims);
+        }
+
+        ExternalProfile profile = new ExternalProfile();
+        profile.setProvider("outlook");
+        profile.setSubject(subject);
+        profile.setEmail(normalizeEmail(email));
+        profile.setEmailVerified(Boolean.TRUE.equals(userInfo.getBoolean("email_verified")));
+        profile.setDisplayName(displayName);
+        profile.setAvatarUrl(userInfo.getString("picture"));
+        profile.setExternalTenantKey(idClaims.getString("tid"));
+        profile.setRawJson(rawProfile.toJSONString());
         validateProfile(profile);
         return profile;
     }
@@ -560,21 +667,12 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
                 .last("LIMIT 1"));
     }
 
-    private String resolveRegistrationEmail(ExternalAuthRegisterBO registerBO, ExternalProfile profile) {
-        String email = normalizeEmail(registerBO.getEmail());
-        if (StrUtil.isBlank(email) && Boolean.TRUE.equals(profile.getEmailVerified())) {
-            email = normalizeEmail(profile.getEmail());
-        }
+    private String resolveRegistrationEmail(ExternalProfile profile) {
+        String email = normalizeEmail(profile.getEmail());
         if (StrUtil.isBlank(email)) {
-            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Email is required");
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "External account email is required");
         }
         return email;
-    }
-
-    private boolean isTrustedProfileEmail(ExternalProfile profile, String email) {
-        return Boolean.TRUE.equals(profile.getEmailVerified())
-                && StrUtil.isNotBlank(profile.getEmail())
-                && StrUtil.equalsIgnoreCase(profile.getEmail(), email);
     }
 
     private ExternalAuthProperties.ProviderConfig requireUsableProvider(String provider) {
@@ -596,6 +694,7 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
     private String providerName(String provider) {
         return switch (provider) {
             case "google" -> "Google";
+            case "outlook" -> "Outlook";
             case "wechat" -> "WeChat";
             case "wecom" -> "WeCom";
             default -> provider;
@@ -708,6 +807,55 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
 
     private String normalizeEmail(String email) {
         return StrUtil.isBlank(email) ? null : StrUtil.trim(email).toLowerCase(Locale.ROOT);
+    }
+
+    private String outlookOAuthUrl(ExternalAuthProperties.ProviderConfig config, String action) {
+        String tenant = StrUtil.blankToDefault(config.getTenant(), "common");
+        return "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/" + action;
+    }
+
+    private URI parseProxyUri(String proxyUrl) {
+        String trimmed = StrUtil.trim(proxyUrl);
+        if (!trimmed.contains("://")) {
+            trimmed = "http://" + trimmed;
+        }
+        return URI.create(trimmed);
+    }
+
+    private Proxy.Type resolveProxyType(String scheme) {
+        if (StrUtil.equalsAnyIgnoreCase(scheme, "socks", "socks5")) {
+            return Proxy.Type.SOCKS;
+        }
+        return Proxy.Type.HTTP;
+    }
+
+    private JSONObject parseJwtPayload(String jwt) {
+        if (StrUtil.isBlank(jwt)) {
+            return new JSONObject();
+        }
+        String[] parts = jwt.split("\\.");
+        if (parts.length < 2) {
+            return new JSONObject();
+        }
+        try {
+            String json = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            return JSON.parseObject(json);
+        } catch (Exception e) {
+            log.debug("Failed to parse Outlook id_token payload: {}", e.getMessage());
+            return new JSONObject();
+        }
+    }
+
+    private String firstNotBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StrUtil.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private void validateProfile(ExternalProfile profile) {

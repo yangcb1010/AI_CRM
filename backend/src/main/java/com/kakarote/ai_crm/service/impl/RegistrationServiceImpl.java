@@ -201,12 +201,14 @@ public class RegistrationServiceImpl implements RegistrationService {
         String email = normalizeEmail(registerBO.getEmail());
         String realname = normalizeText(registerBO.getRealname());
         String companyName = StrUtil.trim(registerBO.getCompanyName());
+        String password = registerBO.getPassword();
         if (!Validator.isEmail(email, true)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Invalid email");
         }
         if (StrUtil.isBlank(companyName)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Company name is required");
         }
+        validatePassword(password);
         if (Boolean.TRUE.equals(registerBO.getEmailVerificationRequired())) {
             verifyEmailCode(email, registerBO.getVerificationCode());
         }
@@ -251,6 +253,7 @@ public class RegistrationServiceImpl implements RegistrationService {
 
             ManagerUser user = new ManagerUser();
             user.setUsername(email);
+            user.setPassword(passwordEncoder.encode(password));
             user.setEmail(email);
             user.setRealname(StrUtil.isNotBlank(realname) ? realname : email);
             user.setDeptId(dept.getDeptId());
@@ -289,9 +292,11 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
         String email = normalizeEmail(registerBO.getEmail());
         String realname = normalizeText(registerBO.getRealname());
+        String password = registerBO.getPassword();
         if (!Validator.isEmail(email, true)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Invalid email");
         }
+        validatePassword(password);
 
         Long previousTenantId = TenantContextHolder.getTenantId();
         TenantContextHolder.setTenantId(registerBO.getTenantId());
@@ -330,6 +335,7 @@ public class RegistrationServiceImpl implements RegistrationService {
 
             ManagerUser user = new ManagerUser();
             user.setUsername(email);
+            user.setPassword(passwordEncoder.encode(password));
             user.setEmail(email);
             user.setRealname(StrUtil.isNotBlank(realname) ? realname : email);
             user.setDeptId(rootDept == null ? null : rootDept.getDeptId());
@@ -459,6 +465,12 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
         if (!StrUtil.equals(StrUtil.trim(verificationCode), cachedCode)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_VERIFICATION_CODE_ERROR);
+        }
+    }
+
+    private void validatePassword(String password) {
+        if (StrUtil.length(password) < 6 || StrUtil.length(password) > 20) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "密码长度6-20位");
         }
     }
 

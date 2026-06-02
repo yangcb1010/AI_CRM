@@ -9,6 +9,8 @@ public class ExternalTenantRegisterBO {
 
     private String verificationCode;
 
+    private String password;
+
     private String companyName;
 
     private String realname;

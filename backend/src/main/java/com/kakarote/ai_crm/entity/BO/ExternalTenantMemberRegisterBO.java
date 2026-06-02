@@ -9,5 +9,7 @@ public class ExternalTenantMemberRegisterBO {
 
     private String email;
 
+    private String password;
+
     private String realname;
 }

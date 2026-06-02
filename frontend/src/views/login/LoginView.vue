@@ -548,7 +548,7 @@
 
     <el-dialog
       v-model="showExternalRegisterDialog"
-      title="Complete external login"
+      title="完善第三方登录信息"
       width="480px"
       destroy-on-close
       align-center
@@ -563,41 +563,34 @@
           hide-required-asterisk
           @submit.prevent="handleExternalRegister"
         >
-          <el-form-item prop="companyName" label="鍏徃鍚嶇О">
+          <el-form-item prop="companyName" label="公司名称">
             <el-input v-model="externalRegisterForm.companyName" size="large" />
           </el-form-item>
-          <el-form-item prop="realname" label="濮撳悕">
-            <el-input v-model="externalRegisterForm.realname" size="large" />
+          <el-form-item prop="password" label="密码">
+            <el-input
+              v-model="externalRegisterForm.password"
+              type="password"
+              size="large"
+              show-password
+            />
           </el-form-item>
-          <el-form-item prop="email" label="閭">
-            <el-input v-model="externalRegisterForm.email" size="large" />
-          </el-form-item>
-          <el-form-item prop="verificationCode" label="Verification code">
-            <div class="flex w-full gap-3">
-              <el-input
-                v-model="externalRegisterForm.verificationCode"
-                size="large"
-                class="flex-1"
-                @keyup.enter="handleExternalRegister"
-              />
-              <button
-                type="button"
-                class="auth-send-code-btn shrink-0 px-4 text-sm font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-                :disabled="externalSendingCode || externalCountdown > 0"
-                @click="handleExternalSendCode"
-              >
-                {{ externalSendCodeText }}
-              </button>
-            </div>
+          <el-form-item prop="confirmPassword" label="确认密码">
+            <el-input
+              v-model="externalRegisterForm.confirmPassword"
+              type="password"
+              size="large"
+              show-password
+              @keyup.enter="handleExternalRegister"
+            />
           </el-form-item>
         </el-form>
       </div>
 
       <template #footer>
         <div class="flex justify-end gap-3">
-          <el-button @click="showExternalRegisterDialog = false">鍙栨秷</el-button>
+          <el-button @click="showExternalRegisterDialog = false">取消</el-button>
           <el-button type="primary" :loading="externalRegisterLoading" @click="handleExternalRegister">
-            瀹屾垚鐧诲綍
+            完成登录
           </el-button>
         </div>
       </template>
@@ -641,7 +634,7 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const isLogin = ref(true)
-type EmailCodeScene = 'register' | 'reset-password' | 'external-register'
+type EmailCodeScene = 'register' | 'reset-password'
 
 const loginFormRef = ref<FormInstance>()
 const registerFormRef = ref<FormInstance>()
@@ -653,7 +646,6 @@ const forgotPasswordLoading = ref(false)
 const externalRegisterLoading = ref(false)
 const sendingCode = ref(false)
 const forgotSendingCode = ref(false)
-const externalSendingCode = ref(false)
 const showCaptchaDialog = ref(false)
 const showForgotPasswordDialog = ref(false)
 const showExternalRegisterDialog = ref(false)
@@ -663,7 +655,6 @@ const loginLayerRef = ref<HTMLElement>()
 const registerLayerRef = ref<HTMLElement>()
 const countdown = ref(0)
 const forgotCountdown = ref(0)
-const externalCountdown = ref(0)
 const tenantOptions = ref<LoginTenantOption[]>([])
 const externalProviders = ref<ExternalAuthProvider[]>([])
 const loginStep = ref<'credentials' | 'tenant-selection'>('credentials')
@@ -673,7 +664,6 @@ const externalLoadingProvider = ref<ExternalAuthProviderCode | ''>('')
 const externalRegisterTicket = ref('')
 let countdownTimer: number | undefined
 let forgotCountdownTimer: number | undefined
-let externalCountdownTimer: number | undefined
 
 const reduceMotion =
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -749,9 +739,8 @@ const registerForm = reactive({
 
 const externalRegisterForm = reactive({
   companyName: '',
-  realname: '',
-  email: '',
-  verificationCode: ''
+  password: '',
+  confirmPassword: ''
 })
 
 const forgotPasswordForm = reactive({
@@ -782,6 +771,14 @@ const validateConfirmPassword = (_rule: unknown, value: string, callback: (e?: E
 const validateForgotConfirmPassword = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
   if (value !== forgotPasswordForm.password) {
     callback(new Error('两次输入的新密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const validateExternalConfirmPassword = (_rule: unknown, value: string, callback: (e?: Error) => void) => {
+  if (value !== externalRegisterForm.password) {
+    callback(new Error('两次输入的密码不一致'))
   } else {
     callback()
   }
@@ -821,8 +818,15 @@ const forgotPasswordRules: FormRules = {
 }
 
 const externalRegisterRules: FormRules = {
-  companyName: [{ required: true, message: 'Please enter company name', trigger: 'blur' }],
-  email: [{ type: 'email', message: 'Please enter a valid email', trigger: 'blur' }]
+  companyName: [{ required: true, message: '请输入公司名称', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度6-20位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    { validator: validateExternalConfirmPassword, trigger: 'blur' }
+  ]
 }
 
 const sendCodeText = computed(() => {
@@ -835,12 +839,6 @@ const forgotSendCodeText = computed(() => {
   if (forgotSendingCode.value) return '发送中...'
   if (forgotCountdown.value > 0) return `${forgotCountdown.value}s 后重试`
   return '发送验证码'
-})
-
-const externalSendCodeText = computed(() => {
-  if (externalSendingCode.value) return 'Sending...'
-  if (externalCountdown.value > 0) return `${externalCountdown.value}s`
-  return 'Send code'
 })
 
 function resetTenantSelection(clearOptions = true) {
@@ -879,6 +877,7 @@ watch(
 
 function providerMark(provider: ExternalAuthProviderCode): string {
   if (provider === 'google') return 'G'
+  if (provider === 'outlook') return 'O'
   if (provider === 'wechat') return '微'
   return '企'
 }
@@ -945,9 +944,8 @@ async function handleExternalAuthQuery() {
     externalRegisterTicket.value = registerTicket
     Object.assign(externalRegisterForm, {
       companyName: '',
-      realname: '',
-      email: '',
-      verificationCode: ''
+      password: '',
+      confirmPassword: ''
     })
     showExternalRegisterDialog.value = true
     clearExternalAuthQuery()
@@ -967,9 +965,8 @@ function handleExternalRegisterDialogClosed() {
   externalRegisterTicket.value = ''
   Object.assign(externalRegisterForm, {
     companyName: '',
-    realname: '',
-    email: '',
-    verificationCode: ''
+    password: '',
+    confirmPassword: ''
   })
   externalRegisterFormRef.value?.clearValidate()
 }
@@ -983,9 +980,7 @@ async function handleExternalRegister() {
     const result = await completeExternalRegister({
       ticket: externalRegisterTicket.value,
       companyName: externalRegisterForm.companyName.trim(),
-      realname: externalRegisterForm.realname.trim() || undefined,
-      email: externalRegisterForm.email.trim() || undefined,
-      verificationCode: externalRegisterForm.verificationCode.trim() || undefined,
+      password: externalRegisterForm.password,
       loginType: resolveLoginType()
     })
     await userStore.applyLoginResult(result)
@@ -996,17 +991,6 @@ async function handleExternalRegister() {
   } finally {
     externalRegisterLoading.value = false
   }
-}
-
-async function handleExternalSendCode() {
-  if (externalSendingCode.value || externalCountdown.value > 0) return
-  const email = externalRegisterForm.email.trim()
-  if (!email) {
-    ElMessage.warning('Please enter email')
-    return
-  }
-  pendingEmailCodeScene.value = 'external-register'
-  showCaptchaDialog.value = true
 }
 
 function toggleMode() {
@@ -1194,22 +1178,6 @@ async function handleCaptchaVerified(captchaVerification: string) {
   const currentScene = pendingEmailCodeScene.value
   pendingEmailCodeScene.value = ''
 
-  if (currentScene === 'external-register') {
-    externalSendingCode.value = true
-    try {
-      await sendEmailCode({
-        email: externalRegisterForm.email.trim(),
-        type: 1,
-        captchaVerification
-      })
-      ElMessage.success('Verification code sent')
-      startCountdown('external-register')
-    } finally {
-      externalSendingCode.value = false
-    }
-    return
-  }
-
   if (currentScene === 'reset-password') {
     forgotSendingCode.value = true
     try {
@@ -1266,11 +1234,7 @@ async function handleForgotPasswordReset() {
 }
 
 function startCountdown(scene: EmailCodeScene) {
-  const countdownRef = scene === 'reset-password'
-    ? forgotCountdown
-    : scene === 'external-register'
-      ? externalCountdown
-      : countdown
+  const countdownRef = scene === 'reset-password' ? forgotCountdown : countdown
 
   countdownRef.value = 60
 
@@ -1283,20 +1247,6 @@ function startCountdown(scene: EmailCodeScene) {
       if (countdownRef.value <= 0 && countdownTimer) {
         window.clearInterval(countdownTimer)
         countdownTimer = undefined
-      }
-    }, 1000)
-    return
-  }
-
-  if (scene === 'external-register') {
-    if (externalCountdownTimer) {
-      window.clearInterval(externalCountdownTimer)
-    }
-    externalCountdownTimer = window.setInterval(() => {
-      countdownRef.value -= 1
-      if (countdownRef.value <= 0 && externalCountdownTimer) {
-        window.clearInterval(externalCountdownTimer)
-        externalCountdownTimer = undefined
       }
     }, 1000)
     return
@@ -1328,9 +1278,6 @@ onBeforeUnmount(() => {
   }
   if (forgotCountdownTimer) {
     window.clearInterval(forgotCountdownTimer)
-  }
-  if (externalCountdownTimer) {
-    window.clearInterval(externalCountdownTimer)
   }
 })
 </script>

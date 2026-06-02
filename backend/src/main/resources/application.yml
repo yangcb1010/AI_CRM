@@ -91,6 +91,34 @@ mail:
     # Stable secret used to encrypt mailbox passwords and OAuth tokens stored in crm_mail_account.
     encryption-key: ${MAIL_CREDENTIAL_ENCRYPTION_KEY:Gr73nKSHNpwKsD9367}
     max-concurrent-sync: ${MAIL_MAX_CONCURRENT_SYNC:20}
+    proxy:
+      enabled: ${MAIL_HTTP_PROXY_ENABLED:${EXTERNAL_AUTH_PROXY_ENABLED:true}}
+      url: ${MAIL_HTTP_PROXY_URL:${EXTERNAL_AUTH_PROXY_URL:http://192.168.1.116:7890}}
+    gmail:
+      client-id: ${MAIL_GMAIL_CLIENT_ID:}
+      client-secret: ${MAIL_GMAIL_CLIENT_SECRET:}
+      redirect-uri: ${MAIL_GMAIL_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/email/oauth/gmail/callback}
+    outlook:
+      client-id: ${MAIL_OUTLOOK_CLIENT_ID:}
+      client-secret: ${MAIL_OUTLOOK_CLIENT_SECRET:}
+      tenant: ${MAIL_OUTLOOK_TENANT:common}
+      redirect-uri: ${MAIL_OUTLOOK_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/email/oauth/outlook/callback}
+
+external-auth:
+  proxy:
+    enabled: ${EXTERNAL_AUTH_PROXY_ENABLED:true}
+    url: ${EXTERNAL_AUTH_PROXY_URL:http://192.168.1.116:7890}
+  google:
+    enabled: ${EXTERNAL_AUTH_GOOGLE_ENABLED:true}
+    client-id: ${EXTERNAL_AUTH_GOOGLE_CLIENT_ID:}
+    client-secret: ${EXTERNAL_AUTH_GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${EXTERNAL_AUTH_GOOGLE_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/auth/external/google/callback}
+  outlook:
+    enabled: ${EXTERNAL_AUTH_OUTLOOK_ENABLED:true}
+    client-id: ${EXTERNAL_AUTH_OUTLOOK_CLIENT_ID:${MAIL_OUTLOOK_CLIENT_ID:}}
+    client-secret: ${EXTERNAL_AUTH_OUTLOOK_CLIENT_SECRET:${MAIL_OUTLOOK_CLIENT_SECRET:}}
+    tenant: ${EXTERNAL_AUTH_OUTLOOK_TENANT:${MAIL_OUTLOOK_TENANT:common}}
+    redirect-uri: ${EXTERNAL_AUTH_OUTLOOK_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/auth/external/outlook/callback}
 
 media-analysis:
   ffmpeg:
