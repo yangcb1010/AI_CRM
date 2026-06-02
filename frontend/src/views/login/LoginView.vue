@@ -159,7 +159,7 @@
                       <el-form-item class="!mb-0">
                         <button
                           type="submit"
-                          class="group flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl bg-primary py-2 text-[1rem] font-bold text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                          class="auth-login-submit group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[1rem] font-bold text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                           :disabled="loading"
                         >
                           <span
@@ -577,6 +577,27 @@ const pendingEmailCodeScene = ref<EmailCodeScene | ''>('')
 let countdownTimer: number | undefined
 let forgotCountdownTimer: number | undefined
 
+const LAST_LOGIN_USERNAME_STORAGE_KEY = 'wk_ai_crm:last_login_username:v1'
+
+function readLastLoginUsername(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(LAST_LOGIN_USERNAME_STORAGE_KEY)?.trim() || ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberSuccessfulLoginUsername() {
+  const username = loginForm.username.trim()
+  if (!username || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LAST_LOGIN_USERNAME_STORAGE_KEY, username)
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 const reduceMotion =
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -636,7 +657,7 @@ function snapStageHeightForResize() {
 }
 
 const loginForm = reactive({
-  username: '',
+  username: readLastLoginUsername(),
   password: ''
 })
 
@@ -858,6 +879,7 @@ async function handleTenantLogin(option: LoginTenantOption) {
 }
 
 async function completeLoginRedirect() {
+  rememberSuccessfulLoginUsername()
   ElMessage.success('登录成功')
 
   let redirect = (route.query.redirect as string) || '/'
@@ -1192,6 +1214,14 @@ onBeforeUnmount(() => {
 .auth-form :deep(.el-form-item__label) {
   margin-bottom: 4px;
   line-height: 1.2;
+}
+
+.auth-login-submit {
+  box-sizing: border-box;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  line-height: 1;
 }
 
 .tenant-selection {

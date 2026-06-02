@@ -131,6 +131,9 @@
       v-if="!isMobile || mobilePanel === 'chat'"
       ref="chatMainAreaRef"
       class="wk-chat-shell flex-1 min-w-0 flex flex-col relative overflow-hidden"
+      @touchstart.passive="handleChatEdgeMenuTouchStart"
+      @touchend.passive="handleChatEdgeMenuTouchEnd"
+      @touchcancel.passive="resetChatEdgeMenuSwipe"
     >
       <!-- Chat View -->
       <template v-if="currentView === 'chat'">
@@ -182,8 +185,9 @@
           >
           <div
             v-if="selectedCustomer || (isMobile && isCustomerContextChat)"
-            class="wk-chat-customer-header relative shrink-0 border-b py-2"
+            class="wk-chat-customer-header sticky top-0 z-20 shrink-0 border-b py-2"
             :class="isMobile ? 'px-3' : 'pl-4 pr-1 md:pl-8'"
+            :style="chatCustomerHeaderStyle"
           >
             <div class="mx-auto flex h-9 w-full items-center justify-between gap-2" :class="isMobile ? '' : 'pr-20'">
               <button
@@ -356,18 +360,23 @@
               </span>
             </button>
           </div>
+          <div
+            v-if="isMobile && (selectedCustomer || isCustomerContextChat)"
+            class="wk-chat-customer-header-spacer shrink-0"
+            aria-hidden="true"
+          ></div>
 
           <!-- Messages Area -->
           <div
             ref="messagesContainer"
             class="wk-chat-messages"
-            :class="chatMessagesAreaClass"
+            :class="[chatMessagesAreaClass, { 'wk-chat-messages--empty-chat': isCenteredEmptyChat }]"
             @scroll="handleMessagesScroll"
           >
             <div class="wk-chat-messages__inner px-4 md:px-8">
             <!-- Welcome Section (no messages) -->
             <template v-if="chatStore.messages.length === 0 && !selectedCustomer">
-              <div class="mx-auto flex max-w-3xl flex-col items-center space-y-5 py-6 text-center">
+              <div class="wk-chat-empty-welcome mx-auto flex max-w-3xl flex-col items-center space-y-5 py-6 text-center">
                 <!-- <div class="size-16 bg-primary/5 rounded-2xl flex items-center justify-center text-primary mb-2 border border-primary/10">
                   <WkIcon name="ai" class="text-4xl" />
                 </div> -->
@@ -564,18 +573,20 @@
             <button
               v-if="showScrollToBottomButton"
               type="button"
-              class="absolute left-1/2 -translate-x-1/2 bottom-[140px] md:bottom-[220px] z-20 size-8 rounded-full border border-slate-200 bg-white shadow-lg shadow-slate-200/60 text-slate-600 transition-all flex items-center justify-center hover:bg-slate-50 hover:text-slate-900"
+              class="wk-scroll-to-bottom-button absolute left-1/2 -translate-x-1/2 bottom-[140px] md:bottom-[220px] z-20 flex items-center justify-center rounded-full border bg-white text-slate-600 transition-all hover:bg-slate-50 hover:text-slate-900"
               aria-label="回到底部"
               @click="scrollToBottomSmooth"
             >
-              <span class="material-symbols-outlined text-[18px] leading-none">arrow_downward</span>
+              <span class="material-symbols-outlined text-[22px] leading-none">arrow_downward</span>
             </button>
           </Transition>
 
           <!-- Input Area -->
           <div
+            ref="chatComposerWrapRef"
             class="wk-chat-composer-wrap shrink-0 pb-2 md:pb-2 px-2"
             :class="isCenteredEmptyChat ? 'bg-transparent pt-0' : ''"
+            :style="chatComposerWrapStyle"
           >
             <div class="mx-auto space-y-8 w-[calc(100%-20px)] max-w-4xl md:w-full">
 
@@ -1193,10 +1204,12 @@
                       ref="mobileChatInputRef"
                       v-model="inputText"
                       rows="1"
-                      class="wk-mobile-composer-textarea min-w-0 flex-1 bg-transparent border-none focus:ring-0 focus:outline-none px-1 py-2 text-[#0d0d0d] text-[16px] leading-[24px] placeholder:text-[#0d0d0d] placeholder:text-[16px] resize-none overflow-x-hidden overflow-y-auto"
+                      class="wk-mobile-composer-textarea min-w-0 flex-1 bg-transparent border-none focus:ring-0 focus:outline-none px-1 py-2 text-[#0d0d0d] text-[16px] leading-[24px] placeholder:text-[#909090] placeholder:text-[16px] resize-none overflow-x-hidden overflow-y-auto"
                       :placeholder="chatInputPlaceholder"
                       :disabled="isUploading"
                       @input="resizeChatTextarea"
+                      @focus="scheduleMobileKeyboardInsetUpdate(true)"
+                      @blur="scheduleMobileKeyboardInsetUpdate"
                       @keydown.enter.exact.prevent="handleSend"
                       @paste="handlePaste"
                     />
@@ -1644,7 +1657,7 @@
         <button
           type="button"
           class="wk-mobile-customer-summary__backdrop"
-          aria-label="关闭客户摘要"
+          aria-label="关闭客户详情"
           @click="closeMobileCustomerSummary"
         ></button>
         <section
@@ -1653,7 +1666,7 @@
             'is-dragging': customerSummarySheetDragging,
             'has-voice-action': showMobileSummaryVoiceAction
           }"
-          :style="{ height: `${customerSummarySheetHeight}vh` }"
+          :style="mobileCustomerSummarySheetStyle"
         >
           <header
             class="wk-mobile-customer-summary__header"
@@ -1665,17 +1678,28 @@
                 <p id="wk-mobile-customer-summary-title" class="wk-mobile-customer-summary__title">
                   {{ mobileCustomerSummaryName }}
                 </p>
-                <p class="wk-mobile-customer-summary__subtitle">客户摘要</p>
               </div>
-              <button
-                type="button"
-                class="wk-mobile-customer-summary__close"
-                aria-label="关闭客户摘要"
-                @pointerdown.stop
-                @click.stop="closeMobileCustomerSummary"
-              >
-                <span class="material-symbols-outlined text-[24px] leading-none">close</span>
-              </button>
+              <div class="wk-mobile-customer-summary__actions">
+                <button
+                  type="button"
+                  class="wk-mobile-customer-summary__info"
+                  aria-label="基本信息"
+                  @pointerdown.stop
+                  @click.stop="openSelectedCustomerBasicInfo"
+                >
+                  <span class="material-symbols-outlined text-[17px] leading-none">description</span>
+                  <span>基本信息</span>
+                </button>
+                <button
+                  type="button"
+                  class="wk-mobile-customer-summary__close"
+                  aria-label="关闭客户详情"
+                  @pointerdown.stop
+                  @click.stop="closeMobileCustomerSummary"
+                >
+                  <span class="material-symbols-outlined text-[24px] leading-none">close</span>
+                </button>
+              </div>
             </div>
           </header>
           <div class="wk-mobile-customer-summary__body">
@@ -1686,7 +1710,7 @@
               <div class="mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#f5f5f5] text-slate-400">
                 <WkIcon name="customer" :size="24" />
               </div>
-              <p class="text-sm font-semibold text-slate-700">暂无客户摘要</p>
+              <p class="text-sm font-semibold text-slate-700">暂无客户详情</p>
               <p class="mt-1 text-xs leading-relaxed text-slate-400">客户资料加载后会在这里展示。</p>
             </div>
             <CustomerDetailView
@@ -1862,7 +1886,10 @@ const inputText = ref('')
 const chatViewRef = ref<HTMLElement | null>(null)
 const chatMainAreaRef = ref<HTMLElement | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
+const chatComposerWrapRef = ref<HTMLElement | null>(null)
 const showScrollToBottomButton = ref(false)
+const mobileKeyboardInset = ref(0)
+const mobileVisualViewportTopOffset = ref(0)
 const mobilePanel = ref<'sessions' | 'chat'>('chat')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 /** 桌面端多行输入（模板中 v-if="!isMobile" 的 textarea） */
@@ -1939,6 +1966,7 @@ const selectedCustomerTagSubmitting = ref(false)
 const customerPanelVisible = ref(true)
 const customerPanelWidth = ref(380)
 const customerPanelResizing = ref(false)
+const chatEdgeMenuTouchStart = ref<TouchPoint | null>(null)
 const CUSTOMER_PANEL_MIN_WIDTH = 380
 const CUSTOMER_PANEL_MAX_WIDTH_RATIO = 0.5
 const CHAT_COMPOSER_MIN_WIDTH_PX = 468
@@ -1946,7 +1974,17 @@ const CHAT_CUSTOMER_AI_POLL_INTERVAL_MS = 2500
 const CHAT_CUSTOMER_AI_POLL_MAX_ATTEMPTS = 24
 const CUSTOMER_SUMMARY_SHEET_LEVELS = [58, 78, 94] as const
 const CUSTOMER_SUMMARY_SHEET_MAX_HEIGHT = CUSTOMER_SUMMARY_SHEET_LEVELS[CUSTOMER_SUMMARY_SHEET_LEVELS.length - 1]
+const CHAT_EDGE_MENU_TOUCH_WIDTH_PX = 28
+const CHAT_EDGE_MENU_MIN_SWIPE_PX = 64
+const CHAT_EDGE_MENU_MAX_VERTICAL_PX = 88
+const CHAT_EDGE_MENU_DIRECTION_RATIO = 1.25
+const MOBILE_KEYBOARD_INSET_GAP_PX = 8
+const MOBILE_KEYBOARD_VISIBLE_THRESHOLD_PX = 24
+const MOBILE_KEYBOARD_TRACK_DURATION_MS = 900
+const MOBILE_KEYBOARD_TRACK_INTERVAL_MS = 80
 let chatCustomerAiPollTimer: ReturnType<typeof setTimeout> | null = null
+let mobileKeyboardInsetTimer: ReturnType<typeof setTimeout> | null = null
+let mobileKeyboardInsetTrackTimer: ReturnType<typeof setTimeout> | null = null
 let chatCustomerAiPollAttempts = 0
 let offSelectedCustomerDetailRefresh: (() => void) | null = null
 let customerSummaryDragStartY = 0
@@ -1960,8 +1998,23 @@ type CustomerDetailRefreshPayload = {
   modules?: CustomerDetailRefreshModule[]
 }
 
+type TouchPoint = {
+  clientX: number
+  clientY: number
+}
+
 const chatComposerShellStyle = computed(() => (
   isMobile.value ? undefined : { minWidth: `${CHAT_COMPOSER_MIN_WIDTH_PX}px` }
+))
+const chatComposerWrapStyle = computed(() => (
+  isMobile.value && mobileKeyboardInset.value > 0
+    ? { transform: `translate3d(0, -${mobileKeyboardInset.value}px, 0)` }
+    : undefined
+))
+const chatCustomerHeaderStyle = computed(() => (
+  isMobile.value && mobileVisualViewportTopOffset.value > 0
+    ? { transform: `translate3d(0, ${mobileVisualViewportTopOffset.value}px, 0)` }
+    : undefined
 ))
 
 const CUSTOMER_STAGE_FLOW = [
@@ -2177,7 +2230,8 @@ function resizeChatTextarea() {
   if (!el) return
   el.style.height = 'auto'
   const maxH = getChatTextareaMaxHeightPx(el)
-  el.style.height = `${Math.min(el.scrollHeight, maxH)}px`
+  const minH = isMobile.value ? 40 : 0
+  el.style.height = `${Math.max(minH, Math.min(el.scrollHeight, maxH))}px`
 }
 
 function getCustomerPanelContainerWidth(): number {
@@ -2452,6 +2506,10 @@ const showMobileSummaryVoiceAction = computed(() =>
     && isCustomerContextChat.value
     && customerSummarySheetHeight.value >= CUSTOMER_SUMMARY_SHEET_MAX_HEIGHT - 1
 )
+const mobileCustomerSummarySheetStyle = computed(() => ({
+  height: `${customerSummarySheetHeight.value}vh`,
+  maxHeight: 'calc(100dvh - max(12px, env(safe-area-inset-top)))',
+}))
 const chatMessagesAreaClass = computed(() => {
   if (!isChatEmpty.value) return 'wk-chat-messages--scrollable flex-1 overflow-y-auto pb-4 pt-6 md:pt-8'
   if (isMobile.value) return 'flex-1 overflow-hidden py-6'
@@ -2546,7 +2604,10 @@ function focusChatTextarea() {
       } catch {
         el.focus()
       }
-      if (document.activeElement === el) return
+      if (document.activeElement === el) {
+        scheduleMobileKeyboardInsetUpdate(true)
+        return
+      }
     }
     if (attempt + 1 >= maxAttempts) return
     void nextTick(() => {
@@ -2871,6 +2932,108 @@ function emitChatComposerNarrowState(force = false) {
   })
 }
 
+function isMobileComposerFocused(): boolean {
+  if (typeof document === 'undefined') return false
+  const activeElement = document.activeElement
+  if (!activeElement) return false
+  return activeElement === mobileChatInputRef.value || Boolean(chatComposerWrapRef.value?.contains(activeElement))
+}
+
+function updateMobileVisualViewportTopOffset() {
+  if (!isMobile.value || typeof window === 'undefined') {
+    mobileVisualViewportTopOffset.value = 0
+    return
+  }
+  const offsetTop = window.visualViewport?.offsetTop ?? 0
+  mobileVisualViewportTopOffset.value = offsetTop > 1 ? Math.round(offsetTop) : 0
+}
+
+function updateMobileKeyboardInset() {
+  updateMobileVisualViewportTopOffset()
+  if (!isMobile.value || typeof window === 'undefined' || !isMobileComposerFocused()) {
+    mobileKeyboardInset.value = 0
+    return
+  }
+
+  const visualViewport = window.visualViewport
+  if (!visualViewport) {
+    mobileKeyboardInset.value = 0
+    return
+  }
+
+  const coveredHeight = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)
+  mobileKeyboardInset.value = coveredHeight > MOBILE_KEYBOARD_VISIBLE_THRESHOLD_PX
+    ? Math.round(coveredHeight + MOBILE_KEYBOARD_INSET_GAP_PX)
+    : 0
+}
+
+function clearMobileKeyboardInsetTracking() {
+  if (mobileKeyboardInsetTrackTimer != null) {
+    clearTimeout(mobileKeyboardInsetTrackTimer)
+    mobileKeyboardInsetTrackTimer = null
+  }
+}
+
+function startMobileKeyboardInsetTracking() {
+  if (!isMobile.value) return
+  clearMobileKeyboardInsetTracking()
+  const stopAt = Date.now() + MOBILE_KEYBOARD_TRACK_DURATION_MS
+
+  const tick = () => {
+    updateMobileKeyboardInset()
+    if (!isMobile.value || !isMobileComposerFocused() || Date.now() >= stopAt) {
+      mobileKeyboardInsetTrackTimer = null
+      return
+    }
+    mobileKeyboardInsetTrackTimer = setTimeout(tick, MOBILE_KEYBOARD_TRACK_INTERVAL_MS)
+  }
+
+  mobileKeyboardInsetTrackTimer = setTimeout(tick, MOBILE_KEYBOARD_TRACK_INTERVAL_MS)
+}
+
+function scheduleMobileKeyboardInsetUpdate(trackKeyboardOpening: boolean | Event = false) {
+  updateMobileKeyboardInset()
+  if (!isMobileComposerFocused()) {
+    clearMobileKeyboardInsetTracking()
+  }
+  if (mobileKeyboardInsetTimer != null) {
+    clearTimeout(mobileKeyboardInsetTimer)
+  }
+  mobileKeyboardInsetTimer = setTimeout(() => {
+    mobileKeyboardInsetTimer = null
+    updateMobileKeyboardInset()
+  }, 260)
+  if (trackKeyboardOpening === true) {
+    startMobileKeyboardInsetTracking()
+  }
+}
+
+function registerMobileKeyboardInsetListeners() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+  window.visualViewport?.addEventListener('resize', scheduleMobileKeyboardInsetUpdate)
+  window.visualViewport?.addEventListener('scroll', scheduleMobileKeyboardInsetUpdate)
+  window.addEventListener('orientationchange', scheduleMobileKeyboardInsetUpdate)
+  document.addEventListener('focusin', scheduleMobileKeyboardInsetUpdate, true)
+  document.addEventListener('focusout', scheduleMobileKeyboardInsetUpdate, true)
+}
+
+function unregisterMobileKeyboardInsetListeners() {
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    window.visualViewport?.removeEventListener('resize', scheduleMobileKeyboardInsetUpdate)
+    window.visualViewport?.removeEventListener('scroll', scheduleMobileKeyboardInsetUpdate)
+    window.removeEventListener('orientationchange', scheduleMobileKeyboardInsetUpdate)
+    document.removeEventListener('focusin', scheduleMobileKeyboardInsetUpdate, true)
+    document.removeEventListener('focusout', scheduleMobileKeyboardInsetUpdate, true)
+  }
+  if (mobileKeyboardInsetTimer != null) {
+    clearTimeout(mobileKeyboardInsetTimer)
+    mobileKeyboardInsetTimer = null
+  }
+  clearMobileKeyboardInsetTracking()
+  mobileKeyboardInset.value = 0
+  mobileVisualViewportTopOffset.value = 0
+}
+
 onMounted(async () => {
   offSelectedCustomerDetailRefresh = appEvents.on<CustomerDetailRefreshPayload>(
     APP_EVENT.CUSTOMER_DETAIL_REFRESH,
@@ -2892,6 +3055,7 @@ onMounted(async () => {
     chatMessagesResizeObserver = new ResizeObserver(updateMessagesScrollbarOffset)
     chatMessagesResizeObserver.observe(messagesContainer.value)
   }
+  registerMobileKeyboardInsetListeners()
   document.addEventListener('touchmove', handleMobileSummaryTouchMove, { passive: false })
   emitChatComposerNarrowState(true)
   resizeChatTextarea()
@@ -2905,7 +3069,9 @@ onMounted(async () => {
   if (abortChatViewMountSequence) return
   await nextTick()
   if (abortChatViewMountSequence) return
-  chatStore.requestComposerFocus()
+  if (!isMobile.value || chatStore.isNewSessionPending) {
+    chatStore.requestComposerFocus()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -2925,6 +3091,8 @@ onBeforeUnmount(() => {
   abortChatVoiceRecording()
   transcriptionToken += 1
   closeMobileCustomerSummary()
+  unregisterMobileKeyboardInsetListeners()
+  resetChatEdgeMenuSwipe()
   document.removeEventListener('touchmove', handleMobileSummaryTouchMove)
   unregisterAiQuotaResumeSendHandler()
   customerPanelResizeObserver?.disconnect()
@@ -2945,6 +3113,7 @@ watch(isMobile, () => {
   void nextTick(() => {
     emitChatComposerNarrowState(true)
     updateMessagesScrollbarOffset()
+    scheduleMobileKeyboardInsetUpdate()
   })
 })
 
@@ -3667,6 +3836,56 @@ function openMobileMainMenu() {
   appEvents.emit(APP_EVENT.MOBILE_MAIN_MENU_OPEN)
 }
 
+function getTouchPoint(touch: Touch | undefined): TouchPoint | null {
+  if (!touch) return null
+  return {
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+  }
+}
+
+function resetChatEdgeMenuSwipe() {
+  chatEdgeMenuTouchStart.value = null
+}
+
+function canStartChatEdgeMenuSwipe(target: EventTarget | null) {
+  if (!isMobile.value || currentView.value !== 'chat' || mobilePanel.value !== 'chat') return false
+  if (mobileCustomerSummaryVisible.value || chatUploadMenuVisible.value || chatKnowledgePickerVisible.value) return false
+  if (!(target instanceof Element)) return true
+  return !target.closest('textarea, input, select, button, a, [role="button"], .el-overlay, .el-popper')
+}
+
+function shouldOpenMobileMainMenuFromEdgeSwipe(start: TouchPoint, end: TouchPoint) {
+  if (start.clientX > CHAT_EDGE_MENU_TOUCH_WIDTH_PX) return false
+  const deltaX = end.clientX - start.clientX
+  const deltaY = end.clientY - start.clientY
+  const horizontalDistance = Math.abs(deltaX)
+  const verticalDistance = Math.abs(deltaY)
+
+  return deltaX >= CHAT_EDGE_MENU_MIN_SWIPE_PX
+    && verticalDistance <= CHAT_EDGE_MENU_MAX_VERTICAL_PX
+    && horizontalDistance >= verticalDistance * CHAT_EDGE_MENU_DIRECTION_RATIO
+}
+
+function handleChatEdgeMenuTouchStart(event: TouchEvent) {
+  const point = getTouchPoint(event.touches[0])
+  if (!point || point.clientX > CHAT_EDGE_MENU_TOUCH_WIDTH_PX || !canStartChatEdgeMenuSwipe(event.target)) {
+    resetChatEdgeMenuSwipe()
+    return
+  }
+  chatEdgeMenuTouchStart.value = point
+}
+
+function handleChatEdgeMenuTouchEnd(event: TouchEvent) {
+  const start = chatEdgeMenuTouchStart.value
+  const end = getTouchPoint(event.changedTouches[0])
+  resetChatEdgeMenuSwipe()
+  if (!start || !end) return
+  if (shouldOpenMobileMainMenuFromEdgeSwipe(start, end)) {
+    openMobileMainMenu()
+  }
+}
+
 async function handleNewSession() {
   isPinnedToBottom.value = true
   closeMobileCustomerSummary()
@@ -3690,7 +3909,9 @@ async function handleSelectSession(sessionId: string) {
     mobilePanel.value = 'chat'
   }
   await chatStore.selectSession(sessionId)
-  chatStore.requestComposerFocus()
+  if (!isMobile.value) {
+    chatStore.requestComposerFocus()
+  }
 }
 
 async function applyChatSessionRouteQuery() {
@@ -3938,8 +4159,41 @@ void sendQuickMessage
   backdrop-filter: blur(14px);
 }
 
+.wk-chat-customer-header-spacer {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .wk-chat-customer-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 40;
+    padding-top: max(8px, env(safe-area-inset-top));
+    transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
+    will-change: transform;
+  }
+
+  .wk-chat-customer-header-spacer {
+    display: block;
+    height: calc(45px + max(8px, env(safe-area-inset-top)));
+  }
+}
+
+.wk-scroll-to-bottom-button {
+  width: 44px;
+  height: 44px;
+  border-color: #d4d4d8;
+  box-shadow:
+    0 12px 34px rgb(15 23 42 / 0.11),
+    0 0 18px 8px rgb(203 213 225 / 0.12);
+}
+
 .wk-chat-composer-wrap {
   background: linear-gradient(to top, var(--wk-bg-page) 72%, rgb(var(--wk-bg-page-rgb) / 0));
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
 }
 
 .wk-chat-composer {
@@ -4036,6 +4290,7 @@ void sendQuickMessage
 
 .wk-mobile-composer-row {
   min-height: 40px;
+  align-items: center;
 }
 
 .wk-mobile-composer-icon-button {
@@ -4070,9 +4325,15 @@ void sendQuickMessage
 }
 
 .wk-mobile-composer-textarea {
+  box-sizing: border-box;
   min-height: 40px;
   max-height: 184px;
+  line-height: 24px;
   scrollbar-gutter: stable;
+}
+
+.wk-mobile-composer-textarea::placeholder {
+  line-height: 24px;
 }
 
 .wk-mobile-selected-app-row {
@@ -4115,7 +4376,7 @@ void sendQuickMessage
 
 .wk-mobile-customer-summary__header {
   flex-shrink: 0;
-  padding: 10px 16px 12px;
+  padding: 12px 16px 14px;
   border-bottom: 1px solid var(--wk-border-subtle);
   background: color-mix(in srgb, var(--wk-bg-surface) 96%, transparent);
   touch-action: none;
@@ -4133,28 +4394,49 @@ void sendQuickMessage
 
 .wk-mobile-customer-summary__title-row {
   display: flex;
+  min-height: 44px;
   min-width: 0;
   align-items: center;
   gap: 12px;
 }
 
 .wk-mobile-customer-summary__title {
+  display: -webkit-box;
   min-width: 0;
+  max-height: 44px;
   overflow: hidden;
   color: var(--wk-text-primary);
   font-size: 17px;
   font-weight: 700;
-  line-height: 24px;
+  line-height: 22px;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.wk-mobile-customer-summary__subtitle {
-  margin-top: 2px;
-  color: var(--wk-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
+.wk-mobile-customer-summary__actions {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.wk-mobile-customer-summary__info {
+  display: inline-flex;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 9999px;
+  background: #f1f1f1;
+  color: #0d0d0d;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 12px;
+  transition: background-color 140ms ease, transform 140ms ease;
 }
 
 .wk-mobile-customer-summary__close {
@@ -4170,6 +4452,7 @@ void sendQuickMessage
   transition: background-color 140ms ease, transform 140ms ease;
 }
 
+.wk-mobile-customer-summary__info:active,
 .wk-mobile-customer-summary__close:active {
   transform: scale(0.94);
 }
@@ -4338,6 +4621,13 @@ void sendQuickMessage
 
 .wk-chat-messages--scrollable .wk-chat-messages__inner {
   width: calc(100% + var(--wk-chat-messages-scrollbar-offset));
+}
+
+.wk-chat-messages--empty-chat .wk-chat-messages__inner {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
 }
 
 .wk-chat-message {

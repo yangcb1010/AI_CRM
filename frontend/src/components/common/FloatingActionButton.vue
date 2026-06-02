@@ -59,8 +59,11 @@ const emit = defineEmits<{
 .wk-floating-new-chat-button--menu {
   position: absolute;
   right: max(24px, calc(18px + env(safe-area-inset-right)));
-  bottom: max(24px, calc(18px + env(safe-area-inset-bottom)));
+  bottom: max(44px, calc(38px + env(safe-area-inset-bottom)));
   z-index: 20;
+  box-shadow:
+    0 10px 24px rgb(15 23 42 / 0.18),
+    0 0 10px 2px rgb(15 23 42 / 0.18);
 }
 
 .wk-floating-new-chat-button:hover {
@@ -69,6 +72,12 @@ const emit = defineEmits<{
     0 20px 48px rgb(15 23 42 / 0.28),
     0 2px 10px rgb(15 23 42 / 0.2);
   transform: translateY(-1px);
+}
+
+.wk-floating-new-chat-button--menu:hover {
+  box-shadow:
+    0 12px 28px rgb(15 23 42 / 0.22),
+    0 0 12px 3px rgb(15 23 42 / 0.2);
 }
 
 .wk-floating-new-chat-button:active {
@@ -91,7 +100,14 @@ const emit = defineEmits<{
   .wk-floating-new-chat-button--viewport,
   .wk-floating-new-chat-button--menu {
     right: max(18px, calc(14px + env(safe-area-inset-right)));
+  }
+
+  .wk-floating-new-chat-button--viewport {
     bottom: max(20px, calc(16px + env(safe-area-inset-bottom)));
+  }
+
+  .wk-floating-new-chat-button--menu {
+    bottom: max(40px, calc(36px + env(safe-area-inset-bottom)));
   }
 
   .wk-floating-new-chat-button {

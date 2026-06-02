@@ -41,7 +41,7 @@
               @click="openScriptGenerator"
             >
               <span class="material-symbols-outlined text-[21px] leading-none">forum</span>
-              AI话术生成
+              AI话术
             </button>
 
             <el-upload
@@ -71,12 +71,38 @@
           <div v-if="isMobile" class="mb-6 flex flex-wrap items-center gap-3 md:gap-4">
             <div
               v-if="!showAiSearchResult"
-              class="flex min-w-0 flex-wrap items-center gap-3"
+              class="flex min-w-0 flex-1 items-center gap-3"
             >
               <div class="flex size-6 items-center justify-center rounded bg-primary/10 text-primary">
                 <span class="material-symbols-outlined text-sm">book</span>
               </div>
-              <h3 class="text-lg font-bold text-slate-900">知识库</h3>
+              <h3 class="min-w-0 truncate text-lg font-bold text-slate-900">知识库</h3>
+            </div>
+            <div
+              v-if="!showAiSearchResult"
+              class="flex w-full shrink-0 items-center justify-end gap-2"
+            >
+              <!-- Mobile Upload Button -->
+              <el-upload
+                v-if="isMobile"
+                :show-file-list="false"
+                :before-upload="onUploadTriggerBeforeUpload"
+                :http-request="noopHttpRequest"
+                accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.avif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.mp4,.webm,.mov,.m4v,.avi,.mkv,.ogv,.3gp,audio/*,video/*"
+              >
+                <button class="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg">
+                  <span class="material-symbols-outlined text-sm">upload</span>
+                  上传
+                </button>
+              </el-upload>
+              <button
+                type="button"
+                class="inline-flex rounded-xl border border-[var(--wk-input-border)] bg-[var(--wk-input-bg)] px-4 py-2 text-xs font-bold text-primary transition-colors hover:border-[var(--wk-input-border-hover)] disabled:cursor-not-allowed disabled:text-slate-400 md:text-sm"
+                :disabled="totalCount === 0"
+                @click="openScriptGenerator"
+              >
+                AI话术
+              </button>
             </div>
             <div
               class="wk-native-input-shell flex min-w-0 w-full flex-1 items-center rounded-xl border border-slate-200 bg-white px-1 transition-all focus-within:border-primary md:max-w-md lg:max-w-lg"
@@ -98,32 +124,6 @@
                 @click="handleSearch"
               >
                 {{ isMobile ? '搜索' : 'AI 检索' }}
-              </button>
-            </div>
-            <div
-              v-if="!showAiSearchResult"
-              class="flex w-full shrink-0 items-center justify-end gap-2 md:ml-auto md:w-auto"
-            >
-              <!-- Mobile Upload Button -->
-              <el-upload
-                v-if="isMobile"
-                :show-file-list="false"
-                :before-upload="onUploadTriggerBeforeUpload"
-                :http-request="noopHttpRequest"
-                accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.avif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.mp4,.webm,.mov,.m4v,.avi,.mkv,.ogv,.3gp,audio/*,video/*"
-              >
-                <button class="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg">
-                  <span class="material-symbols-outlined text-sm">upload</span>
-                  上传
-                </button>
-              </el-upload>
-              <button
-                type="button"
-                class="inline-flex rounded-xl border border-[var(--wk-input-border)] bg-[var(--wk-input-bg)] px-4 py-2 text-xs font-bold text-primary transition-colors hover:border-[var(--wk-input-border-hover)] disabled:cursor-not-allowed disabled:text-slate-400 md:text-sm"
-                :disabled="totalCount === 0"
-                @click="openScriptGenerator"
-              >
-                AI 话术 / SOP 生成
               </button>
             </div>
           </div>
@@ -677,8 +677,8 @@ const router = useRouter()
 const userStore = useUserStore()
 const DEFAULT_PAGE_SIZE = 10
 const DESKTOP_LIST_PAGE_SIZE = 10
-const viewMode = ref<'card' | 'list'>('list')
-const resolvedViewMode = computed<'card' | 'list'>(() => isMobile.value ? 'list' : viewMode.value)
+const viewMode = ref<'card' | 'list'>('card')
+const resolvedViewMode = computed<'card' | 'list'>(() => isMobile.value ? 'card' : viewMode.value)
 const loading = ref(false)
 const showUploadDialog = ref(false)
 const knowledgeUploadDialogRef = ref<InstanceType<typeof KnowledgeUploadDialog> | null>(null)

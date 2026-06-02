@@ -652,7 +652,7 @@
               </div>
               <h1 class="min-w-0 truncate text-[22px] font-bold leading-tight text-[#0d0d0d]">{{ enterpriseStore.displayName }}</h1>
             </div>
-            <div class="flex h-10 shrink-0 items-center gap-1 rounded-full bg-white px-1 shadow-[0_12px_34px_rgba(15,23,42,0.12)]">
+            <div class="flex h-10 shrink-0 items-center gap-2 rounded-full bg-white px-1.5 shadow-[0_12px_34px_rgba(15,23,42,0.12)]">
               <button
                 type="button"
                 class="flex size-8 items-center justify-center rounded-full text-[#0d0d0d] transition-colors active:bg-slate-50"
@@ -674,25 +674,25 @@
               </button>
             </div>
           </div>
-          <nav class="wk-scrollbar-gutter-stable flex-1 space-y-1 overflow-y-auto px-2 pb-[104px] pt-1">
+          <nav class="wk-scrollbar-gutter-stable flex-1 space-y-2 overflow-y-auto px-3 pb-[112px] pt-2">
             <template v-for="group in mobileMainNavGroups" :key="group.title || 'default'">
-              <div v-if="group.title" class="pb-2 pt-4">
+              <div v-if="group.title" class="pb-2.5 pt-5">
                 <p class="px-3 text-xs font-bold uppercase tracking-wider text-slate-400">{{ group.title }}</p>
               </div>
-              <div v-for="item in group.items" :key="item.key" class="space-y-1">
+              <div v-for="item in group.items" :key="item.key" class="space-y-1.5">
                 <button
-                  class="flex w-full items-center gap-4 rounded-[8px] px-3 py-[6px] text-left transition-colors"
+                  class="flex w-full items-center gap-4 rounded-[8px] px-3 py-[9px] text-left transition-colors"
                   :class="isPrimaryActive(item) ? 'bg-primary/10 text-primary' : 'text-[#0d0d0d] hover:bg-slate-100'"
                   @click="handleMobilePrimaryNavClick(item)"
                 >
                   <span
                     v-if="item.materialIcon"
-                    class="material-symbols-outlined inline-flex size-5 shrink-0 items-center justify-center text-[20px] leading-none"
+                    class="material-symbols-outlined inline-flex size-6 shrink-0 items-center justify-center text-[20px] leading-none"
                   >
                     {{ item.materialIcon }}
                   </span>
-                  <WkIcon v-else :name="item.icon" :box-size="20" class="shrink-0" />
-                  <span class="truncate text-[1rem] h-[20px] font-semibold">{{ item.label }}</span>
+                  <WkIcon v-else :name="item.icon" :box-size="20" class="shrink-0 self-center" />
+                  <span class="inline-flex min-w-0 flex-1 items-center truncate text-[1rem] font-semibold leading-6">{{ item.label }}</span>
                   <span
                     v-if="item.children?.length"
                     class="material-symbols-outlined ml-auto shrink-0 text-base transition-transform"
@@ -702,11 +702,11 @@
                   </span>
                 </button>
 
-                <div v-if="item.children?.length && isMobilePrimaryExpanded(item.key)" class="ml-3 border-l border-slate-100 pl-3">
+                <div v-if="item.children?.length && isMobilePrimaryExpanded(item.key)" class="ml-3 space-y-1 border-l border-slate-100 pl-3">
                   <button
                     v-for="child in item.children"
                     :key="child.key"
-                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors"
+                    class="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors"
                     :class="isActive(child.route, child.query) ? 'bg-primary/10 text-primary' : 'text-slate-700 hover:bg-slate-50'"
                     @click="mobileNavigate(child.route, child.query)"
                   >
@@ -726,8 +726,8 @@
               </div>
             </template>
 
-            <div class="pt-2">
-              <p class="px-3 pb-2 text-[1rem] font-bold leading-7 text-[#0d0d0d]">最近</p>
+            <div class="pt-3">
+              <p class="px-3 pb-2.5 text-[1rem] font-bold leading-7 text-[#0d0d0d]">最近</p>
               <div v-if="chatStore.sessionsLoading && mobileRecentChatSessions.length === 0" class="flex justify-center py-6">
                 <span class="material-symbols-outlined animate-spin text-slate-300">progress_activity</span>
               </div>
@@ -739,7 +739,7 @@
                   v-for="session in mobileRecentChatSessions"
                   :key="session.sessionId"
                   type="button"
-                  class="mobileRecentChatSessionRow group flex w-full min-w-0 select-none items-center rounded-xl px-3 py-[6px] text-left transition-colors"
+                  class="mobileRecentChatSessionRow group flex w-full min-w-0 select-none items-center rounded-xl px-3 py-[9px] text-left transition-colors"
                   :class="isSessionActive(session.sessionId) ? 'bg-[#f3f3f3]' : 'text-[#0d0d0d] active:bg-slate-100'"
                   @click="handleMobileRecentSessionClick(session.sessionId)"
                   @touchstart.passive="handleMobileSessionTouchStart(session, $event)"
@@ -761,8 +761,8 @@
               </template>
             </div>
 
-            <div v-if="showSidebarCustomers" class="pt-2">
-              <div class="flex items-center gap-2 px-3 pb-2">
+            <div v-if="showSidebarCustomers" class="pt-3">
+              <div class="flex items-center gap-3 px-3 pb-2.5">
                 <p class="min-w-0 flex-1 text-[1rem] font-bold leading-7 text-[#0d0d0d]">客户列表</p>
                 <button
                   type="button"
@@ -794,7 +794,7 @@
                   v-for="customer in sidebarCustomers"
                   :key="customer.customerId"
                   type="button"
-                  class="group flex w-full min-w-0 items-center gap-3 rounded-[8px] px-3 py-[6px] text-left transition-colors"
+                  class="group flex w-full min-w-0 items-center gap-3 rounded-[8px] px-3 py-[9px] text-left transition-colors"
                   :class="isCustomerActive(customer.customerId) ? 'bg-[#f3f3f3]' : 'text-[#0d0d0d] active:bg-slate-100'"
                   @click="handleMobileSelectCustomerChat(customer)"
                 >
@@ -2328,11 +2328,14 @@ async function handleFloatingNewChat() {
   await handleNewSession()
 }
 
-async function handleSelectSession(sessionId: string) {
+async function handleSelectSession(sessionId: string, options: { focusComposer?: boolean } = {}) {
   selectedPrimaryKey.value = ''
+  const selectPromise = chatStore.selectSession(sessionId)
   await router.push('/chat')
-  await chatStore.selectSession(sessionId)
-  chatStore.requestComposerFocus()
+  await selectPromise
+  if (options.focusComposer !== false) {
+    chatStore.requestComposerFocus()
+  }
 }
 
 async function handleSelectSessionFromMore(sessionId: string) {
@@ -2342,7 +2345,7 @@ async function handleSelectSessionFromMore(sessionId: string) {
 
 async function handleMobileSelectSession(sessionId: string) {
   drawerVisible.value = false
-  await handleSelectSession(sessionId)
+  await handleSelectSession(sessionId, { focusComposer: false })
 }
 
 function isSessionActive(sessionId: string): boolean {
