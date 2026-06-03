@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -30,6 +32,14 @@ class TencentMeetingControllerEndpointTest {
                 .toList();
 
         assertThat(exposedAccountMethods).isEmpty();
+    }
+
+    @Test
+    void webhookEndpointShouldBeAllowedWithoutLogin() throws Exception {
+        String securityConfig = Files.readString(Path.of(
+                "src/main/java/com/kakarote/ai_crm/config/SecurityConfig.java"));
+
+        assertThat(securityConfig).contains("\"/tencent-meeting/webhook\"");
     }
 
     private Stream<String> mappingPaths(Method method) {

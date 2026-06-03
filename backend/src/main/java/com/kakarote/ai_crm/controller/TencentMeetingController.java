@@ -21,6 +21,8 @@ import com.kakarote.ai_crm.service.impl.TencentMeetingWebhookService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -102,17 +104,21 @@ public class TencentMeetingController {
     public Result<Boolean> webhook(@RequestBody String body,
                                    @RequestHeader(value = "timestamp", required = false) String timestamp,
                                    @RequestHeader(value = "nonce", required = false) String nonce,
-                                   @RequestHeader(value = "signature", required = false) String signature) {
-        return Result.ok(webhookService.handleWebhook(body, timestamp, nonce, signature));
+                                   @RequestHeader(value = "signature", required = false) String signature,
+                                   @RequestHeader(value = "encrypt", required = false) String encrypt) {
+        return Result.ok(webhookService.handleWebhook(body, timestamp, nonce, signature, encrypt));
     }
 
     @GetMapping("/webhook")
     @Operation(summary = "腾讯会议Webhook URL验证")
-    public String verifyWebhook(@RequestParam("check_str") String checkStr,
-                                @RequestHeader(value = "timestamp", required = false) String timestamp,
-                                @RequestHeader(value = "nonce", required = false) String nonce,
-                                @RequestHeader(value = "signature", required = false) String signature) {
-        return webhookService.verifyWebhookUrl(checkStr, timestamp, nonce, signature);
+    public ResponseEntity<byte[]> verifyWebhook(@RequestParam("check_str") String checkStr,
+                                                @RequestHeader(value = "timestamp", required = false) String timestamp,
+                                                @RequestHeader(value = "nonce", required = false) String nonce,
+                                                @RequestHeader(value = "signature", required = false) String signature,
+                                                @RequestHeader(value = "encrypt", required = false) String encrypt) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(webhookService.verifyWebhookUrl(checkStr, timestamp, nonce, signature, encrypt));
     }
 
     @PostMapping("/queryPageList")

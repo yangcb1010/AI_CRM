@@ -15,7 +15,7 @@ public interface TencentMeetingCorpConfigMapper extends BaseMapper<TencentMeetin
     @Select("""
             SELECT *
             FROM crm_tencent_meeting_corp_config
-            WHERE webhook_secret_encrypted IS NOT NULL
+            WHERE webhook_token_encrypted IS NOT NULL
             """)
     List<TencentMeetingCorpConfig> selectWebhookConfigsIgnoreTenant();
 }

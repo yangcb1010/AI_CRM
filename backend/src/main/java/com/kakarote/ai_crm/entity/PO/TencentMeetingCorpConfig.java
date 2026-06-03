@@ -34,6 +34,8 @@ public class TencentMeetingCorpConfig implements Serializable {
 
     private String webhookSecretEncrypted;
 
+    private String webhookTokenEncrypted;
+
     private String stsTokenEncrypted;
 
     private Date stsTokenExpireTime;

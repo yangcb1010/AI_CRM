@@ -15,7 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URLDecoder;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -47,6 +49,11 @@ public class TencentMeetingWebhookService {
 
     @Transactional(rollbackFor = Exception.class)
     public boolean handleWebhook(String body, String timestamp, String nonce, String signature) {
+        return handleWebhook(body, timestamp, nonce, signature, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean handleWebhook(String body, String timestamp, String nonce, String signature, String encrypt) {
         if (StrUtil.isBlank(body)) {
             return false;
         }
@@ -56,7 +63,7 @@ public class TencentMeetingWebhookService {
             TenantContextHolder.setTenantId(matchedConfig.getTenantId());
         }
         try {
-            return doHandleWebhook(body);
+            return doHandleWebhook(decryptWebhookBodyIfNeeded(body, matchedConfig, encrypt));
         } finally {
             if (previousTenantId != null) {
                 TenantContextHolder.setTenantId(previousTenantId);
@@ -66,14 +73,18 @@ public class TencentMeetingWebhookService {
         }
     }
 
-    public String verifyWebhookUrl(String checkStr, String timestamp, String nonce, String signature) {
-        String decodedCheckStr = URLDecoder.decode(StrUtil.nullToEmpty(checkStr), StandardCharsets.UTF_8);
-        resolveWebhookConfig(decodedCheckStr, timestamp, nonce, signature);
-        try {
-            return new String(Base64.getDecoder().decode(decodedCheckStr), StandardCharsets.UTF_8);
-        } catch (IllegalArgumentException ignored) {
-            return decodedCheckStr;
+    public byte[] verifyWebhookUrl(String checkStr, String timestamp, String nonce, String signature) {
+        return verifyWebhookUrl(checkStr, timestamp, nonce, signature, null);
+    }
+
+    public byte[] verifyWebhookUrl(String checkStr, String timestamp, String nonce, String signature, String encrypt) {
+        String actualCheckStr = StrUtil.nullToEmpty(checkStr);
+        TencentMeetingCorpConfig matchedConfig = resolveWebhookConfig(actualCheckStr, timestamp, nonce, signature);
+        String decryptedCheckStr = decryptEncryptedTextIfNeeded(actualCheckStr, matchedConfig);
+        if (StrUtil.isBlank(decryptedCheckStr)) {
+            throw new IllegalArgumentException("Tencent Meeting webhook check_str decrypt failed");
         }
+        return decryptedCheckStr.getBytes(StandardCharsets.UTF_8);
     }
 
     private boolean doHandleWebhook(String body) {
@@ -149,10 +160,74 @@ public class TencentMeetingWebhookService {
     }
 
     private String decryptWebhookToken(TencentMeetingCorpConfig config) {
+        if (config == null || StrUtil.isBlank(config.getWebhookTokenEncrypted()) || secretTextCipher == null) {
+            return null;
+        }
+        return secretTextCipher.decrypt(config.getWebhookTokenEncrypted());
+    }
+
+    private String decryptEncodingAesKey(TencentMeetingCorpConfig config) {
         if (config == null || StrUtil.isBlank(config.getWebhookSecretEncrypted()) || secretTextCipher == null) {
             return null;
         }
         return secretTextCipher.decrypt(config.getWebhookSecretEncrypted());
+    }
+
+    private String decryptWebhookBodyIfNeeded(String body, TencentMeetingCorpConfig config, String encrypt) {
+        if (StrUtil.isBlank(body)) {
+            return body;
+        }
+        try {
+            JSONObject root = JSONObject.parseObject(body);
+            String encryptedData = root.getString("data");
+            if (StrUtil.isBlank(encryptedData)) {
+                return body;
+            }
+            String decrypted = decryptEncryptedTextIfNeeded(encryptedData, config);
+            if (StrUtil.isBlank(decrypted)) {
+                throw new IllegalArgumentException("Tencent Meeting webhook EncodingAESKey is required");
+            }
+            return decrypted;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception ignored) {
+            return body;
+        }
+    }
+
+    private String decryptEncryptedTextIfNeeded(String encryptedText, TencentMeetingCorpConfig config) {
+        String encodingAesKey = decryptEncodingAesKey(config);
+        if (StrUtil.isBlank(encryptedText) || StrUtil.isBlank(encodingAesKey)) {
+            return null;
+        }
+        return decryptTencentMeetingAes(encryptedText, encodingAesKey);
+    }
+
+    private String decryptTencentMeetingAes(String encryptedText, String encodingAesKey) {
+        try {
+            byte[] key = Base64.getDecoder().decode(encodingAesKey + "=");
+            if (key.length != 32) {
+                throw new IllegalArgumentException("Tencent Meeting webhook EncodingAESKey must decode to 32 bytes");
+            }
+            byte[] encryptedBytes = Base64.getDecoder().decode(encryptedText);
+            if (encryptedBytes.length == 0 || encryptedBytes.length % 16 != 0) {
+                throw new IllegalArgumentException("Tencent Meeting webhook encrypted data length is invalid");
+            }
+            byte[] iv = new byte[16];
+            System.arraycopy(key, 0, iv, 0, iv.length);
+            Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            int padding = decryptedBytes[decryptedBytes.length - 1] & 0xff;
+            if (padding < 1 || padding > 32 || padding > decryptedBytes.length) {
+                throw new IllegalArgumentException("Tencent Meeting webhook encrypted data padding is invalid");
+            }
+            return new String(decryptedBytes, 0, decryptedBytes.length - padding, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Tencent Meeting webhook decrypt failed", e);
+        }
     }
 
     private String extractSignaturePayload(String data) {

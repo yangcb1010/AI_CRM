@@ -843,6 +843,7 @@ CREATE TABLE IF NOT EXISTS crm_tencent_meeting_corp_config (
     corp_name VARCHAR(255),
     app_secret_encrypted TEXT,
     webhook_secret_encrypted TEXT,
+    webhook_token_encrypted TEXT,
     sts_token_encrypted TEXT,
     sts_token_expire_time TIMESTAMP(3),
     sync_enabled BOOLEAN DEFAULT TRUE,
