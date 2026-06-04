@@ -181,7 +181,7 @@
             :class="isCenteredEmptyChat && !isMobile ? 'justify-center -translate-y-[100px]' : ''"
           >
           <div
-            v-if="selectedCustomer || (isMobile && isCustomerContextChat)"
+            v-if="showCustomerHeader"
             class="wk-chat-customer-header sticky top-0 z-20 shrink-0 border-b py-2"
             :class="isMobile ? 'px-3' : 'pl-4 pr-1 md:pl-8'"
             :style="chatCustomerHeaderStyle"
@@ -358,7 +358,7 @@
             </button>
           </div>
           <div
-            v-if="isMobile && (selectedCustomer || isCustomerContextChat)"
+            v-if="showMobileCustomerHeaderSpacer"
             class="wk-chat-customer-header-spacer shrink-0"
             aria-hidden="true"
           ></div>
@@ -930,8 +930,10 @@
                             class="wk-chat-upload-trigger group/chat-upload-trigger relative flex size-8 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#F1F1F1]"
                             :disabled="isUploading"
                             aria-label="添加文件等"
-                            @pointerdown.stop
-                            @click.stop="handleChatUploadTriggerClick"
+                            @pointerdown.stop.prevent="handleChatUploadTriggerPointerDown"
+                            @click.stop.prevent="noopChatUploadTriggerClick"
+                            @keydown.enter.prevent="handleChatUploadTriggerClick"
+                            @keydown.space.prevent="handleChatUploadTriggerClick"
                           >
                             <WkIcon name="add-1" :box-size="16" class="shrink-0" />
                             <span
@@ -1303,8 +1305,10 @@
                           class="wk-chat-upload-trigger wk-mobile-composer-icon-button"
                           :disabled="isUploading"
                           aria-label="添加文件等"
-                          @pointerdown.stop
-                          @click.stop="handleChatUploadTriggerClick"
+                          @pointerdown.stop.prevent="handleChatUploadTriggerPointerDown"
+                          @click.stop.prevent="noopChatUploadTriggerClick"
+                          @keydown.enter.prevent="handleChatUploadTriggerClick"
+                          @keydown.space.prevent="handleChatUploadTriggerClick"
                         >
                           <WkIcon name="add-1" :box-size="16" class="shrink-0" />
                         </button>
@@ -2232,6 +2236,15 @@ function handleChatUploadTriggerClick() {
   chatUploadMenuVisible.value = !chatUploadMenuVisible.value
 }
 
+function handleChatUploadTriggerPointerDown(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+  handleChatUploadTriggerClick()
+}
+
+function noopChatUploadTriggerClick() {
+  // Pointer events handle this trigger; the click handler only swallows mobile ghost clicks.
+}
+
 function handleDocumentPointerDown(event: PointerEvent) {
   if (!chatUploadMenuVisible.value) return
   if (isInsideChatUploadTrigger(event.target) || isInsideChatUploadMenuPopover(event.target)) return
@@ -2354,7 +2367,9 @@ const canEditSelectedCustomerTags = computed(() => userStore.hasPermission('cust
 const selectedCustomerVisibleTags = computed(() => selectedCustomer.value?.tags?.slice(0, 3) || [])
 const selectedCustomerHiddenTags = computed(() => selectedCustomer.value?.tags?.slice(3) || [])
 const selectedCustomerContacts = computed<Contact[]>(() => selectedCustomer.value?.contacts || [])
-const showCustomerConversationTabs = computed(() => Boolean(selectedCustomer.value && customerWecomTabs.value.length > 0))
+const showCustomerConversationTabs = computed(() =>
+  !chatStore.isNewSessionPending && Boolean(selectedCustomer.value && customerWecomTabs.value.length > 0)
+)
 const currentSessionCustomerId = computed(() => {
   const customerId = chatStore.currentSession?.customerId
   return customerId ? String(customerId) : ''
@@ -2801,11 +2816,16 @@ const currentView = ref<'chat' | 'notifications'>('chat')
 const userAvatarLoadFailed = ref(false)
 
 const isChatEmpty = computed(() => chatStore.messages.length === 0)
-const isCustomerContextChat = computed(() => Boolean(selectedCustomerId.value || currentSessionCustomerId.value))
+const isCustomerContextChat = computed(() =>
+  !chatStore.isNewSessionPending && Boolean(selectedCustomerId.value || currentSessionCustomerId.value)
+)
 const isObjectContextChat = computed(() => Boolean(
-  selectedCustomerId.value || currentSessionCustomerId.value
-  || selectedEmployeeId.value || currentSessionEmployeeId.value
-  || selectedRelationId.value || currentSessionRelationId.value
+  !chatStore.isNewSessionPending
+  && (
+    selectedCustomerId.value || currentSessionCustomerId.value
+    || selectedEmployeeId.value || currentSessionEmployeeId.value
+    || selectedRelationId.value || currentSessionRelationId.value
+  )
 ))
 const isCenteredEmptyChat = computed(() => isChatEmpty.value && !isCustomerContextChat.value)
 const mobileChatFloatingBarTop = computed(() => '0px')
@@ -2841,6 +2861,12 @@ const mobileCustomerSummaryName = computed(() =>
 )
 const mobileCustomerHeaderName = computed(() =>
   selectedCustomer.value?.companyName || boundCustomerName.value || chatStore.currentSession?.title || '客户'
+)
+const showCustomerHeader = computed(() =>
+  !chatStore.isNewSessionPending && Boolean(selectedCustomer.value || (isMobile.value && isCustomerContextChat.value))
+)
+const showMobileCustomerHeaderSpacer = computed(() =>
+  isMobile.value && showCustomerHeader.value
 )
 const showMobileSummaryVoiceAction = computed(() =>
   mobileCustomerSummaryVisible.value
@@ -4547,15 +4573,15 @@ watch(
       return
     }
 
-  clearChatCustomerAiPolling()
-  if (selectedCustomerId.value === customerId && selectedCustomer.value) return
-  selectedCustomerId.value = customerId
-  resetCustomerWecomConversationState()
-  selectedEmployeeId.value = null
-  selectedEmployee.value = null
-  selectedRelationId.value = null
-  selectedRelationDetail.value = null
-  void ensureSelectedCustomerDetail(customerId)
+    clearChatCustomerAiPolling()
+    if (selectedCustomerId.value === customerId && selectedCustomer.value) return
+    selectedCustomerId.value = customerId
+    resetCustomerWecomConversationState()
+    selectedEmployeeId.value = null
+    selectedEmployee.value = null
+    selectedRelationId.value = null
+    selectedRelationDetail.value = null
+    void ensureSelectedCustomerDetail(customerId)
   },
   { immediate: true }
 )
@@ -5333,8 +5359,12 @@ void sendQuickMessage
   width: calc(100% + var(--wk-chat-messages-scrollbar-offset));
 }
 
+.wk-chat-messages--mobile-floating-actions {
+  scroll-padding-top: calc(92px + max(0px, env(safe-area-inset-top)));
+}
+
 .wk-chat-messages--mobile-floating-actions .wk-chat-messages__inner {
-  padding-top: calc(64px + max(0px, env(safe-area-inset-top)));
+  padding-top: calc(92px + max(0px, env(safe-area-inset-top)));
 }
 
 .wk-chat-messages--empty-chat .wk-chat-messages__inner {

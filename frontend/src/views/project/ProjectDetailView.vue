@@ -962,7 +962,7 @@ const taskConversationId = ref('')
 const taskInfoPanelCollapsed = ref(false)
 const projectTaskSearchKeyword = ref('')
 const projectTaskSearchLoading = ref(false)
-let projectTaskSearchTimer: ReturnType<typeof window.setTimeout> | null = null
+let projectTaskSearchTimer: number | null = null
 
 const projectViewValues = new Set<Exclude<ProjectViewMode, 'task_ai'>>(['board', 'list', 'cards', 'ai', 'members'])
 
