@@ -363,7 +363,7 @@
             aria-hidden="true"
           ></div>
 
-          <div v-if="selectedCustomer" class="wk-chat-customer-tabs">
+          <div v-if="showCustomerConversationTabs" class="wk-chat-customer-tabs">
             <button
               type="button"
               class="wk-chat-customer-tabs__item"
@@ -2321,6 +2321,7 @@ const canEditSelectedCustomerTags = computed(() => userStore.hasPermission('cust
 const selectedCustomerVisibleTags = computed(() => selectedCustomer.value?.tags?.slice(0, 3) || [])
 const selectedCustomerHiddenTags = computed(() => selectedCustomer.value?.tags?.slice(3) || [])
 const selectedCustomerContacts = computed<Contact[]>(() => selectedCustomer.value?.contacts || [])
+const showCustomerConversationTabs = computed(() => Boolean(selectedCustomer.value && customerWecomTabs.value.length > 0))
 const currentSessionCustomerId = computed(() => {
   const customerId = chatStore.currentSession?.customerId
   return customerId ? String(customerId) : ''
@@ -3106,7 +3107,8 @@ async function loadCustomerWecomTabs(customerId: string) {
   customerWecomTabsLoading.value = true
   try {
     const tabs = await getCustomerWecomConversationTabs(customerId)
-    if (currentSessionCustomerId.value && currentSessionCustomerId.value !== customerId) return
+    const activeCustomerId = currentSessionCustomerId.value || selectedCustomerId.value
+    if (activeCustomerId && activeCustomerId !== customerId) return
     customerWecomTabs.value = tabs || []
     if (activeCustomerConversationTab.value !== 'ai') {
       const activeExists = customerWecomTabs.value.some(tab => tab.tabKey === activeCustomerConversationTab.value)
@@ -3121,6 +3123,13 @@ async function loadCustomerWecomTabs(customerId: string) {
   } finally {
     customerWecomTabsLoading.value = false
   }
+}
+
+function resetCustomerWecomConversationState() {
+  activeCustomerConversationTab.value = 'ai'
+  customerWecomTabs.value = []
+  customerWecomMessages.value = []
+  customerWecomMessagesLoading.value = false
 }
 
 async function handleCustomerConversationTabClick(tabKey: string) {
@@ -3263,6 +3272,7 @@ function handleSelectedCustomerDetailRefresh(payload?: CustomerDetailRefreshPayl
 
 async function handleSelectCustomerById(customerId: string) {
   selectedCustomerId.value = customerId
+  resetCustomerWecomConversationState()
   selectedEmployeeId.value = null
   selectedEmployee.value = null
   selectedRelationId.value = null
@@ -4498,15 +4508,14 @@ watch(
       selectedCustomerId.value = null
       selectedCustomer.value = null
       selectedCustomerLoading.value = false
-      activeCustomerConversationTab.value = 'ai'
-      customerWecomTabs.value = []
-      customerWecomMessages.value = []
+      resetCustomerWecomConversationState()
       return
     }
 
   clearChatCustomerAiPolling()
   if (selectedCustomerId.value === customerId && selectedCustomer.value) return
   selectedCustomerId.value = customerId
+  resetCustomerWecomConversationState()
   selectedEmployeeId.value = null
   selectedEmployee.value = null
   selectedRelationId.value = null
