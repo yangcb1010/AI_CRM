@@ -1229,11 +1229,11 @@
               </template>
             </div>
 
-            <div v-if="showConfigSection" class="pb-2 pt-2">
+            <div v-if="showMobileConfigSection" class="pb-2 pt-2">
               <p class="px-3 text-xs font-bold uppercase tracking-wider text-slate-400">配置与服务</p>
             </div>
 
-            <template v-if="showConfigSection">
+            <template v-if="showMobileConfigSection">
               <button
                 v-for="item in configNavItems"
                 :key="item.route"
@@ -2347,7 +2347,9 @@ const configNavItems = computed(() =>
   allConfigNavItems.filter(item => item.permission.some(permission => userStore.hasPermission(permission)))
 )
 
+const MOBILE_CONFIG_SECTION_VISIBLE = false
 const showConfigSection = computed(() => configNavItems.value.length > 0)
+const showMobileConfigSection = computed(() => MOBILE_CONFIG_SECTION_VISIBLE && showConfigSection.value)
 const userDisplayName = computed(() => userStore.realname || userStore.username || '用户')
 const userAccountName = computed(() => userStore.username || userStore.userInfo?.email || userStore.userInfo?.mobile || '用户')
 const userAvatarInitials = computed(() => userDisplayName.value.trim().slice(0, 2).toUpperCase() || 'U')
