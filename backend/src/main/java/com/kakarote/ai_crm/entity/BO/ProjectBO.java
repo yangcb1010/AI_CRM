@@ -154,6 +154,10 @@ public class ProjectBO {
     public static class AiCommand {
         @NotBlank(message = "对话内容不能为空")
         private String content;
+
+        private List<ChatSendBO.AttachmentDTO> attachments;
+
+        private List<Long> knowledgeIds;
     }
 
     @Data

@@ -36,6 +36,7 @@ import {
   updateProjectMemberStatus,
   updateProjectTask
 } from '@/api/project'
+import type { ProjectAiCommandPayload } from '@/api/project'
 import {
   canEditTask,
   canMoveTask,
@@ -194,14 +195,14 @@ export const useProjectStore = defineStore('project', () => {
     return project.members.find(member => member.userId === userId) || null
   }
 
-  async function handleAiCommand(projectId: string, content: string) {
-    const project = await sendProjectAiCommand(projectId, content)
+  async function handleAiCommand(projectId: string, payload: ProjectAiCommandPayload | string) {
+    const project = await sendProjectAiCommand(projectId, payload)
     upsertProject(project)
     return project.chatMessages.at(-1)?.content || ''
   }
 
-  async function handleTaskAiCommand(projectId: string, taskId: string, content: string) {
-    const project = await sendTaskAiCommand(projectId, taskId, content)
+  async function handleTaskAiCommand(projectId: string, taskId: string, payload: ProjectAiCommandPayload | string) {
+    const project = await sendTaskAiCommand(projectId, taskId, payload)
     upsertProject(project)
     return project.tasks.find(task => task.taskId === taskId)?.chatMessages.at(-1)?.content || ''
   }

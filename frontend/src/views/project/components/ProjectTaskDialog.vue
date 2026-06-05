@@ -14,7 +14,7 @@
           </div>
           <div>
             <h2 class="text-lg font-bold text-slate-900">{{ editingTask ? '编辑项目任务' : '新建项目任务' }}</h2>
-            <p class="mt-0.5 text-xs text-slate-500">任务会自动归属到当前项目的泳道里。</p>
+            <p class="mt-0.5 text-xs text-slate-500">{{ editingTask ? '修改项目任务详细信息' : '手动填写或使用 AI 智能解析' }}</p>
           </div>
         </div>
         <button
@@ -28,6 +28,33 @@
     </template>
 
     <div class="space-y-5 bg-white px-5 pb-6 pt-5 md:px-6 md:pb-7">
+      <div v-if="!editingTask" class="space-y-3 rounded-2xl border border-[var(--wk-input-border)] bg-white p-3">
+        <div class="flex items-center gap-2">
+          <WkIcon name="ai" class="text-primary text-sm" />
+          <span class="text-xs font-bold text-primary">AI 智能解析（可选）</span>
+        </div>
+        <div class="relative">
+          <el-input
+            v-model="aiParseInput"
+            type="textarea"
+            :rows="5"
+            resize="none"
+            placeholder="例如：明天下午两点前给科技创新有限公司的张总发一份 Q4 扩容方案的报价单，标记为高优先级..."
+            class="wk-crm-el-field-input wk-crm-el-field-ai w-full"
+          />
+          <button
+            type="button"
+            class="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!aiParseInput.trim() || aiParsing"
+            @click="handleAiParse"
+          >
+            <span v-if="aiParsing" class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+            <WkIcon v-else name="ai" class="text-sm" />
+            {{ aiParsing ? '解析中...' : '一键解析' }}
+          </button>
+        </div>
+      </div>
+
       <div>
         <label class="mb-1.5 block text-xs font-bold text-slate-500">任务名称 <span class="text-red-500">*</span></label>
         <el-input v-model="form.title" placeholder="请输入任务名称" size="large" class="wk-crm-el-field-input" />
@@ -109,7 +136,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div>
         <div>
           <label class="mb-1.5 block text-xs font-bold text-slate-500">关联客户</label>
           <el-select
@@ -133,26 +160,6 @@
               :value="item.value"
             />
           </el-select>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-slate-900">包含附件</p>
-                <p class="mt-1 text-xs text-slate-500">用于展示附件标记</p>
-              </div>
-              <el-switch v-model="form.hasAttachments" />
-            </div>
-          </label>
-          <label class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-slate-900">包含日程</p>
-                <p class="mt-1 text-xs text-slate-500">用于展示日程标记</p>
-              </div>
-              <el-switch v-model="form.hasSchedule" />
-            </div>
-          </label>
         </div>
       </div>
 
@@ -210,11 +217,14 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { queryUserList } from '@/api/auth'
 import { queryCustomerList } from '@/api/customer'
+import { aiParseTask } from '@/api/task'
 import { useResponsive } from '@/composables/useResponsive'
 import type { ProjectLane, ProjectTask, ProjectTaskPriority } from '@/types/project'
 import { PROJECT_TASK_PRIORITY_OPTIONS } from '@/utils/project'
 
 type SelectOption = { value: string; label: string }
+type UserListItem = { userId: string | number; realname?: string; username?: string }
+type CustomerListItem = { customerId: string | number; companyName?: string }
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -252,6 +262,8 @@ const emit = defineEmits<{
 const { isMobile } = useResponsive()
 
 const submitting = ref(false)
+const aiParsing = ref(false)
+const aiParseInput = ref('')
 const userLoading = ref(false)
 const customerLoading = ref(false)
 const userOptions = ref<SelectOption[]>([])
@@ -290,6 +302,7 @@ watch(
 )
 
 function hydrateForm() {
+  aiParseInput.value = ''
   userOptions.value = []
   customerOptions.value = []
 
@@ -353,7 +366,7 @@ async function searchUsers(query: string) {
   userLoading.value = true
   try {
     const response = await queryUserList({ search: query.trim(), page: 1, limit: 20 })
-    userOptions.value = (response.list || []).map((item: { userId: string | number; realname?: string; username?: string }) => ({
+    userOptions.value = (response.list || []).map((item: UserListItem) => ({
       value: String(item.userId),
       label: item.realname || item.username || ''
     })).filter((item: SelectOption) => item.label)
@@ -370,7 +383,7 @@ async function searchCustomers(query: string) {
   customerLoading.value = true
   try {
     const response = await queryCustomerList({ keyword: query.trim(), page: 1, limit: 20 })
-    customerOptions.value = (response.list || []).map((item: { customerId: string; companyName?: string }) => ({
+    customerOptions.value = (response.list || []).map((item: CustomerListItem) => ({
       value: String(item.customerId),
       label: item.companyName || ''
     }))
@@ -393,6 +406,114 @@ function syncParticipantNames() {
   participantNames.value = participantIds.value.map(value =>
     userOptions.value.find(item => item.value === value)?.label || value
   )
+}
+
+async function handleAiParse() {
+  const content = aiParseInput.value.trim()
+  if (!content) return
+
+  aiParsing.value = true
+  try {
+    const result = await aiParseTask(content)
+    if (result.title) form.title = result.title
+    if (result.description) form.description = result.description
+    if (result.dueDate) form.dueDate = toProjectDateTimeValue(result.dueDate)
+    if (result.priority) form.priority = normalizeProjectTaskPriority(result.priority)
+    if (result.customerName) await applyParsedCustomer(result.customerName)
+    if (result.assignedToName) await applyParsedOwner(result.assignedToName)
+    if (result.participantNames) await applyParsedParticipants(result.participantNames)
+    ElMessage.success('AI 解析完成，请确认后再创建任务')
+  } catch (error) {
+    console.error('AI parse project task failed:', error)
+    ElMessage.error('AI 解析失败，请稍后重试')
+  } finally {
+    aiParsing.value = false
+  }
+}
+
+function normalizeProjectTaskPriority(value: string): ProjectTaskPriority {
+  const normalized = value.trim().toUpperCase()
+  if (normalized === 'URGENT' || value.includes('紧急')) return 'URGENT'
+  if (normalized === 'HIGH' || value.includes('高')) return 'HIGH'
+  if (normalized === 'LOW' || value.includes('低')) return 'LOW'
+  return 'MEDIUM'
+}
+
+function toProjectDateTimeValue(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
+  return normalized.length === 16 ? `${normalized}:00` : normalized
+}
+
+function splitParsedNames(value: string) {
+  return value
+    .split(/[、,，;；\s]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+}
+
+async function applyParsedCustomer(customerName: string) {
+  const keyword = customerName.trim()
+  if (!keyword) return
+  const response = await queryCustomerList({ keyword, page: 1, limit: 5 })
+  const customers = response.list || []
+  customerOptions.value = customers.map((item: CustomerListItem) => ({
+    value: String(item.customerId),
+    label: item.companyName || ''
+  }))
+  const matched = customerOptions.value.find(item => item.label === keyword) || customerOptions.value[0]
+  if (matched) {
+    form.customerId = matched.value
+    form.customerName = matched.label
+  } else {
+    form.customerId = ''
+    form.customerName = keyword
+  }
+}
+
+async function applyParsedOwner(ownerName: string) {
+  const matched = await findUserByName(ownerName)
+  if (!matched) return
+  mergeUserOption(matched)
+  form.ownerId = matched.value
+  form.ownerName = matched.label
+}
+
+async function applyParsedParticipants(namesText: string) {
+  const names = splitParsedNames(namesText)
+  if (!names.length) return
+
+  const ids: string[] = []
+  const namesForSubmit: string[] = []
+  for (const name of names) {
+    const matched = await findUserByName(name)
+    if (matched) {
+      mergeUserOption(matched)
+      ids.push(matched.value)
+      namesForSubmit.push(matched.label)
+    } else {
+      namesForSubmit.push(name)
+    }
+  }
+  participantIds.value = ids
+  participantNames.value = namesForSubmit
+}
+
+async function findUserByName(name: string): Promise<SelectOption | null> {
+  const keyword = name.trim()
+  if (!keyword) return null
+  const response = await queryUserList({ search: keyword, page: 1, limit: 5 })
+  const options: SelectOption[] = (response.list || []).map((item: UserListItem) => ({
+    value: String(item.userId),
+    label: item.realname || item.username || ''
+  })).filter((item: SelectOption) => item.label)
+  return options.find(item => item.label === keyword) || options[0] || null
+}
+
+function mergeUserOption(option: SelectOption) {
+  if (userOptions.value.some(item => item.value === option.value)) return
+  userOptions.value = [...userOptions.value, option]
 }
 
 async function handleSubmit() {
@@ -437,16 +558,56 @@ function formatDateTimeLocal(value?: string) {
 </script>
 
 <style scoped>
-.wk-project-task-dialog :deep(.el-dialog__header) {
+:global(.wk-project-task-dialog.el-dialog) {
+  display: flex;
+  max-height: min(760px, calc(100dvh - 32px)) !important;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0 auto !important;
+}
+
+:global(.wk-project-task-dialog.el-dialog .el-dialog__header) {
+  flex: 0 0 auto;
   padding: 22px 24px 14px;
   margin-right: 0;
 }
 
-.wk-project-task-dialog :deep(.el-dialog__body) {
-  padding: 0;
+:global(.wk-project-task-dialog.el-dialog .el-dialog__body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 !important;
 }
 
-.wk-project-task-dialog :deep(.el-dialog__footer) {
-  padding: 14px 24px 22px;
+:global(.wk-project-task-dialog.el-dialog .el-dialog__footer) {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--wk-border-subtle);
+  background: #fff;
+  padding: 14px 24px 22px !important;
+}
+
+:global(.el-overlay:has(.wk-project-task-dialog)),
+:global(.el-overlay-dialog:has(.wk-project-task-dialog)) {
+  overflow: hidden;
+}
+
+:global(.el-overlay-dialog:has(.wk-project-task-dialog)) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+}
+
+@media (max-width: 767px) {
+  :global(.wk-project-task-dialog.el-dialog) {
+    max-height: calc(100dvh - 24px) !important;
+    margin: 0 auto !important;
+  }
+
+  :global(.el-overlay-dialog:has(.wk-project-task-dialog)) {
+    padding: 12px;
+  }
 }
 </style>

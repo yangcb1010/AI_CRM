@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
+import com.kakarote.ai_crm.entity.BO.ChatSendBO;
 import com.kakarote.ai_crm.entity.BO.ProjectBO;
 import com.kakarote.ai_crm.entity.VO.ProjectVO;
 import com.kakarote.ai_crm.service.IProjectService;
@@ -626,7 +627,7 @@ public class ProjectServiceImpl implements IProjectService {
     public ProjectVO handleProjectAiCommand(Long projectId, ProjectBO.AiCommand commandBO) {
         ensureProjectPermission(projectId, PERMISSION_USE_AI_CHAT);
         String content = commandBO.getContent().trim();
-        appendProjectChat(projectId, "user", content);
+        appendProjectChat(projectId, "user", buildAiCommandChatContent(content, commandBO));
         String reply = "我已经记录到当前项目上下文。你也可以继续让我创建任务、总结进展或查询项目任务。";
         ProjectAiCommandParser.ParsedCommand command = ProjectAiCommandParser.parse(content);
 
@@ -720,7 +721,7 @@ public class ProjectServiceImpl implements IProjectService {
         TaskRow task = findTask(projectId, taskId);
         ensureCanUseTaskAi(projectId, task);
         String content = commandBO.getContent().trim();
-        appendTaskChat(projectId, taskId, "user", content);
+        appendTaskChat(projectId, taskId, "user", buildAiCommandChatContent(content, commandBO));
         String reply = "当前对话对象是任务「" + task.title() + "」，我已经收到你的指令。";
 
         if (containsAny(content, "改到", "改成", "调整到", "延期到")
@@ -779,6 +780,45 @@ public class ProjectServiceImpl implements IProjectService {
         appendTaskChat(projectId, taskId, "assistant", reply);
         touchProject(projectId);
         return buildProjectVO(projectId);
+    }
+
+    private String buildAiCommandChatContent(String content, ProjectBO.AiCommand commandBO) {
+        if (commandBO == null) {
+            return content;
+        }
+        List<String> contextLines = new ArrayList<>();
+        if (commandBO.getAttachments() != null && !commandBO.getAttachments().isEmpty()) {
+            String attachments = commandBO.getAttachments().stream()
+                    .filter(Objects::nonNull)
+                    .map(this::describeAiCommandAttachment)
+                    .filter(StrUtil::isNotBlank)
+                    .collect(Collectors.joining("、"));
+            if (StrUtil.isNotBlank(attachments)) {
+                contextLines.add("已选择资料：" + attachments);
+            }
+        }
+        if (commandBO.getKnowledgeIds() != null && !commandBO.getKnowledgeIds().isEmpty()) {
+            String knowledgeIds = commandBO.getKnowledgeIds().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::valueOf)
+                    .collect(Collectors.joining("、"));
+            if (StrUtil.isNotBlank(knowledgeIds)) {
+                contextLines.add("已选择知识库 ID：" + knowledgeIds);
+            }
+        }
+        if (contextLines.isEmpty()) {
+            return content;
+        }
+        return content + "\n\n" + String.join("\n", contextLines);
+    }
+
+    private String describeAiCommandAttachment(ChatSendBO.AttachmentDTO attachment) {
+        String fileName = StrUtil.blankToDefault(attachment.getFileName(), "未命名资料");
+        Long fileSize = attachment.getFileSize();
+        if (fileSize == null || fileSize <= 0) {
+            return fileName;
+        }
+        return fileName + "（" + fileSize + " B）";
     }
 
     private ProjectVO buildProjectVO(Long projectId) {

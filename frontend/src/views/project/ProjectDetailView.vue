@@ -266,7 +266,7 @@
                         class="wk-project-chat-textarea"
                         placeholder="输入项目指令"
                         @input="handleProjectChatComposerInput"
-                        @keydown.enter.exact.prevent="handleSendAiMessage"
+                        @keydown.enter.exact.prevent="handleSendAiMessage()"
                       ></textarea>
                       <div class="flex min-w-0 items-center justify-end w-full px-1 pb-1 select-none mt-1">
                         <button
@@ -274,7 +274,7 @@
                           class="wk-project-chat-send-button"
                           :disabled="!aiInput.trim()"
                           aria-label="发送"
-                          @click="handleSendAiMessage"
+                          @click="handleSendAiMessage()"
                         >
                           <span class="material-symbols-outlined">arrow_upward</span>
                         </button>
@@ -289,7 +289,7 @@
                     resize="none"
                     class="wk-crm-el-field-input"
                     placeholder="输入项目指令，例如：这个项目和北京百度公司合作，明天下午三点给客户汇报需求文档和设计方案，帮我创建一个任务。"
-                    @keydown.enter.exact.prevent="handleSendAiMessage"
+                    @keydown.enter.exact.prevent="handleSendAiMessage()"
                   />
                   <div v-if="false" class="mt-3 flex items-center justify-end gap-3">
                     <p class="hidden text-xs text-slate-400">AI 可创建任务、泳道、项目日程和项目附件，并会在执行前校验项目权限。</p>
@@ -297,7 +297,7 @@
                       type="button"
                       class="wk-project-chat-send-button"
                       :disabled="!aiInput.trim()"
-                      @click="handleSendAiMessage"
+                      @click="handleSendAiMessage()"
                     >
                       <span class="material-symbols-outlined">arrow_upward</span>
                       发送
@@ -395,7 +395,7 @@
                         class="wk-project-chat-textarea"
                         placeholder="输入任务指令"
                         @input="handleTaskChatComposerInput"
-                        @keydown.enter.exact.prevent="handleSendTaskAiMessage"
+                        @keydown.enter.exact.prevent="handleSendTaskAiMessage()"
                       ></textarea>
                       <div class="flex min-w-0 items-center justify-end w-full px-1 pb-1 select-none mt-1">
                         <button
@@ -403,7 +403,7 @@
                           class="wk-project-chat-send-button"
                           :disabled="!taskAiInput.trim()"
                           aria-label="发送"
-                          @click="handleSendTaskAiMessage"
+                          @click="handleSendTaskAiMessage()"
                         >
                           <span class="material-symbols-outlined">arrow_upward</span>
                         </button>
@@ -416,13 +416,13 @@
                       rows="1"
                       class="wk-project-task-chat-textarea"
                       placeholder="输入任务指令，例如：把这个任务改到明天下午三点，或帮我生成一个汇报大纲。"
-                      @keydown.enter.exact.prevent="handleSendTaskAiMessage"
+                      @keydown.enter.exact.prevent="handleSendTaskAiMessage()"
                     />
                     <button
                       type="button"
                       class="wk-project-task-chat-send-button"
                       :disabled="!taskAiInput.trim()"
-                      @click="handleSendTaskAiMessage"
+                      @click="handleSendTaskAiMessage()"
                     >
                       <span class="material-symbols-outlined">arrow_upward</span>
                     </button>
@@ -1047,6 +1047,7 @@ import type {
   ProjectTask,
   ProjectViewMode
 } from '@/types/project'
+import type { ChatAttachmentDTO, ChatAttachmentVO } from '@/types/common'
 import {
   formatDateTime,
   memberPermissionSummary,
@@ -1073,6 +1074,13 @@ type ProjectTab = {
   value: 'board' | 'list' | 'cards'
   label: string
   icon: string
+}
+
+type ProjectChatComposerSendPayload = {
+  content: string
+  attachments?: ChatAttachmentDTO[]
+  attachmentVOs?: ChatAttachmentVO[]
+  knowledgeIds?: string[]
 }
 
 const projectTabs: ProjectTab[] = [
@@ -1596,16 +1604,26 @@ async function handleDeleteLane(laneId: string) {
   }
 }
 
-async function handleSendAiMessage() {
-  if (!project.value || !aiInput.value.trim() || !canUseAiChat.value) return
-  await projectStore.handleAiCommand(project.value.projectId, aiInput.value.trim())
+async function handleSendAiMessage(payload?: ProjectChatComposerSendPayload) {
+  const content = payload?.content?.trim() || aiInput.value.trim()
+  if (!project.value || !content || !canUseAiChat.value) return
+  await projectStore.handleAiCommand(project.value.projectId, {
+    content,
+    attachments: payload?.attachments,
+    knowledgeIds: payload?.knowledgeIds
+  })
   aiInput.value = ''
   void nextTick(() => resizeProjectChatTextarea(projectAiComposerInputRef.value))
 }
 
-async function handleSendTaskAiMessage() {
-  if (!project.value || !currentTaskConversation.value || !taskAiInput.value.trim() || !canUseCurrentTaskAi.value) return
-  await projectStore.handleTaskAiCommand(project.value.projectId, currentTaskConversation.value.taskId, taskAiInput.value.trim())
+async function handleSendTaskAiMessage(payload?: ProjectChatComposerSendPayload) {
+  const content = payload?.content?.trim() || taskAiInput.value.trim()
+  if (!project.value || !currentTaskConversation.value || !content || !canUseCurrentTaskAi.value) return
+  await projectStore.handleTaskAiCommand(project.value.projectId, currentTaskConversation.value.taskId, {
+    content,
+    attachments: payload?.attachments,
+    knowledgeIds: payload?.knowledgeIds
+  })
   taskAiInput.value = ''
   void nextTick(() => resizeProjectChatTextarea(taskAiComposerInputRef.value))
 }

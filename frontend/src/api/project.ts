@@ -1,5 +1,6 @@
 import { get, post } from '@/utils/request'
 import type { PageResult } from '@/types/api'
+import type { ChatAttachmentDTO } from '@/types/common'
 import type {
   ProjectCreatePayload,
   ProjectAttachment,
@@ -24,6 +25,12 @@ const PROJECT_ROLES: ProjectRole[] = ['OWNER', 'ADMIN', 'MEMBER', 'READONLY', 'E
 const PROJECT_ROLE_PERMISSION_PATHS = ['/project/role-permissions', '/project/rolePermissions'] as const
 
 type RawProject = Record<string, any>
+
+export interface ProjectAiCommandPayload {
+  content: string
+  attachments?: ChatAttachmentDTO[]
+  knowledgeIds?: string[]
+}
 
 function id(value: unknown): string | undefined {
   if (value === null || value === undefined || value === '') return undefined
@@ -326,10 +333,14 @@ export function updateProjectMemberStatus(projectId: string, userId: string, sta
   return unwrapProject(post(`/project/${projectId}/member/status`, { userId, status }))
 }
 
-export function sendProjectAiCommand(projectId: string, content: string): Promise<ProjectEntity> {
-  return unwrapProject(post(`/project/${projectId}/ai-command`, { content }))
+function aiCommandPayload(payload: ProjectAiCommandPayload | string): ProjectAiCommandPayload {
+  return typeof payload === 'string' ? { content: payload } : payload
 }
 
-export function sendTaskAiCommand(projectId: string, taskId: string, content: string): Promise<ProjectEntity> {
-  return unwrapProject(post(`/project/${projectId}/task/${taskId}/ai-command`, { content }))
+export function sendProjectAiCommand(projectId: string, payload: ProjectAiCommandPayload | string): Promise<ProjectEntity> {
+  return unwrapProject(post(`/project/${projectId}/ai-command`, aiCommandPayload(payload)))
+}
+
+export function sendTaskAiCommand(projectId: string, taskId: string, payload: ProjectAiCommandPayload | string): Promise<ProjectEntity> {
+  return unwrapProject(post(`/project/${projectId}/task/${taskId}/ai-command`, aiCommandPayload(payload)))
 }

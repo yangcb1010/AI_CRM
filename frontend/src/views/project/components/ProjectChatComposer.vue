@@ -3,15 +3,105 @@
     <div class="relative group min-w-0 w-[768px] max-w-full mx-auto">
       <div class="wk-chat-composer relative flex min-w-0 items-center rounded-[28px] p-[6px]">
         <div class="w-full min-w-0">
+          <input
+            ref="fileInputRef"
+            type="file"
+            multiple
+            :accept="CHAT_ATTACHMENT_ACCEPT"
+            class="hidden"
+            @change="handleFileSelect"
+          />
+
+          <div
+            v-if="composerAttachmentPreviewItems.length > 0"
+            class="flex min-h-[54px] min-w-0 w-full flex-nowrap gap-2 overflow-x-auto overflow-y-hidden px-2 pt-2"
+          >
+            <template v-for="item in composerAttachmentPreviewItems" :key="item.key">
+              <div
+                v-if="item.kind === 'knowledge'"
+                class="relative flex h-[54px] min-w-[200px] max-w-[320px] shrink-0 items-center gap-3 overflow-hidden rounded-2xl bg-[#f5f5f5] pl-3 pr-[30px]"
+              >
+                <div
+                  class="size-10 rounded-xl flex items-center justify-center shrink-0"
+                  :class="getKnowledgeDocIconMeta(item.knowledge).bg"
+                >
+                  <span
+                    class="material-symbols-outlined text-[22px] leading-none"
+                    :class="getKnowledgeDocIconMeta(item.knowledge).color"
+                  >{{ getKnowledgeDocIconMeta(item.knowledge).icon }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-[14px] leading-[18px] text-[#0d0d0d]">{{ item.knowledge.name }}</div>
+                  <div class="truncate text-[12px] leading-[14px] text-[#909090]">{{ getKnowledgeCardSubtitle(item.knowledge) }}</div>
+                </div>
+                <button
+                  type="button"
+                  class="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-[#0d0d0d] text-white"
+                  aria-label="移除知识库文件"
+                  @click="removeSelectedKnowledgeById(item.knowledge.knowledgeId)"
+                >
+                  <span class="material-symbols-outlined text-[14px] leading-none">close</span>
+                </button>
+              </div>
+
+              <div
+                v-else-if="item.kind === 'file' && item.file.type.startsWith('image/')"
+                class="relative size-[54px] shrink-0 overflow-hidden rounded-xl border border-[#0d0d0d0d] bg-white"
+              >
+                <img
+                  :src="getSelectedFilePreviewUrl(item.file)"
+                  :alt="item.file.name"
+                  class="size-full object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-[#0d0d0d] text-white"
+                  aria-label="移除文件"
+                  @click="removeSelectedFile(item.fileIndex)"
+                >
+                  <span class="material-symbols-outlined text-[14px] leading-none">close</span>
+                </button>
+              </div>
+
+              <div
+                v-else-if="item.kind === 'file'"
+                class="relative flex h-[54px] min-w-[200px] max-w-[320px] shrink-0 items-center gap-3 overflow-hidden rounded-2xl bg-[#f5f5f5] pl-3 pr-[30px]"
+              >
+                <div
+                  class="size-10 rounded-xl flex items-center justify-center shrink-0"
+                  :class="getChatDocIconMeta(item.file).bg"
+                >
+                  <span
+                    class="material-symbols-outlined text-[22px] leading-none"
+                    :class="getChatDocIconMeta(item.file).color"
+                  >{{ getChatDocIconMeta(item.file).icon }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-[14px] leading-[18px] text-[#0d0d0d]">{{ item.file.name }}</div>
+                  <div class="truncate text-[12px] leading-[14px] text-[#909090]">{{ getChatDocumentSubtitle(item.file) }}</div>
+                </div>
+                <button
+                  type="button"
+                  class="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-[#0d0d0d] text-white"
+                  aria-label="移除文件"
+                  @click="removeSelectedFile(item.fileIndex)"
+                >
+                  <span class="material-symbols-outlined text-[14px] leading-none">close</span>
+                </button>
+              </div>
+            </template>
+          </div>
+
           <textarea
             ref="textareaRef"
             :value="modelValue"
             rows="1"
             class="wk-project-shared-composer-textarea"
             :placeholder="placeholder"
-            :disabled="disabled"
+            :disabled="disabled || isUploading"
             @input="handleInput"
             @keydown.enter.exact.prevent="handleSend"
+            @paste="handlePaste"
           ></textarea>
 
           <div class="flex min-w-0 items-center justify-between w-full px-1 pb-1 select-none mt-1">
@@ -22,7 +112,7 @@
                 placement="top-start"
                 width="200"
                 :show-arrow="false"
-                :disabled="disabled"
+                :disabled="disabled || isUploading"
                 :teleported="true"
                 transition="el-zoom-in-bottom"
                 popper-class="wk-chat-upload-menu-popper"
@@ -31,7 +121,7 @@
                   <button
                     type="button"
                     class="group/project-upload-trigger relative flex size-8 items-center justify-center rounded-full text-[#0d0d0d] transition-colors hover:bg-[#F1F1F1] disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="disabled"
+                    :disabled="disabled || isUploading"
                     aria-label="添加文件等"
                   >
                     <WkIcon name="add-1" :box-size="16" class="shrink-0" />
@@ -43,11 +133,11 @@
                   @mouseenter="clearUploadMenuLeaveTimer"
                   @mouseleave="handleUploadMenuMouseLeave"
                 >
-                  <button type="button" class="wk-chat-upload-menu__item wk-chat-upload-menu__item--compact" @click="handleUnsupportedAttachment">
+                  <button type="button" class="wk-chat-upload-menu__item wk-chat-upload-menu__item--compact" @click="handleUploadMenuAddFile">
                     <WkIcon name="file" :box-size="18" class="shrink-0" />
                     <span class="wk-chat-upload-menu__label">上传图片和文件</span>
                   </button>
-                  <button type="button" class="wk-chat-upload-menu__item wk-chat-upload-menu__item--compact" @click="handleUnsupportedAttachment">
+                  <button type="button" class="wk-chat-upload-menu__item wk-chat-upload-menu__item--compact" @click="handleUploadMenuChooseKnowledge">
                     <WkIcon name="knowledge-1" :size="18" class="shrink-0" />
                     <span class="wk-chat-upload-menu__label">选择知识库文件</span>
                   </button>
@@ -56,7 +146,7 @@
                     trigger="hover"
                     placement="right-end"
                     :show-arrow="false"
-                    :disabled="disabled"
+                    :disabled="disabled || isUploading"
                     :teleported="false"
                     :offset="8"
                     :hide-after="220"
@@ -262,6 +352,7 @@
                 @click="handleSendAction"
               >
                 <span v-if="isTranscribing" class="material-symbols-outlined text-[20px] leading-none animate-spin">progress_activity</span>
+                <span v-else-if="isUploading" class="material-symbols-outlined text-[20px] leading-none animate-spin">progress_activity</span>
                 <span v-else-if="isRecording" class="wk-recording-indicator" aria-hidden="true">
                   <span class="material-symbols-outlined wk-recording-indicator__stop">stop</span>
                   <span class="wk-recording-indicator__bars">
@@ -272,7 +363,7 @@
                   </span>
                 </span>
                 <WkIcon
-                  v-else-if="isComposerInputEmpty"
+                  v-else-if="!hasComposerSendPayload"
                   name="voice"
                   :box-size="20"
                   class="text-[20px] leading-none"
@@ -285,20 +376,34 @@
         </div>
       </div>
     </div>
+    <ChatKnowledgePickerModal
+      v-model="chatKnowledgePickerVisible"
+      :remaining-slots="Math.max(0, MAX_FILE_COUNT - selectedFiles.length - selectedKnowledgeItems.length)"
+      @confirm="onKnowledgePickerConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import ChatKnowledgePickerModal from '@/components/chat/ChatKnowledgePickerModal.vue'
 import WkIcon from '@/components/common/WkIcon.vue'
+import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
 import { transcribeFollowUpAudio } from '@/api/followup'
 import { getAiConfig } from '@/api/systemConfig'
 import { useResponsive } from '@/composables/useResponsive'
 import { useChatStore } from '@/stores/chat'
-import type { ChatModelOption } from '@/types/common'
+import type { ChatAttachmentDTO, ChatAttachmentVO, ChatModelOption, Knowledge } from '@/types/common'
 import type { WkIconName } from '@/components/common/wkIcon'
 import { useAiQuota } from '@/composables/useAiQuota'
+import { formatFileSize, resolveKnowledgeFileSizeBytes } from '@/utils/formatFileSize'
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  extractClipboardFiles,
+  MAX_CHAT_ATTACHMENT_COUNT,
+  mergeChatFiles
+} from '@/utils/chatAttachment'
 import {
   canCaptureMobileAudioFile,
   captureMobileAudioFile,
@@ -330,19 +435,37 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
-  (e: 'send'): void
+  (e: 'send', payload: ProjectChatComposerSendPayload): void
 }>()
+
+export interface ProjectChatComposerSendPayload {
+  content: string
+  attachments?: ChatAttachmentDTO[]
+  attachmentVOs?: ChatAttachmentVO[]
+  knowledgeIds?: string[]
+}
+
+type ComposerAttachmentPreviewItem =
+  | { kind: 'knowledge'; key: string; knowledge: Knowledge }
+  | { kind: 'file'; key: string; file: File; fileIndex: number }
 
 const chatStore = useChatStore()
 const { canManageAiConfig, goToAiSettings } = useAiQuota()
 const { isMobile } = useResponsive()
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadMenuVisible = ref(false)
 const uploadSubmenuVisible = ref(false)
 const modelPopoverVisible = ref(false)
 const modelImageLoadFailed = ref<Record<string, boolean>>({})
+const selectedFiles = ref<File[]>([])
+const selectedKnowledgeItems = ref<Knowledge[]>([])
+const chatKnowledgePickerVisible = ref(false)
+const isUploading = ref(false)
 const isRecording = ref(false)
 const isTranscribing = ref(false)
+const selectedFilePreviewUrls = new Map<File, string>()
+const MAX_FILE_COUNT = MAX_CHAT_ATTACHMENT_COUNT
 let uploadMenuLeaveTimer: ReturnType<typeof setTimeout> | null = null
 let mediaRecorder: MediaRecorder | null = null
 let mediaStream: MediaStream | null = null
@@ -398,20 +521,39 @@ const selectedChatAppTitle = computed(() =>
     : `已启用 ${selectedChatAppLabel.value}，点击关闭`
 )
 
-const isComposerInputEmpty = computed(() => !props.modelValue.trim())
+const hasComposerSendPayload = computed(() =>
+  Boolean(props.modelValue.trim())
+  || selectedFiles.value.length > 0
+  || selectedKnowledgeItems.value.length > 0
+)
+
+const composerAttachmentPreviewItems = computed<ComposerAttachmentPreviewItem[]>(() => [
+  ...selectedKnowledgeItems.value.map((knowledge) => ({
+    kind: 'knowledge' as const,
+    key: `knowledge-${knowledge.knowledgeId}`,
+    knowledge
+  })),
+  ...selectedFiles.value.map((file, fileIndex) => ({
+    kind: 'file' as const,
+    key: `file-${file.name}-${file.size}-${file.lastModified}-${fileIndex}`,
+    file,
+    fileIndex
+  }))
+])
 
 const sendActionButtonClass = computed(() => {
   if (isRecording.value) return '!bg-red-500 text-white hover:!bg-red-600'
-  if (isTranscribing.value) return '!bg-[#e5e5e5] !text-[#909090]'
+  if (isTranscribing.value || isUploading.value) return '!bg-[#e5e5e5] !text-[#909090]'
   return ''
 })
 
-const sendActionDisabled = computed(() => props.disabled || isTranscribing.value)
+const sendActionDisabled = computed(() => props.disabled || isTranscribing.value || isUploading.value)
 
 const sendActionTitle = computed(() => {
+  if (isUploading.value) return '文件上传中…'
   if (isTranscribing.value) return '语音识别中…'
   if (isRecording.value) return '点击结束录音'
-  if (isComposerInputEmpty.value) return '使用语音功能'
+  if (!hasComposerSendPayload.value) return '使用语音功能'
   return '发送'
 })
 
@@ -443,6 +585,7 @@ watch(uploadMenuVisible, (visible) => {
 onBeforeUnmount(() => {
   clearUploadMenuLeaveTimer()
   abortVoiceRecording()
+  revokeAllSelectedFilePreviewUrls()
 })
 
 function modelOptionLabel(option: ChatModelOption): string {
@@ -508,19 +651,44 @@ function handleInput(event: Event) {
   void nextTick(resizeTextarea)
 }
 
-function handleSend() {
-  if (props.disabled || !props.modelValue.trim()) return
-  emit('send')
+async function handleSend() {
+  const text = props.modelValue.trim()
+  const hasFiles = selectedFiles.value.length > 0
+  const hasKnowledge = selectedKnowledgeItems.value.length > 0
+  if (props.disabled || isUploading.value || (!text && !hasFiles && !hasKnowledge)) return
+
+  const content =
+    text ||
+    (hasFiles && hasKnowledge
+      ? '请结合上传的文件与选中的知识库内容回答'
+      : hasFiles
+        ? '请分析这些文件'
+        : '请结合选中的知识库内容回答')
+
+  const knowledgeIds = hasKnowledge
+    ? selectedKnowledgeItems.value.map(item => item.knowledgeId)
+    : undefined
+
+  const { attachmentDTOs, attachmentVOs } = await uploadSelectedFiles()
+  if (hasFiles && !attachmentDTOs) return
+  selectedKnowledgeItems.value = []
+
+  emit('send', {
+    content,
+    attachments: attachmentDTOs,
+    attachmentVOs,
+    knowledgeIds
+  })
 }
 
 function handleSendAction() {
-  if (props.disabled || isTranscribing.value) return
+  if (props.disabled || isTranscribing.value || isUploading.value) return
   if (isRecording.value) {
     handleStopAudioRecording()
     return
   }
-  if (!isComposerInputEmpty.value) {
-    handleSend()
+  if (hasComposerSendPayload.value) {
+    void handleSend()
     return
   }
   void handleStartAudioRecording()
@@ -546,9 +714,205 @@ function handleSelectApp(appCode: string) {
   chatStore.setSelectedAppCode(chatStore.selectedAppCode === appCode ? 'general' : appCode)
 }
 
-function handleUnsupportedAttachment() {
+function closeUploadMenu() {
   uploadMenuVisible.value = false
-  ElMessage.info('项目/任务对话暂未接入附件上传，当前可使用技能和模型选择')
+  uploadSubmenuVisible.value = false
+}
+
+function handleUploadMenuAddFile() {
+  closeUploadMenu()
+  fileInputRef.value?.click()
+}
+
+function handleUploadMenuChooseKnowledge() {
+  if (selectedFiles.value.length + selectedKnowledgeItems.value.length >= MAX_CHAT_ATTACHMENT_COUNT) {
+    ElMessage.warning(`最多只能上传${MAX_CHAT_ATTACHMENT_COUNT}个文件`)
+    return
+  }
+  closeUploadMenu()
+  chatKnowledgePickerVisible.value = true
+}
+
+function appendSelectedFiles(files: File[]) {
+  const slotsLeft = MAX_CHAT_ATTACHMENT_COUNT - selectedKnowledgeItems.value.length - selectedFiles.value.length
+  if (slotsLeft <= 0) {
+    ElMessage.warning(`最多只能上传${MAX_CHAT_ATTACHMENT_COUNT}个文件`)
+    return
+  }
+  const result = mergeChatFiles(selectedFiles.value, files.slice(0, slotsLeft))
+  if (result.error) {
+    ElMessage.warning(result.error)
+    return
+  }
+  selectedFiles.value = result.files
+}
+
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files) return
+  appendSelectedFiles(Array.from(input.files))
+  input.value = ''
+}
+
+function handlePaste(event: ClipboardEvent) {
+  const clipboardFiles = extractClipboardFiles(event)
+  if (clipboardFiles.length === 0) return
+  appendSelectedFiles(clipboardFiles)
+}
+
+function onKnowledgePickerConfirm(items: Knowledge[]) {
+  const room = MAX_CHAT_ATTACHMENT_COUNT - selectedFiles.value.length - selectedKnowledgeItems.value.length
+  if (room <= 0) {
+    ElMessage.warning(`最多只能上传${MAX_CHAT_ATTACHMENT_COUNT}个文件`)
+    return
+  }
+  const existing = new Set(selectedKnowledgeItems.value.map(item => item.knowledgeId))
+  const toAdd: Knowledge[] = []
+  for (const item of items) {
+    if (toAdd.length >= room) break
+    if (existing.has(item.knowledgeId)) continue
+    existing.add(item.knowledgeId)
+    toAdd.push(item)
+  }
+  if (toAdd.length === 0) {
+    ElMessage.warning('所选文件已在列表中或超出数量上限')
+    return
+  }
+  selectedKnowledgeItems.value = [...selectedKnowledgeItems.value, ...toAdd]
+}
+
+function removeSelectedKnowledgeById(knowledgeId: string) {
+  selectedKnowledgeItems.value = selectedKnowledgeItems.value.filter(item => item.knowledgeId !== knowledgeId)
+}
+
+function removeSelectedFile(index: number) {
+  const file = selectedFiles.value[index]
+  if (file) revokeSelectedFilePreviewUrl(file)
+  selectedFiles.value.splice(index, 1)
+}
+
+async function uploadSelectedFiles() {
+  if (selectedFiles.value.length === 0) {
+    return {
+      attachmentDTOs: undefined,
+      attachmentVOs: undefined
+    }
+  }
+
+  const files = [...selectedFiles.value]
+  isUploading.value = true
+  try {
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const presigned = await getPresignedUploadUrl(file.name, file.type)
+        await uploadToMinIO(file, presigned.uploadUrl)
+        return {
+          dto: {
+            fileName: file.name,
+            filePath: presigned.objectKey,
+            fileSize: file.size,
+            mimeType: file.type || 'application/octet-stream'
+          } as ChatAttachmentDTO,
+          vo: {
+            id: '',
+            fileName: file.name,
+            filePath: presigned.objectKey,
+            fileSize: file.size,
+            mimeType: file.type || 'application/octet-stream',
+            accessUrl: presigned.accessUrl
+          } as ChatAttachmentVO
+        }
+      })
+    )
+    revokeAllSelectedFilePreviewUrls()
+    selectedFiles.value = []
+    return {
+      attachmentDTOs: results.map(item => item.dto),
+      attachmentVOs: results.map(item => item.vo)
+    }
+  } catch (error) {
+    console.error('项目对话文件上传失败:', error)
+    if (!isRequestErrorHandled(error)) {
+      ElMessage.error('文件上传失败，请重试')
+    }
+    return {
+      attachmentDTOs: undefined,
+      attachmentVOs: undefined
+    }
+  } finally {
+    isUploading.value = false
+  }
+}
+
+function getSelectedFilePreviewUrl(file: File): string {
+  const existing = selectedFilePreviewUrls.get(file)
+  if (existing) return existing
+  const url = URL.createObjectURL(file)
+  selectedFilePreviewUrls.set(file, url)
+  return url
+}
+
+function revokeSelectedFilePreviewUrl(file: File) {
+  const url = selectedFilePreviewUrls.get(file)
+  if (!url) return
+  URL.revokeObjectURL(url)
+  selectedFilePreviewUrls.delete(file)
+}
+
+function revokeAllSelectedFilePreviewUrls() {
+  selectedFilePreviewUrls.forEach(url => URL.revokeObjectURL(url))
+  selectedFilePreviewUrls.clear()
+}
+
+function getFriendlyFileKind(file: File): string {
+  const mime = (file.type || '').toLowerCase()
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  if (mime.includes('spreadsheetml') || mime.includes('ms-excel') || ext === 'xlsx' || ext === 'xls') return 'Excel'
+  if (mime.includes('wordprocessingml') || mime.includes('msword') || ext === 'docx' || ext === 'doc') return 'Word'
+  if (mime === 'application/pdf' || ext === 'pdf') return 'PDF'
+  if (mime.startsWith('text/')) return '文本'
+  if (mime.startsWith('image/')) return '图片'
+  if (mime.startsWith('audio/')) return '音频'
+  if (mime.startsWith('video/')) return '视频'
+  return '文件'
+}
+
+function getChatDocumentSubtitle(file: File): string {
+  return `${getFriendlyFileKind(file)} · ${formatFileSize(file.size)}`
+}
+
+function getChatDocIconMeta(file: File): { icon: string; bg: string; color: string } {
+  const mime = (file.type || '').toLowerCase()
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  if (mime.includes('spreadsheetml') || mime.includes('ms-excel') || ext === 'xlsx' || ext === 'xls') {
+    return { icon: 'table_chart', bg: 'bg-emerald-50', color: 'text-emerald-700' }
+  }
+  if (mime.includes('wordprocessingml') || mime.includes('msword') || ext === 'docx' || ext === 'doc') {
+    return { icon: 'article', bg: 'bg-blue-50', color: 'text-blue-700' }
+  }
+  if (mime === 'application/pdf' || ext === 'pdf') {
+    return { icon: 'picture_as_pdf', bg: 'bg-red-50', color: 'text-red-600' }
+  }
+  if (mime.startsWith('image/')) return { icon: 'image', bg: 'bg-violet-50', color: 'text-violet-700' }
+  if (mime.startsWith('audio/')) return { icon: 'music_note', bg: 'bg-amber-50', color: 'text-amber-700' }
+  if (mime.startsWith('video/')) return { icon: 'movie', bg: 'bg-sky-50', color: 'text-sky-700' }
+  return { icon: 'description', bg: 'bg-[#0d0d0d0d]', color: 'text-[#0d0d0d]' }
+}
+
+function getKnowledgeDocIconMeta(knowledge: Knowledge) {
+  return getChatDocIconMeta(
+    new File([], knowledge.name || 'document', { type: knowledge.mimeType || 'application/octet-stream' })
+  )
+}
+
+function getKnowledgeCardSubtitle(knowledge: Knowledge): string {
+  const file = new File([], knowledge.name || 'document', { type: knowledge.mimeType || 'application/octet-stream' })
+  const kind = getFriendlyFileKind(file)
+  const formatted = knowledge.fileSizeFormatted?.trim()
+  if (formatted) return `${kind} · ${formatted}`
+  const bytes = resolveKnowledgeFileSizeBytes(knowledge.fileSize)
+  if (bytes > 0) return `${kind} · ${formatFileSize(bytes)}`
+  return kind
 }
 
 function clearUploadMenuLeaveTimer() {
