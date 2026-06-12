@@ -29,7 +29,6 @@
           </option>
         </select>
         <button
-          v-if="canCreateRelation"
           type="button"
           class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
           @click="openCreateDialog"
@@ -105,16 +104,16 @@
               <span class="text-sm text-slate-500">{{ formatDateTime(row.updateTime || row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column v-if="canEditRelation || canDeleteRelation" label="操作" width="112" fixed="right">
+          <el-table-column label="操作" width="112" fixed="right">
             <template #header>
               <span class="normal-case tracking-normal">操作</span>
             </template>
             <template #default="{ row }">
               <div class="flex items-center gap-1" @click.stop>
-                <button v-if="canEditRelation" class="relation-icon-btn" title="编辑" @click="openEditDialog(row)">
+                <button class="relation-icon-btn" title="编辑" @click="openEditDialog(row)">
                   <span class="material-symbols-outlined text-[18px] leading-none">edit</span>
                 </button>
-                <button v-if="canDeleteRelation" class="relation-icon-btn text-rose-500 hover:bg-rose-50" title="删除" @click="handleDelete(row)">
+                <button class="relation-icon-btn text-rose-500 hover:bg-rose-50" title="删除" @click="handleDelete(row)">
                   <span class="material-symbols-outlined text-[18px] leading-none">delete</span>
                 </button>
               </div>
@@ -274,7 +273,6 @@ import { deleteRelation, getRelationDetail, queryRelationList } from '@/api/rela
 import AiDialogIcon from '@/components/common/AiDialogIcon.vue'
 import RelationUpsertDialog from '@/views/relation/components/RelationUpsertDialog.vue'
 import { useChatStore } from '@/stores/chat'
-import { useUserStore } from '@/stores/user'
 import { useEnumStore } from '@/stores/enums'
 import { useResponsive } from '@/composables/useResponsive'
 import { isRequestErrorHandled } from '@/utils/requestError'
@@ -288,7 +286,6 @@ import type { RelationDetailVO, RelationVO } from '@/types/relation'
 const router = useRouter()
 const route = useRoute()
 const chatStore = useChatStore()
-const userStore = useUserStore()
 const enumStore = useEnumStore()
 enumStore.ensureRelationType()
 const relationTypeChoices = computed(() =>
@@ -310,9 +307,6 @@ const detailLoading = ref(false)
 const currentDetail = ref<RelationDetailVO | null>(null)
 let searchTimer: number | null = null
 
-const canCreateRelation = computed(() => userStore.hasPermission('relation:create'))
-const canEditRelation = computed(() => userStore.hasPermission('relation:edit'))
-const canDeleteRelation = computed(() => userStore.hasPermission('relation:delete'))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
 const visiblePages = computed(() => {
   const totalPageCount = totalPages.value

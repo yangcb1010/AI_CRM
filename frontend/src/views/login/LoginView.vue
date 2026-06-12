@@ -667,22 +667,22 @@
               <el-icon :size="22"><Lock /></el-icon>
             </span>
             <div class="agreement-modal__heading">
-              <p class="agreement-modal__eyebrow">登录前确认</p>
+              <!-- <p class="agreement-modal__eyebrow">登录前确认</p> -->
               <h2 id="agreement-modal-title" class="agreement-modal__title">用户协议与隐私保护</h2>
             </div>
           </div>
           <p class="agreement-modal__copy">
-            感谢您选择悟空CRM。为保障您的个人权益，请先阅读并同意
-            <a :href="userAgreementHref">
-              《悟空CRM用户协议》
+            感谢您选择悟空AI CRM。为保障您的个人权益，请先阅读并同意
+            <a :href="agreementDialogUserAgreementHref">
+              《悟空AI CRM用户协议》
             </a>
             与
-            <a :href="privacyPolicyHref">
-              《悟空CRM隐私声明》
+            <a :href="agreementDialogPrivacyPolicyHref">
+              《悟空AI CRM隐私声明》
             </a>
             ，了解我们对个人信息的收集、保存、使用、对外提供和保护方式。
           </p>
-          <p class="agreement-modal__hint">同意后将继续为您登录当前账号。</p>
+          <!-- <p class="agreement-modal__hint">同意后将继续为您登录当前账号。</p> -->
           <div class="agreement-modal__actions">
             <button type="button" class="agreement-modal__button agreement-modal__button--ghost" @click="handleAgreementReject">
               拒绝
@@ -778,6 +778,7 @@ let forgotCountdownTimer: number | undefined
 
 const LAST_LOGIN_USERNAME_STORAGE_KEY = 'wk_ai_crm:last_login_username:v1'
 const AGREEMENT_ACCEPTED_STORAGE_KEY = 'wk_ai_crm:agreement_accepted:v1'
+const AGREEMENT_DIALOG_QUERY_KEY = 'agreementDialog'
 
 function readLastLoginUsername(): string {
   if (typeof window === 'undefined') return ''
@@ -906,6 +907,14 @@ const forgotPasswordForm = reactive({
 const enabledExternalProviders = computed(() => externalProviders.value.filter((provider) => provider.enabled))
 const userAgreementHref = computed(() => router.resolve({ name: 'UserAgreement' }).href)
 const privacyPolicyHref = computed(() => router.resolve({ name: 'PrivacyPolicy' }).href)
+const agreementDialogUserAgreementHref = computed(() => router.resolve({
+  name: 'UserAgreement',
+  query: buildAgreementDialogReturnQuery()
+}).href)
+const agreementDialogPrivacyPolicyHref = computed(() => router.resolve({
+  name: 'PrivacyPolicy',
+  query: buildAgreementDialogReturnQuery()
+}).href)
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -1004,6 +1013,36 @@ function resetTenantSelection(clearOptions = true) {
   }
 }
 
+function buildAgreementDialogReturnQuery(): Record<string, string> {
+  const query: Record<string, string> = {
+    [AGREEMENT_DIALOG_QUERY_KEY]: '1'
+  }
+  if (typeof route.query.redirect === 'string' && route.query.redirect) {
+    query.redirect = route.query.redirect
+  }
+  return query
+}
+
+function clearAgreementDialogQuery() {
+  const query = { ...route.query }
+  delete query[AGREEMENT_DIALOG_QUERY_KEY]
+  void router.replace({ name: route.name || 'Login', query })
+}
+
+function restoreAgreementDialogFromQuery() {
+  if (route.name !== 'Login' || route.query[AGREEMENT_DIALOG_QUERY_KEY] !== '1') {
+    return
+  }
+
+  clearAgreementDialogQuery()
+
+  if (!isLogin.value || loginStep.value !== 'credentials' || agreementAccepted.value) {
+    return
+  }
+
+  showAgreementDialog.value = true
+}
+
 watch(
   () => [route.name, route.query.register],
   ([name, registerQuery]) => {
@@ -1011,6 +1050,14 @@ watch(
     if (!isLogin.value) {
       resetTenantSelection()
     }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [route.name, route.query[AGREEMENT_DIALOG_QUERY_KEY], isLogin.value, loginStep.value],
+  () => {
+    restoreAgreementDialogFromQuery()
   },
   { immediate: true }
 )

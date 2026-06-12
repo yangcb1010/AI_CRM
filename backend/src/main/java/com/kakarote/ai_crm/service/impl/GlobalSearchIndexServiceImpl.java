@@ -543,7 +543,7 @@ public class GlobalSearchIndexServiceImpl extends ServiceImpl<GlobalSearchIndexM
     }
 
     private void applyRelationScope(GlobalSearchQueryBO queryBO) {
-        queryBO.setRelationEnabled(permissionService.hasPermission("relation:view"));
+        queryBO.setRelationEnabled(true);
     }
 
     /**

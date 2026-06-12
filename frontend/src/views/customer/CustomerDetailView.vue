@@ -1612,7 +1612,7 @@ const canCreateContacts = computed(() => userStore.hasPermission('contact:create
 const canEditContacts = computed(() => userStore.hasPermission('contact:edit'))
 const canDeleteContacts = computed(() => userStore.hasPermission('contact:delete'))
 const canSetPrimaryContacts = computed(() => userStore.hasPermission('contact:set_primary'))
-const canCreateRelation = computed(() => userStore.hasPermission('relation:create'))
+const canCreateRelation = true
 const canViewFollowUps = computed(() => userStore.hasPermission('followup:view'))
 const canCreateFollowUps = computed(() => userStore.hasPermission('followup:create'))
 const canEditFollowUps = computed(() => userStore.hasPermission('followup:edit'))
@@ -2305,7 +2305,6 @@ async function handleSetPrimary(contactId: string) {
 }
 
 async function handleAddContactToRelation(contact: Contact) {
-  if (!canCreateRelation.value) return
   try {
     await addRelationFromContact(contact.contactId)
     ElMessage.success('已添加到关系')

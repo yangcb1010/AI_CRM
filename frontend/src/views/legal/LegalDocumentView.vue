@@ -22,13 +22,14 @@
         </div>
       </article>
 
-      <RouterLink class="legal-page__back" :to="{ name: 'Login' }">返回登录</RouterLink>
+      <RouterLink class="legal-page__back" :to="backRoute">返回登录</RouterLink>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import logoImg from '@/assets/images/logo.png'
 
 type LegalDocumentType = 'agreement' | 'privacy'
@@ -37,10 +38,7 @@ const props = defineProps<{
   documentType: LegalDocumentType
 }>()
 
-const legalDocumentUrls = {
-  agreement: 'https://file.72crm.com/static/law/72crm_ai_service.txt',
-  privacy: 'https://file.72crm.com/static/law/72crm_ai_privacy.txt'
-} satisfies Record<LegalDocumentType, string>
+const route = useRoute()
 
 function getApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_BASE_URL
@@ -50,8 +48,17 @@ function getApiBaseUrl(): string {
 
 const documentTitle = computed(() => (props.documentType === 'privacy' ? '隐私声明' : '用户协议'))
 const documentIntro = computed(() => `请仔细阅读以下${documentTitle.value}内容。`)
-const documentUrl = computed(() => legalDocumentUrls[props.documentType])
 const documentApiUrl = computed(() => `${getApiBaseUrl()}/legal-document/${props.documentType}`)
+const backRoute = computed(() => {
+  const query: Record<string, string> = {}
+  if (route.query.agreementDialog === '1') {
+    query.agreementDialog = '1'
+  }
+  if (typeof route.query.redirect === 'string' && route.query.redirect) {
+    query.redirect = route.query.redirect
+  }
+  return { name: 'Login', query }
+})
 const documentContent = ref('')
 const isLoading = ref(false)
 const loadError = ref('')

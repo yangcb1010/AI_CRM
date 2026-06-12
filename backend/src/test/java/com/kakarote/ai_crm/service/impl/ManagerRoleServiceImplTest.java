@@ -132,6 +132,31 @@ class ManagerRoleServiceImplTest {
     }
 
     @Test
+    void queryRolePermissionsShouldOmitRelationModuleEvenIfLegacyMenuRowsExist() {
+        ManagerRoleServiceImpl service = new ManagerRoleServiceImpl();
+        IManagerMenuService menuService = mock(IManagerMenuService.class);
+        IManagerRoleMenuService roleMenuService = mock(IManagerRoleMenuService.class);
+
+        ReflectionTestUtils.setField(service, "menuService", menuService);
+        ReflectionTestUtils.setField(service, "roleMenuService", roleMenuService);
+
+        Long roleId = 7L;
+        ManagerMenu customerModule = menu(100L, 0L, "customer", 3);
+        ManagerMenu customerView = menu(101L, 100L, "customer:view", 5);
+        ManagerMenu relationModule = menu(2500L, 0L, "relation", 3);
+        ManagerMenu relationView = menu(2501L, 2500L, "relation:view", 5);
+        ManagerMenu relationCreate = menu(2502L, 2500L, "relation:create", 5);
+        when(menuService.list()).thenReturn(List.of(customerModule, customerView, relationModule, relationView, relationCreate));
+        when(roleMenuService.queryRoleMenuWithScopeByRoleId(roleId)).thenReturn(List.of());
+
+        List<RolePermissionVO> permissions = service.queryRolePermissions(roleId);
+
+        assertThat(permissions).extracting(RolePermissionVO::getModule)
+                .contains("customer")
+                .doesNotContain("relation");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void managerMenuShouldTreatLegacyImportedSuperAdminRoleAsSuperAdmin() {
         ManagerMenuServiceImpl service = new ManagerMenuServiceImpl();

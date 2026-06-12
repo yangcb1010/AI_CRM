@@ -607,7 +607,6 @@
               </button>
               <div class="ml-auto flex shrink-0 items-center justify-end gap-1">
                 <button
-                  v-if="canCreateRelation"
                   type="button"
                   class="wk-customer-header-action group/relation-create-action relative flex size-6 items-center justify-center rounded-md text-[#8f8f8f] transition-colors hover:text-[#0d0d0d]"
                   aria-label="新建关系"
@@ -827,7 +826,7 @@
       <Transition name="profile-drawer">
         <div
           v-if="showUserMenu"
-          class="absolute bottom-0 left-0 right-0 z-20 overflow-hidden rounded-t-2xl border-t border-slate-200 bg-white shadow-[0_-8px_30px_rgb(0,0,0,0.12)]"
+          class="absolute bottom-0 left-0 right-0 z-40 overflow-hidden rounded-t-2xl border-t border-slate-200 bg-white shadow-[0_-8px_30px_rgb(0,0,0,0.12)]"
         >
           <div class="p-4">
             <div class="space-y-1">
@@ -1322,7 +1321,6 @@
               <div class="flex items-center gap-3 px-3 pb-2.5">
                 <p class="min-w-0 flex-1 text-[1rem] font-bold leading-7 text-[#0d0d0d]">关系</p>
                 <button
-                  v-if="canCreateRelation"
                   type="button"
                   class="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors active:bg-slate-100 active:text-[#0d0d0d]"
                   aria-label="移动端新建关系"
@@ -2826,9 +2824,8 @@ const sidebarProjects = computed<SidebarProjectItem[]>(() =>
   liveSidebarProjects.value.length > 0 ? liveSidebarProjects.value : sidebarProjectCache.value
 )
 const showSidebarCustomers = computed(() => userStore.hasPermission('customer:view'))
-const showSidebarAddressBook = computed(() => true)
+const showSidebarAddressBook = computed(() => userStore.hasPermission('addressBook:list'))
 const showSidebarRelations = computed(() => true)
-const canCreateRelation = computed(() => userStore.hasPermission('relation:create'))
 
 watch(showSidebarProjects, visible => {
   if (visible) {

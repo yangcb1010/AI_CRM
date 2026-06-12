@@ -1,7 +1,6 @@
 package com.kakarote.ai_crm.controller;
 
 import com.kakarote.ai_crm.common.BasePage;
-import com.kakarote.ai_crm.common.auth.RequirePermission;
 import com.kakarote.ai_crm.common.result.Result;
 import com.kakarote.ai_crm.entity.BO.RelationAddBO;
 import com.kakarote.ai_crm.entity.BO.RelationQueryBO;
@@ -32,28 +31,24 @@ public class RelationController {
 
     @PostMapping("/add")
     @Operation(summary = "创建关系人")
-    @RequirePermission("relation:create")
     public Result<Long> add(@Valid @RequestBody RelationAddBO relationAddBO) {
         return Result.ok(relationService.addRelation(relationAddBO));
     }
 
     @PostMapping("/queryPageList")
     @Operation(summary = "分页查询关系人")
-    @RequirePermission("relation:view")
     public Result<BasePage<RelationVO>> queryPageList(@RequestBody RelationQueryBO queryBO) {
         return Result.ok(relationService.queryPageList(queryBO));
     }
 
     @PostMapping("/detail/{id}")
     @Operation(summary = "关系人详情")
-    @RequirePermission("relation:view")
     public Result<RelationDetailVO> detail(@PathVariable("id") Long id) {
         return Result.ok(relationService.detail(id));
     }
 
     @PostMapping("/update")
     @Operation(summary = "更新关系人")
-    @RequirePermission("relation:edit")
     public Result<String> update(@Valid @RequestBody RelationUpdateBO relationUpdateBO) {
         relationService.updateRelation(relationUpdateBO);
         return Result.ok();
@@ -61,7 +56,6 @@ public class RelationController {
 
     @PostMapping("/delete/{id}")
     @Operation(summary = "删除关系人")
-    @RequirePermission("relation:delete")
     public Result<String> delete(@PathVariable("id") Long id) {
         relationService.deleteRelation(id);
         return Result.ok();
@@ -69,7 +63,6 @@ public class RelationController {
 
     @PostMapping("/addFromContact/{contactId}")
     @Operation(summary = "从客户联系人添加到关系")
-    @RequirePermission("relation:create")
     public Result<Long> addFromContact(@PathVariable("contactId") Long contactId) {
         return Result.ok(relationService.addFromContact(contactId));
     }

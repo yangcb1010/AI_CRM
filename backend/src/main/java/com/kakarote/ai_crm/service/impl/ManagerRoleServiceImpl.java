@@ -279,6 +279,7 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
         // 2. 过滤模块菜单(type=3, parentId=0) 和操作菜单(type=5)
         List<ManagerMenu> moduleMenus = allMenus.stream()
                 .filter(m -> Objects.equals(3, m.getType()) && Objects.equals(0L, m.getParentId()))
+                .filter(m -> !"relation".equals(m.getRealm()))
                 .collect(Collectors.toList());
         Map<Long, List<ManagerMenu>> actionMenusByParent = allMenus.stream()
                 .filter(m -> Objects.equals(5, m.getType()))
@@ -309,7 +310,6 @@ public class ManagerRoleServiceImpl extends ServiceImpl<ManagerRoleMapper, Manag
                         "followup",
                         "schedule",
                         "knowledge",
-                        "relation",
                         "wecomEmployeeSession",
                         "wecomCustomerSession",
                         "wecomGroupSession",

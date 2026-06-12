@@ -2,7 +2,6 @@ package com.kakarote.ai_crm.ai.tools;
 
 import cn.hutool.core.util.StrUtil;
 import com.kakarote.ai_crm.ai.context.AiContextHolder;
-import com.kakarote.ai_crm.ai.tools.support.AiToolPermission;
 import com.kakarote.ai_crm.entity.BO.RelationUpdateBO;
 import com.kakarote.ai_crm.entity.PO.Relation;
 import com.kakarote.ai_crm.service.IRelationService;
@@ -23,7 +22,6 @@ public class RelationTools {
     private IRelationService relationService;
 
     @Tool(description = "更新当前关系人的备注。只有当用户明确要求更新备注、写入备注、改备注时调用；普通“记录一下”应调用 createFollowUp 创建历史记录。")
-    @AiToolPermission(value = "relation:edit", action = "更新关系人备注")
     public String updateCurrentRelationRemark(
             @ToolParam(description = "要写入备注的内容，必填") String remark,
             @ToolParam(description = "更新模式：append(追加)/replace(替换)，默认append", required = false) String mode) {

@@ -53,13 +53,16 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
             return null;
         }
 
+        Long currentUserId = resolveCurrentUserId();
+        if ("relation".equals(module)) {
+            return parseSqlSegment(buildRelationPrivacySegment(module, table, currentUserId));
+        }
+
         DataPermissionService dataPermissionService = dataPermissionServiceProvider.getIfAvailable();
         if (dataPermissionService == null) {
             log.warn("DataPermissionService is not available yet, skip data permission for {}", mappedStatementId);
             return null;
         }
-
-        Long currentUserId = resolveCurrentUserId();
         DataPermissionContext context = dataPermissionService.createContext(module);
 
         // MyBatis-Plus 会按 SQL 中出现的表逐个回调这里，因此需要先把 mapper 映射成模块，再按具体表名生成过滤片段。
@@ -70,10 +73,13 @@ public class GlobalDataPermissionHandler implements MultiDataPermissionHandler {
         } else if (relationPrivacySegment != null) {
             sqlSegment = relationPrivacySegment;
         }
+        return parseSqlSegment(sqlSegment);
+    }
+
+    private Expression parseSqlSegment(String sqlSegment) {
         if (sqlSegment == null) {
             return null;
         }
-
         try {
             return CCJSqlParserUtil.parseCondExpression(sqlSegment);
         } catch (JSQLParserException e) {

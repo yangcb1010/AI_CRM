@@ -73,7 +73,7 @@ const routes: RouteRecordRaw[] = [
         path: 'relation',
         name: 'RelationList',
         component: () => import('@/views/relation/RelationListView.vue'),
-        meta: { title: '关系', icon: 'contacts', permission: 'relation:view' }
+        meta: { title: '关系', icon: 'contacts' }
       },
       {
         path: 'task',
@@ -283,7 +283,7 @@ router.beforeEach(async (to, _from, next) => {
     if (permission) {
       const hasAccess = Array.isArray(permission)
         ? permission.some(p => userStore.hasPermission(p))
-        : (permission === 'chat' || permission === 'addressBook:list' || userStore.hasPermission(permission))
+        : (permission === 'chat' || userStore.hasPermission(permission))
       if (!hasAccess) {
         next({ name: 'Chat' })
         return
