@@ -657,7 +657,7 @@
                         </template>
                       </div>
                     </div>
-                    <div v-if="!message.isStreaming" class="flex h-8 items-center">
+                    <div v-if="!message.isStreaming" class="wk-chat-message-actions wk-chat-message-actions--assistant flex h-8 items-center">
                       <button
                         type="button"
                         class="flex size-8 items-center justify-center rounded-lg text-[#8f8f8f] transition-all hover:bg-[#f1f1f1] hover:text-[#0d0d0d]"
@@ -726,7 +726,7 @@
                     <!-- <div class="text-xs text-slate-400 font-medium text-right">{{ formatTime(message.timestamp) }}</div> -->
                   </div>
                   <div
-                    class="z-10 flex h-8 w-full basis-full items-center justify-end"
+                    class="wk-chat-message-actions wk-chat-message-actions--user z-10 flex h-8 w-full basis-full items-center justify-end"
                   >
                     <button
                       type="button"
@@ -772,7 +772,7 @@
           <div
             v-if="activeCustomerConversationTab === 'ai'"
             ref="chatComposerWrapRef"
-            class="wk-chat-composer-wrap shrink-0 pb-2 md:pb-2 px-2"
+            class="wk-chat-composer-wrap relative z-[80] shrink-0 pb-2 px-2 md:z-[120] md:pb-2"
             :class="isCenteredEmptyChat ? 'bg-transparent pt-0' : ''"
             :style="chatComposerWrapStyle"
             @pointerdown.capture="captureMobileKeyboardOpeningScroll"
@@ -1701,7 +1701,7 @@
                 </div>
               </div> -->
 
-              <p v-if="chatStore.messages.length > 0" class="text-center text-xs text-[#5d5d5d] uppercase !mt-[10px]">内容由AI生成，请核查重要信息</p>
+              <p v-if="chatStore.messages.length > 0 && !isMobile" class="text-center text-xs text-[#5d5d5d] uppercase !mt-[10px]">内容由AI生成，请核查重要信息</p>
               <div v-else class="h-[16px] !mt-[10px]"></div>
             </div>
           </div>
@@ -2338,7 +2338,7 @@ import {
   getAssistantMessageStatusLabel,
   normalizeAssistantMessageContent
 } from '@/utils/chatMessage'
-import { hideCapacitorKeyboard } from '@/utils/capacitorKeyboard'
+import { hideCapacitorKeyboard, registerNativeKeyboardInsetListeners } from '@/utils/capacitorKeyboard'
 import { shouldRefocusChatComposerAfterSend } from '@/utils/chatComposerFocus'
 import { renderMarkdown } from '@/utils/markdown'
 import { isRequestErrorHandled } from '@/utils/requestError'
@@ -2440,6 +2440,7 @@ const messagesContainer = ref<HTMLElement | null>(null)
 const chatComposerWrapRef = ref<HTMLElement | null>(null)
 const showScrollToBottomButton = ref(false)
 const mobileKeyboardInset = ref(0)
+const nativeKeyboardInset = ref(0)
 const mobileViewportTopOffset = ref(0)
 const mobileKeyboardOpeningActive = ref(false)
 const mobilePanel = ref<'sessions' | 'chat'>('chat')
@@ -2628,6 +2629,7 @@ let mobileKeyboardInsetTimer: ReturnType<typeof setTimeout> | null = null
 let mobileKeyboardInsetTrackTimer: ReturnType<typeof setTimeout> | null = null
 let mobileKeyboardScrollRestoreFrameId: number | null = null
 let mobileKeyboardMessagesScrollTopSnapshot: number | null = null
+let removeNativeKeyboardInsetListeners: (() => void) | null = null
 let chatCustomerAiPollAttempts = 0
 let offSelectedCustomerDetailRefresh: (() => void) | null = null
 let customerSummaryDragStartY = 0
@@ -2644,9 +2646,13 @@ type CustomerDetailRefreshPayload = {
 const chatComposerShellStyle = computed(() => (
   isMobile.value ? undefined : { minWidth: `${CHAT_COMPOSER_MIN_WIDTH_PX}px` }
 ))
+const effectiveMobileKeyboardInset = computed(() => Math.max(
+  mobileKeyboardInset.value,
+  nativeKeyboardInset.value
+))
 const chatComposerWrapStyle = computed(() => (
-  isMobile.value && mobileKeyboardInset.value > 0
-    ? { transform: `translate3d(0, -${mobileKeyboardInset.value}px, 0)` }
+  isMobile.value && effectiveMobileKeyboardInset.value > 0
+    ? { transform: `translate3d(0, -${effectiveMobileKeyboardInset.value}px, 0)` }
     : undefined
 ))
 const mobileTopViewportShieldStyle = computed(() => ({
@@ -3394,6 +3400,7 @@ function dismissMobileKeyboardAfterSend() {
   mobileChatInputRef.value?.blur()
   clearMobileKeyboardInsetTracking()
   mobileKeyboardInset.value = 0
+  nativeKeyboardInset.value = 0
   resetMobileKeyboardMessagesScrollRestore()
 }
 
@@ -3989,6 +3996,7 @@ function updateMobileKeyboardInset() {
 
   if (!isMobile.value || typeof window === 'undefined' || !isMobileComposerFocused()) {
     mobileKeyboardInset.value = 0
+    nativeKeyboardInset.value = 0
     return
   }
 
@@ -4041,6 +4049,19 @@ function startMobileKeyboardInsetTracking() {
   tick()
 }
 
+function applyNativeKeyboardInset(keyboardHeight: number) {
+  if (!isMobile.value || !isMobileComposerFocused()) return
+  ensureMobileKeyboardOpeningScrollCaptured()
+  nativeKeyboardInset.value = Math.max(0, Math.round(keyboardHeight + MOBILE_KEYBOARD_INSET_GAP_PX))
+  updateMobileViewportTopOffset()
+  scheduleMobileKeyboardMessagesScrollRestore()
+}
+
+function clearNativeKeyboardInset() {
+  nativeKeyboardInset.value = 0
+  scheduleMobileKeyboardInsetUpdate()
+}
+
 function scheduleMobileKeyboardInsetUpdate(trackKeyboardOpening: boolean | Event = false) {
   if (trackKeyboardOpening === true) {
     ensureMobileKeyboardOpeningScrollCaptured()
@@ -4065,6 +4086,11 @@ function scheduleMobileKeyboardInsetUpdate(trackKeyboardOpening: boolean | Event
 
 function registerMobileKeyboardInsetListeners() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
+  removeNativeKeyboardInsetListeners?.()
+  removeNativeKeyboardInsetListeners = registerNativeKeyboardInsetListeners({
+    onShow: applyNativeKeyboardInset,
+    onHide: clearNativeKeyboardInset
+  })
   window.visualViewport?.addEventListener('resize', scheduleMobileKeyboardInsetUpdate)
   window.visualViewport?.addEventListener('scroll', scheduleMobileKeyboardInsetUpdate)
   window.addEventListener('orientationchange', scheduleMobileKeyboardInsetUpdate)
@@ -4073,6 +4099,8 @@ function registerMobileKeyboardInsetListeners() {
 }
 
 function unregisterMobileKeyboardInsetListeners() {
+  removeNativeKeyboardInsetListeners?.()
+  removeNativeKeyboardInsetListeners = null
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     window.visualViewport?.removeEventListener('resize', scheduleMobileKeyboardInsetUpdate)
     window.visualViewport?.removeEventListener('scroll', scheduleMobileKeyboardInsetUpdate)
@@ -4086,6 +4114,7 @@ function unregisterMobileKeyboardInsetListeners() {
   }
   clearMobileKeyboardInsetTracking()
   mobileKeyboardInset.value = 0
+  nativeKeyboardInset.value = 0
   mobileViewportTopOffset.value = 0
   resetMobileKeyboardMessagesScrollRestore()
 }
@@ -5420,6 +5449,8 @@ void sendQuickMessage
 
 .wk-chat-messages {
   --wk-chat-messages-scrollbar-offset: 0px;
+  --wk-chat-composer-clearance: 1rem;
+
   /* background: var(--wk-bg-page); */
   overflow-x: hidden;
   overflow-anchor: none;
@@ -5564,6 +5595,23 @@ void sendQuickMessage
   background: linear-gradient(to top, var(--wk-bg-page) 72%, rgb(var(--wk-bg-page-rgb) / 0));
   transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
   will-change: transform;
+}
+
+@media (max-width: 768px) {
+  .wk-chat-messages {
+    --wk-chat-composer-clearance: calc(116px + var(--safe-area-inset-bottom));
+  }
+
+  .wk-chat-messages--scrollable {
+    padding-bottom: var(--wk-chat-composer-clearance) !important;
+    scroll-padding-bottom: var(--wk-chat-composer-clearance);
+  }
+
+  .wk-chat-composer-wrap {
+    padding-right: max(0.5rem, var(--safe-area-inset-right));
+    padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom));
+    padding-left: max(0.5rem, var(--safe-area-inset-left));
+  }
 }
 
 .wk-chat-composer {
@@ -6000,11 +6048,14 @@ void sendQuickMessage
 }
 
 .wk-chat-messages--mobile-floating-actions {
-  scroll-padding-top: calc(92px + max(0px, var(--safe-area-inset-top)));
+  --wk-mobile-floating-bar-clearance: calc(58px + max(0px, var(--safe-area-inset-top)));
+
+  padding-top: 0 !important;
+  scroll-padding-top: var(--wk-mobile-floating-bar-clearance);
 }
 
 .wk-chat-messages--mobile-floating-actions .wk-chat-messages__inner {
-  padding-top: calc(92px + max(0px, var(--safe-area-inset-top)));
+  padding-top: var(--wk-mobile-floating-bar-clearance);
 }
 
 .wk-chat-messages--empty-chat .wk-chat-messages__inner {
@@ -6014,11 +6065,22 @@ void sendQuickMessage
   justify-content: center;
 }
 
+.wk-chat-messages--empty-chat.wk-chat-messages--mobile-floating-actions .wk-chat-messages__inner {
+  align-items: flex-start;
+  padding-top: clamp(220px, 42dvh, 340px);
+}
+
 .wk-chat-message {
   width: min(100%, 768px);
   min-width: min(100%, 468px);
   max-width: 768px;
   overflow-wrap: anywhere;
+}
+
+.wk-chat-message-actions--assistant,
+.wk-chat-message-actions--user {
+  position: relative;
+  z-index: 0;
 }
 
 .wk-chat-message--user :deep(.rounded-\[24px\]) {

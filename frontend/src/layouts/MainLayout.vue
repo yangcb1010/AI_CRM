@@ -1733,7 +1733,7 @@
       <Transition name="customer-search-dialog">
         <div
           v-if="customerSearchDialogVisible"
-          class="fixed inset-0 z-[300] flex"
+          class="wk-customer-search-dialog-shell fixed inset-0 z-[300]"
           :class="isMobile ? 'items-start justify-start bg-white px-0 py-0' : 'items-center justify-center bg-transparent px-4 py-8'"
           @click="closeCustomerSearchDialog"
         >
@@ -1749,7 +1749,7 @@
           >
             <div
               v-if="isMobile"
-              class="flex shrink-0 items-center gap-3 px-4 pb-2 pt-[calc(1rem+var(--safe-area-inset-top))]"
+              class="flex shrink-0 items-center gap-3 px-4 pb-2 pt-[calc(10px+var(--safe-area-inset-top))]"
             >
               <div class="flex h-10 min-w-0 flex-1 items-center gap-3 rounded-full bg-white px-4 shadow-[0_10px_28px_rgba(15,23,42,0.12)]">
                 <span class="material-symbols-outlined shrink-0 text-[30px] leading-none text-[#0d0d0d]">search</span>
@@ -4519,6 +4519,10 @@ async function handleCreateProject(payload: {
 
 .wk-mobile-top-bar-spacer {
   padding-top: 3.5rem;
+}
+
+.wk-customer-search-dialog-shell {
+  display: flex;
 }
 
 .wk-mobile-drawer-panel {
