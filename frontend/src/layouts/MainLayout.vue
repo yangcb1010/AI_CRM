@@ -883,16 +883,6 @@
                 <span class="material-symbols-outlined inline-flex size-6 shrink-0 items-center justify-center text-[24px] leading-none text-rose-400 transition-colors group-hover:text-rose-600">logout</span>
                 <span class="text-sm font-medium">退出登录</span>
               </button>
-
-              <button
-                type="button"
-                class="mx-3 flex items-center justify-between rounded-[8px] px-3 py-2 text-xs text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 disabled:cursor-wait disabled:opacity-70"
-                :disabled="checkingAppUpdate"
-                @click="handleManualUpdateCheck"
-              >
-                <span>当前版本</span>
-                <span class="font-medium tabular-nums">{{ checkingAppUpdate ? '检查中...' : `v${currentAppVersion}` }}</span>
-              </button>
             </div>
           </div>
         </div>
