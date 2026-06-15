@@ -1,7 +1,9 @@
 package com.kakarote.ai_crm.ai;
 
+import com.kakarote.ai_crm.ai.tools.CrmNoopTools;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
 
@@ -117,5 +119,51 @@ class DynamicChatClientProviderTest {
 
         assertThat(options.getTemperature()).isEqualTo(0.6D);
         assertThat(options.getExtraBody()).containsEntry("thinking", Map.of("type", "disabled"));
+    }
+
+    @Test
+    void parallelToolCallsDisabledWhenNoDefaultTools() {
+        boolean enabled = provider.shouldEnableParallelToolCalls(
+                true,
+                new Object[0],
+                "openai",
+                "https://api.openai.com/v1"
+        );
+
+        assertThat(enabled).isFalse();
+    }
+
+    @Test
+    void parallelToolCallsEnabledOnlyForSupportedProvidersWithTools() {
+        Object[] defaultTools = new Object[] { new Object() };
+
+        assertThat(provider.shouldEnableParallelToolCalls(
+                true,
+                defaultTools,
+                "openai",
+                "https://api.openai.com/v1"
+        )).isTrue();
+        assertThat(provider.shouldEnableParallelToolCalls(
+                false,
+                defaultTools,
+                "openai",
+                "https://api.openai.com/v1"
+        )).isFalse();
+        assertThat(provider.shouldEnableParallelToolCalls(
+                true,
+                defaultTools,
+                "deepseek",
+                "https://api.deepseek.com/v1"
+        )).isFalse();
+    }
+
+    @Test
+    void defaultToolsIncludeDirectAnswerFallback() {
+        ReflectionTestUtils.setField(provider, "crmNoopTools", new CrmNoopTools());
+
+        Object[] tools = ReflectionTestUtils.invokeMethod(provider, "resolveDefaultTools");
+
+        assertThat(tools).isNotNull();
+        assertThat(tools).anyMatch(CrmNoopTools.class::isInstance);
     }
 }

@@ -8,6 +8,7 @@ import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.ai.provider.AiProviderDescriptor;
 import com.kakarote.ai_crm.ai.provider.AiProviderRegistry;
 import com.kakarote.ai_crm.ai.tools.ContactTools;
+import com.kakarote.ai_crm.ai.tools.CrmNoopTools;
 import com.kakarote.ai_crm.ai.tools.CustomerTools;
 import com.kakarote.ai_crm.ai.tools.FollowupTools;
 import com.kakarote.ai_crm.ai.tools.KnowledgeTools;
@@ -37,6 +38,7 @@ import org.springframework.util.MultiValueMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -94,6 +96,9 @@ public class DynamicChatClientProvider {
 
     @Autowired
     private MailTools mailTools;
+
+    @Autowired
+    private CrmNoopTools crmNoopTools;
 
     @Autowired
     private ToolCallingManager toolCallingManager;
@@ -243,10 +248,11 @@ public class DynamicChatClientProvider {
     }
 
     private Object[] resolveDefaultTools() {
-        return new Object[] {
+        return java.util.Arrays.stream(new Object[] {
                 customerTools, taskTools, projectTools, productTools, knowledgeTools,
-                contactTools, followupTools, scheduleTools, relationTools, mailTools
-        };
+                contactTools, followupTools, scheduleTools, relationTools, mailTools,
+                crmNoopTools
+        }).filter(Objects::nonNull).toArray();
     }
 
     boolean shouldEnableParallelToolCalls(boolean toolCallingEnabled, Object[] defaultTools,
