@@ -861,6 +861,11 @@ CREATE TABLE crm_chat_session (
     user_id BIGINT NOT NULL,
     agent_id BIGINT,
     customer_id BIGINT,
+    employee_id BIGINT,
+    relation_id BIGINT,
+    product_id BIGINT,
+    project_id BIGINT,
+    project_task_id BIGINT,
     app_code VARCHAR(50) NOT NULL DEFAULT 'general',
     title VARCHAR(255),
     pinned BOOLEAN NOT NULL DEFAULT FALSE,
@@ -874,6 +879,11 @@ CREATE TABLE crm_chat_session (
 CREATE INDEX idx_chat_session_user_id ON crm_chat_session (user_id);
 CREATE INDEX idx_chat_session_agent_id ON crm_chat_session (agent_id);
 CREATE INDEX idx_chat_session_customer_id ON crm_chat_session (customer_id);
+CREATE INDEX idx_chat_session_employee_id ON crm_chat_session (employee_id);
+CREATE INDEX idx_chat_session_relation_id ON crm_chat_session (relation_id);
+CREATE INDEX idx_chat_session_product_id ON crm_chat_session (product_id);
+CREATE INDEX idx_chat_session_project_id ON crm_chat_session (project_id);
+CREATE INDEX idx_chat_session_project_task_id ON crm_chat_session (project_task_id);
 CREATE INDEX idx_chat_session_app_code ON crm_chat_session (app_code);
 CREATE INDEX idx_chat_session_user_pin ON crm_chat_session (user_id, pinned DESC, pinned_time DESC, update_time DESC);
 

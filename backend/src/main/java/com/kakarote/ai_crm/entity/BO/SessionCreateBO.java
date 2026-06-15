@@ -16,6 +16,21 @@ public class SessionCreateBO {
     @Schema(description = "关联客户ID")
     private Long customerId;
 
+    @Schema(description = "关联员工ID")
+    private Long employeeId;
+
+    @Schema(description = "关联关系人ID")
+    private Long relationId;
+
+    @Schema(description = "关联产品ID")
+    private Long productId;
+
+    @Schema(description = "关联项目ID")
+    private Long projectId;
+
+    @Schema(description = "关联项目任务ID")
+    private Long projectTaskId;
+
     @Schema(description = "Application code")
     private String appCode;
 

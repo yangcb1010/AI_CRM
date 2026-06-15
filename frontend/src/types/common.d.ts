@@ -133,6 +133,11 @@ export interface ChatSession {
   title?: string
   agentId?: string
   customerId?: string
+  employeeId?: string
+  relationId?: string
+  productId?: string
+  projectId?: string
+  projectTaskId?: string
   appCode?: string
   pinned?: boolean
   pinnedTime?: string
@@ -173,6 +178,13 @@ export interface ChatSendBO {
   content: string
   attachments?: ChatAttachmentDTO[]
   ragEnabled?: boolean
+  appCode?: string
+  customerId?: string
+  employeeId?: string
+  relationId?: string
+  productId?: string
+  projectId?: string
+  projectTaskId?: string
 }
 
 // Enum types

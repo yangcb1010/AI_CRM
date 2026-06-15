@@ -29,6 +29,12 @@ public class AiContextHolder {
      * 这是多用户并发时最可靠的方式
      */
     private static final Map<Long, Long> SESSION_USER_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_CUSTOMER_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_EMPLOYEE_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_RELATION_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_PRODUCT_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_PROJECT_MAP = new ConcurrentHashMap<>();
+    private static final Map<Long, Long> SESSION_PROJECT_TASK_MAP = new ConcurrentHashMap<>();
 
     /**
      * 当前正在处理的会话ID
@@ -41,6 +47,12 @@ public class AiContextHolder {
      * 通过 Micrometer context-propagation 实现跨线程传递
      */
     private static final ThreadLocal<Long> CURRENT_USER_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_CUSTOMER_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_EMPLOYEE_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_RELATION_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_PRODUCT_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_PROJECT_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Long> CURRENT_PROJECT_TASK_ID = new ThreadLocal<>();
 
     /**
      * 设置会话上下文
@@ -59,6 +71,23 @@ public class AiContextHolder {
             log.debug("设置 AI 上下文: sessionId={}, userId={}, 线程={}",
                 sessionId, userId, Thread.currentThread().getName());
         }
+    }
+
+    public static void setContext(Long sessionId, Long userId,
+                                  Long customerId, Long employeeId, Long relationId,
+                                  Long productId, Long projectId, Long projectTaskId) {
+        setContext(sessionId, userId);
+        if (sessionId == null || userId == null) {
+            return;
+        }
+        putObjectContext(SESSION_CUSTOMER_MAP, CURRENT_CUSTOMER_ID, sessionId, customerId);
+        putObjectContext(SESSION_EMPLOYEE_MAP, CURRENT_EMPLOYEE_ID, sessionId, employeeId);
+        putObjectContext(SESSION_RELATION_MAP, CURRENT_RELATION_ID, sessionId, relationId);
+        putObjectContext(SESSION_PRODUCT_MAP, CURRENT_PRODUCT_ID, sessionId, productId);
+        putObjectContext(SESSION_PROJECT_MAP, CURRENT_PROJECT_ID, sessionId, projectId);
+        putObjectContext(SESSION_PROJECT_TASK_MAP, CURRENT_PROJECT_TASK_ID, sessionId, projectTaskId);
+        log.debug("AI object context: sessionId={}, customerId={}, employeeId={}, relationId={}, productId={}, projectId={}, projectTaskId={}",
+            sessionId, customerId, employeeId, relationId, productId, projectId, projectTaskId);
     }
 
     /**
@@ -81,6 +110,12 @@ public class AiContextHolder {
         Long userId = SESSION_USER_MAP.get(sessionId);
         if (userId != null) {
             CURRENT_USER_ID.set(userId);
+            restoreObjectContext(SESSION_CUSTOMER_MAP, CURRENT_CUSTOMER_ID, sessionId);
+            restoreObjectContext(SESSION_EMPLOYEE_MAP, CURRENT_EMPLOYEE_ID, sessionId);
+            restoreObjectContext(SESSION_RELATION_MAP, CURRENT_RELATION_ID, sessionId);
+            restoreObjectContext(SESSION_PRODUCT_MAP, CURRENT_PRODUCT_ID, sessionId);
+            restoreObjectContext(SESSION_PROJECT_MAP, CURRENT_PROJECT_ID, sessionId);
+            restoreObjectContext(SESSION_PROJECT_TASK_MAP, CURRENT_PROJECT_TASK_ID, sessionId);
         }
         log.trace("恢复 AI 上下文: sessionId={}, userId={}", sessionId, userId);
     }
@@ -114,6 +149,30 @@ public class AiContextHolder {
         return CURRENT_SESSION_ID.get();
     }
 
+    public static Long getCurrentCustomerId() {
+        return getCurrentObjectId(SESSION_CUSTOMER_MAP, CURRENT_CUSTOMER_ID);
+    }
+
+    public static Long getCurrentEmployeeId() {
+        return getCurrentObjectId(SESSION_EMPLOYEE_MAP, CURRENT_EMPLOYEE_ID);
+    }
+
+    public static Long getCurrentRelationId() {
+        return getCurrentObjectId(SESSION_RELATION_MAP, CURRENT_RELATION_ID);
+    }
+
+    public static Long getCurrentProductId() {
+        return getCurrentObjectId(SESSION_PRODUCT_MAP, CURRENT_PRODUCT_ID);
+    }
+
+    public static Long getCurrentProjectId() {
+        return getCurrentObjectId(SESSION_PROJECT_MAP, CURRENT_PROJECT_ID);
+    }
+
+    public static Long getCurrentProjectTaskId() {
+        return getCurrentObjectId(SESSION_PROJECT_TASK_MAP, CURRENT_PROJECT_TASK_ID);
+    }
+
     /**
      * 获取会话对应的用户ID（从全局 Map 中）
      *
@@ -135,6 +194,12 @@ public class AiContextHolder {
         // SESSION_USER_MAP 的清理应该通过 clearSession 方法显式调用
         CURRENT_SESSION_ID.remove();
         CURRENT_USER_ID.remove();
+        CURRENT_CUSTOMER_ID.remove();
+        CURRENT_EMPLOYEE_ID.remove();
+        CURRENT_RELATION_ID.remove();
+        CURRENT_PRODUCT_ID.remove();
+        CURRENT_PROJECT_ID.remove();
+        CURRENT_PROJECT_TASK_ID.remove();
     }
 
     /**
@@ -146,6 +211,12 @@ public class AiContextHolder {
     public static void clearSession(Long sessionId) {
         if (sessionId != null) {
             SESSION_USER_MAP.remove(sessionId);
+            SESSION_CUSTOMER_MAP.remove(sessionId);
+            SESSION_EMPLOYEE_MAP.remove(sessionId);
+            SESSION_RELATION_MAP.remove(sessionId);
+            SESSION_PRODUCT_MAP.remove(sessionId);
+            SESSION_PROJECT_MAP.remove(sessionId);
+            SESSION_PROJECT_TASK_MAP.remove(sessionId);
             log.trace("移除会话: sessionId={}", sessionId);
         }
     }
@@ -153,6 +224,38 @@ public class AiContextHolder {
     /**
      * 获取当前活跃会话数（用于调试）
      */
+    private static void putObjectContext(Map<Long, Long> sessionMap, ThreadLocal<Long> threadLocal,
+                                         Long sessionId, Long objectId) {
+        if (objectId == null) {
+            sessionMap.remove(sessionId);
+            threadLocal.remove();
+            return;
+        }
+        sessionMap.put(sessionId, objectId);
+        threadLocal.set(objectId);
+    }
+
+    private static void restoreObjectContext(Map<Long, Long> sessionMap, ThreadLocal<Long> threadLocal,
+                                             Long sessionId) {
+        Long objectId = sessionMap.get(sessionId);
+        if (objectId == null) {
+            threadLocal.remove();
+            return;
+        }
+        threadLocal.set(objectId);
+    }
+
+    private static Long getCurrentObjectId(Map<Long, Long> sessionMap, ThreadLocal<Long> threadLocal) {
+        Long sessionId = CURRENT_SESSION_ID.get();
+        if (sessionId != null) {
+            Long objectId = sessionMap.get(sessionId);
+            if (objectId != null) {
+                return objectId;
+            }
+        }
+        return threadLocal.get();
+    }
+
     public static int getActiveSessionCount() {
         return SESSION_USER_MAP.size();
     }

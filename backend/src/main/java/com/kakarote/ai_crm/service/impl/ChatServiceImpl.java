@@ -202,6 +202,11 @@ public class ChatServiceImpl implements IChatService {
         session.setTitle(sessionCreateBO.getTitle());
         session.setAgentId(sessionCreateBO.getAgentId());
         session.setCustomerId(sessionCreateBO.getCustomerId());
+        session.setEmployeeId(sessionCreateBO.getEmployeeId());
+        session.setRelationId(sessionCreateBO.getRelationId());
+        session.setProductId(sessionCreateBO.getProductId());
+        session.setProjectId(sessionCreateBO.getProjectId());
+        session.setProjectTaskId(sessionCreateBO.getProjectTaskId());
         session.setAppCode(StrUtil.blankToDefault(sessionCreateBO.getAppCode(), "general"));
         session.setPinned(false);
         session.setUserId(UserUtil.getUserId());
@@ -306,8 +311,9 @@ public class ChatServiceImpl implements IChatService {
         List<ChatSendBO.AttachmentDTO> attachments = sendBO.getAttachments();
 
         Long currentUserId = UserUtil.getUserIdOrNull();
+        ChatSession session = chatSessionMapper.selectById(sessionId);
         if (currentUserId != null) {
-            AiContextHolder.setContext(sessionId, currentUserId);
+            setAiContext(session, sessionId, currentUserId);
             log.debug("设置 AI 上下文: sessionId={}, userId={}", sessionId, currentUserId);
         }
 
@@ -451,8 +457,9 @@ public class ChatServiceImpl implements IChatService {
         List<ChatSendBO.AttachmentDTO> attachments = sendBO.getAttachments();
 
         Long currentUserId = UserUtil.getUserIdOrNull();
+        ChatSession session = chatSessionMapper.selectById(sessionId);
         if (currentUserId != null) {
-            AiContextHolder.setContext(sessionId, currentUserId);
+            setAiContext(session, sessionId, currentUserId);
             log.debug("设置 AI 上下文: sessionId={}, userId={}", sessionId, currentUserId);
         }
 
@@ -771,6 +778,20 @@ public class ChatServiceImpl implements IChatService {
             session.setUpdateTime(new Date());
             chatSessionMapper.updateById(session);
         }
+    }
+
+    private void setAiContext(ChatSession session, Long sessionId, Long userId) {
+        if (session == null) {
+            AiContextHolder.setContext(sessionId, userId);
+            return;
+        }
+        AiContextHolder.setContext(sessionId, userId,
+            session.getCustomerId(),
+            session.getEmployeeId(),
+            session.getRelationId(),
+            session.getProductId(),
+            session.getProjectId(),
+            session.getProjectTaskId());
     }
 
     private String tryHandleKnowledgeQuestion(String content, List<ChatSendBO.AttachmentDTO> attachments, boolean ragEnabled) {
