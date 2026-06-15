@@ -97,6 +97,26 @@ public class MinioFileStorageService implements FileStorageService {
     }
 
     @Override
+    public String upload(InputStream inputStream, long size, String path, String contentType) {
+        ensureBucketExists();
+        try {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(minioConfig.getBucket())
+                            .object(path)
+                            .stream(inputStream, size, -1)
+                            .contentType(StrUtil.blankToDefault(contentType, "application/octet-stream"))
+                            .build()
+            );
+            log.info("文件流上传到 MinIO 成功: bucket={}, path={}, size={}", minioConfig.getBucket(), path, size);
+            return path;
+        } catch (Exception e) {
+            log.error("文件流上传到 MinIO 失败: path={}, error={}", path, e.getMessage(), e);
+            throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "文件上传失败");
+        }
+    }
+
+    @Override
     public void delete(String path) {
         ensureBucketExists();
         try {

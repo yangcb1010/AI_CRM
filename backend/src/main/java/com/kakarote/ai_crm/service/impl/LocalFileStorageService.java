@@ -48,6 +48,21 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
+    public String upload(InputStream inputStream, long size, String path, String contentType) {
+        try {
+            File baseDir = new File(uploadPath).getAbsoluteFile();
+            File targetFile = new File(baseDir, path);
+            FileUtil.mkdir(targetFile.getParentFile());
+            FileUtil.writeFromStream(inputStream, targetFile);
+            log.info("文件流上传成功: path={}, size={}", path, size);
+            return path;
+        } catch (Exception e) {
+            log.error("文件流上传失败: path={}, error={}", path, e.getMessage(), e);
+            throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "文件上传失败");
+        }
+    }
+
+    @Override
     public void delete(String path) {
         try {
             File baseDir = new File(uploadPath).getAbsoluteFile();

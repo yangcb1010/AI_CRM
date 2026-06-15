@@ -11,6 +11,7 @@ import com.kakarote.ai_crm.ai.tools.ContactTools;
 import com.kakarote.ai_crm.ai.tools.CustomerTools;
 import com.kakarote.ai_crm.ai.tools.FollowupTools;
 import com.kakarote.ai_crm.ai.tools.KnowledgeTools;
+import com.kakarote.ai_crm.ai.tools.MailTools;
 import com.kakarote.ai_crm.ai.tools.ScheduleTools;
 import com.kakarote.ai_crm.ai.tools.TaskTools;
 import com.kakarote.ai_crm.entity.PO.SystemConfig;
@@ -76,6 +77,9 @@ public class DynamicChatClientProvider {
 
     @Autowired
     private ScheduleTools scheduleTools;
+
+    @Autowired
+    private MailTools mailTools;
 
     @Autowired
     private ToolCallingManager toolCallingManager;
@@ -187,7 +191,7 @@ public class DynamicChatClientProvider {
 
         ChatClient.Builder builder = ChatClient.builder(chatModel);
         if (registerTools && capabilities != null && capabilities.isSupportsToolCall()) {
-            builder.defaultTools(customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools);
+            builder.defaultTools(customerTools, taskTools, knowledgeTools, contactTools, followupTools, scheduleTools, mailTools);
         }
         return builder.build();
     }
