@@ -416,7 +416,7 @@
                     ref="fileInputRef"
                     type="file"
                     multiple
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.xml"
+                    :accept="CHAT_ATTACHMENT_ACCEPT"
                     class="hidden"
                     @change="handleFileSelect"
                   />
@@ -442,6 +442,7 @@
                     placeholder="输入指令，如：总结今天与张总的会议..."
                     :disabled="chatStore.currentSessionIsStreaming || isUploading"
                     @keydown.enter.exact.prevent="handleSend"
+                    @paste="handlePaste"
                   />
                   <div class="flex items-center gap-2 pr-1">
                     <button
@@ -606,6 +607,12 @@ import ChatKnowledgePickerModal from '@/components/chat/ChatKnowledgePickerModal
 import { renderMarkdown } from '@/utils/markdown'
 import { appEvents, APP_EVENT } from '@/utils/events'
 import { isRequestErrorHandled } from '@/utils/requestError'
+import {
+  CHAT_ATTACHMENT_ACCEPT,
+  MAX_CHAT_ATTACHMENT_COUNT,
+  extractClipboardFiles,
+  mergeChatFiles
+} from '@/utils/chatAttachment'
 import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO, Knowledge } from '@/types/common'
 import type { AiConfig, AiConfigUpdateBO, AiProvider, AiProviderPreset } from '@/types/systemConfig'
 
@@ -633,8 +640,7 @@ const apiKeySetupProviderOptions = ref<AiProviderPreset[]>([])
 const savingApiKey = ref(false)
 const resumeSendAfterApiKeySave = ref(false)
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
-const MAX_FILE_COUNT = 5
+const MAX_FILE_COUNT = MAX_CHAT_ATTACHMENT_COUNT
 const DEFAULT_CHAT_AI_CONFIG: AiConfigUpdateBO = {
   provider: 'dashscope',
   apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode',
@@ -1067,26 +1073,33 @@ function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files) return
 
-  const newFiles = Array.from(input.files)
-
-  // Validate file count
-  if (selectedFiles.value.length + selectedKnowledgeItems.value.length + newFiles.length > MAX_FILE_COUNT) {
-    ElMessage.warning(`最多只能上传${MAX_FILE_COUNT}个文件`)
+  const result = mergeChatFiles(
+    selectedFiles.value,
+    Array.from(input.files),
+    selectedKnowledgeItems.value.length
+  )
+  if (result.error) {
+    ElMessage.warning(result.error)
     input.value = ''
     return
   }
 
-  // Validate file size
-  for (const file of newFiles) {
-    if (file.size > MAX_FILE_SIZE) {
-      ElMessage.warning(`文件"${file.name}"超过50MB限制`)
-      input.value = ''
-      return
-    }
+  selectedFiles.value = result.files
+  input.value = '' // Reset input for re-selecting same file
+}
+
+function handlePaste(event: ClipboardEvent) {
+  const files = extractClipboardFiles(event)
+  if (files.length === 0) return
+
+  const result = mergeChatFiles(selectedFiles.value, files, selectedKnowledgeItems.value.length)
+  if (result.error) {
+    ElMessage.warning(result.error)
+    return
   }
 
-  selectedFiles.value.push(...newFiles)
-  input.value = '' // Reset input for re-selecting same file
+  event.preventDefault()
+  selectedFiles.value = result.files
 }
 
 function removeSelectedFile(index: number) {
