@@ -471,6 +471,18 @@
                       下次联系: {{ formatDateTime(item.nextFollowTime) }}
                     </div>
                     <p class="text-sm text-slate-600 leading-relaxed">{{ item.content }}</p>
+                    <div v-if="item.attachments?.length" class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        v-for="attachment in item.attachments"
+                        :key="attachment.attachmentId"
+                        type="button"
+                        class="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-primary/30 hover:text-primary"
+                        @click="handleDownloadFollowUpAttachment(attachment)"
+                      >
+                        <span class="material-symbols-outlined text-sm">attach_file</span>
+                        <span class="truncate">{{ attachment.fileName }}</span>
+                      </button>
+                    </div>
                   </div>
                   <div v-if="followUpIndex < followUps.length - 1" class="h-4 shrink-0" aria-hidden="true" />
                 </div>
@@ -728,6 +740,36 @@
         <el-form-item label="跟进内容">
           <el-input v-model="followUpForm.content" type="textarea" :rows="4" placeholder="请输入跟进内容" />
         </el-form-item>
+        <el-form-item label="附件">
+          <input
+            ref="followUpAttachmentInput"
+            type="file"
+            class="hidden"
+            multiple
+            @change="handleFollowUpAttachmentChange"
+          >
+          <div class="w-full space-y-2">
+            <el-button :loading="followUpAttachmentUploading" @click="triggerFollowUpAttachmentInput">
+              <span class="material-symbols-outlined mr-1 text-sm">attach_file</span>
+              上传附件
+            </el-button>
+            <div v-if="followUpForm.attachments.length" class="space-y-2">
+              <div
+                v-for="(attachment, index) in followUpForm.attachments"
+                :key="attachment.filePath"
+                class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+              >
+                <div class="min-w-0">
+                  <div class="truncate font-medium text-slate-700">{{ attachment.fileName }}</div>
+                  <div class="text-xs text-slate-400">{{ formatFileSize(attachment.fileSize) }}</div>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-red-500" @click="removeFollowUpAttachment(index)">
+                  <span class="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showAddFollowUpDialog = false">取消</el-button>
@@ -777,11 +819,11 @@ import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
 import { addCustomerTag, removeCustomerTag, transferCustomer, updateCustomerStage } from '@/api/customer'
 import { queryUserList } from '@/api/auth'
-import { addFollowUp, deleteFollowUp, queryFollowUpPageList } from '@/api/followup'
+import { addFollowUp, deleteFollowUp, downloadFollowUpAttachment, queryFollowUpPageList, uploadFollowUpAttachment } from '@/api/followup'
 import { deleteContact, setPrimaryContact, queryContactPageList } from '@/api/contact'
 import { getEnabledFieldsByEntity } from '@/api/customField'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { CustomerTag, FollowUp, Contact } from '@/types/customer'
+import type { CustomerTag, FollowUp, Contact, FollowUpAttachment, FollowUpAttachmentDraft } from '@/types/customer'
 import type { CustomField } from '@/types/customField'
 import { formatCustomFieldValue as formatCustomFieldDisplayValue } from '@/utils/customFieldDisplay'
 import AiFollowUpDrawer from '@/components/customer/AiFollowUpDrawer.vue'
@@ -816,6 +858,8 @@ const followUpTotal = ref(0)
 const followUpPage = ref(1)
 const followUpPageSize = ref(5)
 const followUpLoading = ref(false)
+const followUpAttachmentInput = ref<HTMLInputElement | null>(null)
+const followUpAttachmentUploading = ref(false)
 const contacts = ref<Contact[]>([])
 const contactTotal = ref(0)
 const contactPage = ref(1)
@@ -932,7 +976,8 @@ const followUpForm = reactive({
   customerId: '',
   type: 'call',
   content: '',
-  followTime: formatDateForApi()
+  followTime: formatDateForApi(),
+  attachments: [] as FollowUpAttachmentDraft[]
 })
 
 const customer = computed(() => customerStore.currentCustomer)
@@ -1286,6 +1331,48 @@ async function handleRemoveTag(tag: CustomerTag) {
   } catch { /* Error handled */ }
 }
 
+function triggerFollowUpAttachmentInput() {
+  followUpAttachmentInput.value?.click()
+}
+
+async function handleFollowUpAttachmentChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  if (!files.length) return
+
+  followUpAttachmentUploading.value = true
+  try {
+    for (const file of files) {
+      const uploaded = await uploadFollowUpAttachment(file)
+      followUpForm.attachments.push(uploaded)
+    }
+  } catch (error) {
+    console.error('Upload follow-up attachment failed:', error)
+  } finally {
+    followUpAttachmentUploading.value = false
+    input.value = ''
+  }
+}
+
+function removeFollowUpAttachment(index: number) {
+  followUpForm.attachments.splice(index, 1)
+}
+
+function formatFileSize(size?: number): string {
+  if (!size || size <= 0) return '-'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function handleDownloadFollowUpAttachment(attachment: FollowUpAttachment) {
+  try {
+    await downloadFollowUpAttachment(attachment.attachmentId, attachment.fileName)
+  } catch (error) {
+    console.error('Download follow-up attachment failed:', error)
+  }
+}
+
 async function handleSubmitFollowUp() {
   if (!canCreateFollowUps.value) return
   if (!followUpForm.content.trim()) {
@@ -1298,11 +1385,18 @@ async function handleSubmitFollowUp() {
   }
   submitting.value = true
   try {
-    await addFollowUp({ customerId: followUpForm.customerId, type: followUpForm.type, content: followUpForm.content, followTime: followUpForm.followTime } as any)
+    await addFollowUp({
+      customerId: followUpForm.customerId,
+      type: followUpForm.type,
+      content: followUpForm.content,
+      followTime: followUpForm.followTime,
+      attachments: followUpForm.attachments
+    } as any)
     await fetchFollowUps(followUpForm.customerId, true)
     showAddFollowUpDialog.value = false
     followUpForm.content = ''
     followUpForm.followTime = formatDateForApi()
+    followUpForm.attachments = []
     ElMessage.success('跟进记录添加成功')
   } catch { /* Error handled */ } finally {
     submitting.value = false

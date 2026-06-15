@@ -308,8 +308,9 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { aiParseFollowUp, addFollowUp } from '@/api/followup'
+import { aiParseFollowUp, addFollowUp, uploadFollowUpAttachment } from '@/api/followup'
 import type { AiFollowUpParseVO } from '@/api/followup'
+import type { FollowUpAttachmentDraft } from '@/types/customer'
 import type { Customer } from '@/types/customer'
 
 const props = defineProps<{
@@ -586,12 +587,20 @@ async function handleConfirmSave() {
   saving.value = true
 
   try {
+    const uploadedAttachments: FollowUpAttachmentDraft[] = []
+    for (const attachment of attachments.value) {
+      uploadedAttachments.push(await uploadFollowUpAttachment(attachment.file))
+    }
+
     await addFollowUp({
       customerId: props.customer.customerId,
       type: normalizeFollowUpType(parsedForm.type),
       content,
       followTime: parsedForm.followTime,
-      nextFollowTime: parsedForm.nextFollowTime || undefined
+      nextFollowTime: parsedForm.nextFollowTime || undefined,
+      summary: parsedData.value?.summary || undefined,
+      aiGenerated: parsedData.value ? 1 : 0,
+      attachments: uploadedAttachments
     })
 
     ElMessage.success('跟进记录已保存')

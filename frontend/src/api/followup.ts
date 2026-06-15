@@ -1,5 +1,5 @@
-import { post } from '@/utils/request'
-import type { FollowUp, FollowUpAddBO, FollowUpQueryBO } from '@/types/customer'
+import { download, post, upload } from '@/utils/request'
+import type { FollowUp, FollowUpAddBO, FollowUpAttachmentDraft, FollowUpQueryBO } from '@/types/customer'
 import type { PageResult } from '@/types/api'
 
 /**
@@ -50,4 +50,14 @@ export interface AiFollowUpParseVO {
 
 export function aiParseFollowUp(data: AiFollowUpParseBO): Promise<AiFollowUpParseVO> {
   return post('/followup/ai-parse', data)
+}
+
+export function uploadFollowUpAttachment(file: File): Promise<FollowUpAttachmentDraft> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return upload('/followup/attachment/upload', formData)
+}
+
+export function downloadFollowUpAttachment(attachmentId: string, fileName?: string): Promise<void> {
+  return download(`/followup/attachment/${attachmentId}/download`, fileName)
 }

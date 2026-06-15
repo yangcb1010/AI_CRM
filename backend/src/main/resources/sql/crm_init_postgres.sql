@@ -616,6 +616,9 @@ CREATE TABLE crm_follow_up (
     contact_id BIGINT,
     type VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
+    summary VARCHAR(500),
+    scene_type VARCHAR(100),
+    ai_generated SMALLINT DEFAULT 0,
     follow_time TIMESTAMP NOT NULL,
     next_follow_time TIMESTAMP,
     create_user_id BIGINT,
@@ -632,6 +635,29 @@ COMMENT ON COLUMN crm_follow_up.type IS '类型: call, meeting, email, visit';
 -- ============================================
 -- 7. 知识库项目表 (crm_knowledge)
 -- ============================================
+DROP TABLE IF EXISTS crm_follow_up_attachment CASCADE;
+CREATE TABLE crm_follow_up_attachment (
+    attachment_id BIGINT NOT NULL,
+    follow_up_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT,
+    mime_type VARCHAR(255),
+    sort INT DEFAULT 0,
+    analysis_status VARCHAR(30) DEFAULT 'idle',
+    analysis_content TEXT,
+    analysis_time TIMESTAMP,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (attachment_id)
+);
+
+CREATE INDEX idx_follow_up_attachment_follow_up_id ON crm_follow_up_attachment (follow_up_id, sort, attachment_id);
+
+CREATE TRIGGER trg_follow_up_attachment_update_time
+    BEFORE UPDATE ON crm_follow_up_attachment
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
 DROP TABLE IF EXISTS crm_knowledge CASCADE;
 CREATE TABLE crm_knowledge (
     knowledge_id BIGINT NOT NULL,

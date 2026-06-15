@@ -50,6 +50,15 @@ public class FollowUp implements Serializable {
     @Schema(description = "跟进内容")
     private String content;
 
+    @Schema(description = "AI summary")
+    private String summary;
+
+    @Schema(description = "Scene type")
+    private String sceneType;
+
+    @Schema(description = "AI generated flag")
+    private Integer aiGenerated;
+
     /**
      * 跟进时间
      */

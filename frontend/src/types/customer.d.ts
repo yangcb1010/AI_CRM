@@ -240,6 +240,9 @@ export interface FollowUp {
   customerId: string
   type: FollowUpType
   content: string
+  summary?: string
+  sceneType?: string
+  aiGenerated?: number
   followTime: string
   result?: string
   nextPlan?: string
@@ -247,6 +250,27 @@ export interface FollowUp {
   createUserId: string
   createUserName?: string
   createTime: string
+  attachments?: FollowUpAttachment[]
+}
+
+export interface FollowUpAttachment {
+  attachmentId: string
+  followUpId?: string
+  fileName: string
+  filePath: string
+  fileSize?: number
+  mimeType?: string
+  sort?: number
+  analysisStatus?: string
+  analysisContent?: string
+  analysisTime?: string
+}
+
+export interface FollowUpAttachmentDraft {
+  fileName: string
+  filePath: string
+  fileSize?: number
+  mimeType?: string
 }
 
 export type FollowUpType = 'call' | 'meeting' | 'email' | 'visit' | 'other'
@@ -258,6 +282,10 @@ export interface FollowUpAddBO {
   followTime: string
   contactId?: string
   nextFollowTime?: string
+  summary?: string
+  sceneType?: string
+  aiGenerated?: number
+  attachments?: FollowUpAttachmentDraft[]
 }
 
 export interface FollowUpQueryBO {

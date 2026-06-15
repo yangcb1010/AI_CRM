@@ -1,8 +1,10 @@
 package com.kakarote.ai_crm.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,10 +17,14 @@ import com.kakarote.ai_crm.entity.BO.FollowUpAiParseBO;
 import com.kakarote.ai_crm.entity.BO.FollowUpQueryBO;
 import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.PO.FollowUp;
+import com.kakarote.ai_crm.entity.PO.FollowUpAttachment;
 import com.kakarote.ai_crm.entity.VO.FollowUpAiParseVO;
+import com.kakarote.ai_crm.entity.VO.FollowUpAttachmentVO;
 import com.kakarote.ai_crm.entity.VO.FollowUpVO;
 import com.kakarote.ai_crm.mapper.CustomerMapper;
+import com.kakarote.ai_crm.mapper.FollowUpAttachmentMapper;
 import com.kakarote.ai_crm.mapper.FollowUpMapper;
+import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.IFollowUpService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +39,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 跟进记录服务实现
@@ -72,6 +81,12 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
     @Autowired
     private CustomerMapper customerMapper;
 
+    @Autowired
+    private FollowUpAttachmentMapper followUpAttachmentMapper;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
     @Lazy
     @Autowired
     private DynamicChatClientProvider chatClientProvider;
@@ -90,7 +105,11 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         if (followUp.getFollowTime() == null) {
             followUp.setFollowTime(new Date());
         }
+        if (followUp.getAiGenerated() == null) {
+            followUp.setAiGenerated(0);
+        }
         save(followUp);
+        saveAttachments(followUp.getFollowUpId(), followUpAddBO.getAttachments());
 
         customer.setLastContactTime(new Date());
         if (followUpAddBO.getNextFollowTime() != null) {
@@ -107,6 +126,15 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         if (ObjectUtil.isNull(followUp)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "跟进记录不存在");
         }
+        List<FollowUpAttachment> attachments = followUpAttachmentMapper.selectList(
+            Wrappers.<FollowUpAttachment>lambdaQuery().eq(FollowUpAttachment::getFollowUpId, followUpId)
+        );
+        for (FollowUpAttachment attachment : attachments) {
+            safeDeleteFile(attachment.getFilePath());
+        }
+        if (CollUtil.isNotEmpty(attachments)) {
+            followUpAttachmentMapper.deleteBatchIds(attachments.stream().map(FollowUpAttachment::getAttachmentId).toList());
+        }
         removeById(followUpId);
     }
 
@@ -116,14 +144,37 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
             .eq(FollowUp::getCustomerId, customerId)
             .orderByDesc(FollowUp::getFollowTime)
             .list();
-        return BeanUtil.copyToList(followUps, FollowUpVO.class);
+        List<FollowUpVO> result = BeanUtil.copyToList(followUps, FollowUpVO.class);
+        enrichFollowUps(result);
+        return result;
     }
 
     @Override
     public BasePage<FollowUpVO> queryPageList(FollowUpQueryBO queryBO) {
         BasePage<FollowUpVO> page = queryBO.parse();
         baseMapper.queryPageList(page, queryBO);
+        enrichFollowUps(page.getList());
         return page;
+    }
+
+    @Override
+    public FollowUpAttachmentVO getAttachment(Long attachmentId) {
+        FollowUpAttachment attachment = followUpAttachmentMapper.selectById(attachmentId);
+        if (attachment == null) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Attachment does not exist");
+        }
+        return toAttachmentVO(attachment);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteAttachment(Long attachmentId) {
+        FollowUpAttachment attachment = followUpAttachmentMapper.selectById(attachmentId);
+        if (attachment == null) {
+            return;
+        }
+        safeDeleteFile(attachment.getFilePath());
+        followUpAttachmentMapper.deleteById(attachmentId);
     }
 
     @Override
@@ -144,6 +195,70 @@ public class FollowUpServiceImpl extends ServiceImpl<FollowUpMapper, FollowUp> i
         } catch (Exception e) {
             log.error("AI 跟进解析失败，返回默认值", e);
             return buildFallbackResult(parseBO.getContent(), now);
+        }
+    }
+
+    private void saveAttachments(Long followUpId, List<com.kakarote.ai_crm.entity.BO.ChatSendBO.AttachmentDTO> attachments) {
+        if (followUpId == null || CollUtil.isEmpty(attachments)) {
+            return;
+        }
+        int sort = 0;
+        for (com.kakarote.ai_crm.entity.BO.ChatSendBO.AttachmentDTO dto : attachments) {
+            if (dto == null || StrUtil.isBlank(dto.getFilePath())) {
+                continue;
+            }
+            FollowUpAttachment attachment = new FollowUpAttachment();
+            attachment.setFollowUpId(followUpId);
+            attachment.setFileName(StrUtil.blankToDefault(dto.getFileName(), "attachment"));
+            attachment.setFilePath(dto.getFilePath());
+            attachment.setFileSize(dto.getFileSize());
+            attachment.setMimeType(dto.getMimeType());
+            attachment.setSort(sort++);
+            attachment.setAnalysisStatus("idle");
+            followUpAttachmentMapper.insert(attachment);
+        }
+    }
+
+    private void enrichFollowUps(List<FollowUpVO> followUps) {
+        if (CollUtil.isEmpty(followUps)) {
+            return;
+        }
+        List<Long> followUpIds = followUps.stream()
+            .map(FollowUpVO::getFollowUpId)
+            .filter(ObjectUtil::isNotNull)
+            .toList();
+        if (followUpIds.isEmpty()) {
+            return;
+        }
+        Map<Long, List<FollowUpAttachmentVO>> attachmentMap = followUpAttachmentMapper.selectList(
+                Wrappers.<FollowUpAttachment>lambdaQuery()
+                    .in(FollowUpAttachment::getFollowUpId, followUpIds)
+                    .orderByAsc(FollowUpAttachment::getSort)
+                    .orderByAsc(FollowUpAttachment::getAttachmentId)
+            ).stream()
+            .map(this::toAttachmentVO)
+            .collect(Collectors.groupingBy(
+                FollowUpAttachmentVO::getFollowUpId,
+                LinkedHashMap::new,
+                Collectors.toList()
+            ));
+        for (FollowUpVO followUp : followUps) {
+            followUp.setAttachments(attachmentMap.getOrDefault(followUp.getFollowUpId(), List.of()));
+        }
+    }
+
+    private FollowUpAttachmentVO toAttachmentVO(FollowUpAttachment attachment) {
+        return BeanUtil.copyProperties(attachment, FollowUpAttachmentVO.class);
+    }
+
+    private void safeDeleteFile(String filePath) {
+        if (StrUtil.isBlank(filePath)) {
+            return;
+        }
+        try {
+            fileStorageService.delete(filePath);
+        } catch (Exception e) {
+            log.warn("Failed to delete follow-up attachment file: {}", filePath, e);
         }
     }
 
