@@ -196,8 +196,9 @@ public class DynamicChatClientProvider {
                                        boolean registerTools) {
         OpenAiApi openAiApi = buildOpenAiApi(providerCode, baseUrl, apiKey, extraHeadersJson);
 
+        String resolvedModel = AiProviderRegistry.normalizeModelName(providerCode, model);
         OpenAiChatOptions options = OpenAiChatOptions.builder()
-                .model(model)
+                .model(resolvedModel)
                 .temperature(temperature)
                 .maxCompletionTokens(maxTokens)
                 .build();

@@ -55,8 +55,16 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     value: 'ark',
     description: '通常填写模型 ID 或 Endpoint ID。',
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-    models: ['doubao-seed-1-8-251228', 'doubao-seed-1-8-32k-251228', 'doubao-seed-code', 'doubao-seed-1-6-251015'],
-    modelHint: '填写火山方舟模型 ID 或 Endpoint ID，例如 doubao-seed-1-8-251228。',
+    models: [
+      'doubao-seed-2-0-pro-260215',
+      'doubao-seed-2-0-lite-260428',
+      'doubao-seed-2-0-mini-260428',
+      'doubao-seed-1-8-251228',
+      'doubao-seed-1-8-32k-251228',
+      'doubao-seed-code',
+      'doubao-seed-1-6-251015'
+    ],
+    modelHint: '填写火山方舟模型 ID 或 Endpoint ID，例如 doubao-seed-2-0-pro-260215。',
     extraHeadersHint: '',
     supportsStream: true,
     supportsToolCall: true,
