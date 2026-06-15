@@ -1,5 +1,17 @@
 <template>
   <div class="flex h-full" :class="{ 'flex-col': isMobile }">
+    <MobileChatTopHeader
+      :visible="showMobileChatHeader"
+      :kind="mobileChatHeaderKind"
+      :title="mobileChatHeaderTitle"
+      :avatar-url="mobileChatHeaderAvatarUrl"
+      :detailable="Boolean(chatObjectKind)"
+      @menu="openMobileMainMenu"
+      @title="handleMobileHeaderTitle"
+      @detail="openMobileObjectDetail"
+      @new-session="handleNewSession"
+    />
+
     <!-- Internal Sidebar: Chat History -->
     <aside
       v-if="!isMobile || mobilePanel === 'sessions'"
@@ -221,7 +233,11 @@
       <template v-if="currentView === 'chat'">
         <div class="flex-1 flex flex-col overflow-hidden">
           <!-- Messages Area -->
-          <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scroll-smooth pb-4">
+          <div
+            ref="messagesContainer"
+            class="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scroll-smooth pb-4"
+            :class="{ 'wk-chat-messages--mobile-header': showMobileChatHeader }"
+          >
             <!-- Welcome Section (no messages) -->
             <template v-if="chatStore.messages.length === 0">
               <div class="max-w-3xl mx-auto flex flex-col items-center text-center space-y-4 py-12">
@@ -654,6 +670,7 @@ import ApiKeySetupModal from '@/components/common/ApiKeySetupModal.vue'
 import ChatKnowledgePickerModal from '@/components/chat/ChatKnowledgePickerModal.vue'
 import CustomerChatInfoPanel from './components/CustomerChatInfoPanel.vue'
 import EmployeeChatInfoPanel from './components/EmployeeChatInfoPanel.vue'
+import MobileChatTopHeader from './components/MobileChatTopHeader.vue'
 import ProductChatInfoPanel from './components/ProductChatInfoPanel.vue'
 import RelationChatInfoPanel from './components/RelationChatInfoPanel.vue'
 import { renderMarkdown } from '@/utils/markdown'
@@ -825,6 +842,34 @@ const currentObjectId = computed(() => {
 const showDesktopObjectPanel = computed(() =>
   !isMobile.value && currentView.value === 'chat' && Boolean(chatObjectKind.value && currentObjectId.value)
 )
+const showMobileChatHeader = computed(() =>
+  isMobile.value && mobilePanel.value === 'chat' && currentView.value === 'chat'
+)
+const mobileChatHeaderKind = computed<'chat' | 'customer' | 'employee' | 'relation' | 'product'>(() =>
+  chatObjectKind.value || 'chat'
+)
+const mobileChatHeaderTitle = computed(() => {
+  const session = currentChatSession.value
+  if (chatObjectKind.value === 'customer') {
+    return session?.customerName || session?.title || '客户对话'
+  }
+  if (chatObjectKind.value === 'employee') {
+    return employeeDetail.value?.realname || session?.title || '通讯录对话'
+  }
+  if (chatObjectKind.value === 'relation') {
+    return relationDetail.value?.relation?.name || session?.relationName || session?.title || '关系对话'
+  }
+  if (chatObjectKind.value === 'product') {
+    return productDetail.value?.productName || session?.productName || session?.title || '产品对话'
+  }
+  return session?.title || 'AI 对话'
+})
+const mobileChatHeaderAvatarUrl = computed(() => {
+  if (chatObjectKind.value === 'employee') return employeeDetail.value?.imgUrl || employeeDetail.value?.img || ''
+  if (chatObjectKind.value === 'relation') return relationDetail.value?.relation?.avatarUrl || relationDetail.value?.relation?.avatar || ''
+  if (chatObjectKind.value === 'product') return productDetail.value?.mainImageUrl || ''
+  return ''
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -1301,13 +1346,43 @@ async function handleDeleteSession(sessionId: string) {
 
 async function handleToggleSessionPin(session: ChatSession) {
   try {
-    await chatStore.setSessionPinned(session.sessionId, !session.pinned)
+    await chatStore.setSessionPinned(session.sessionId, session.pinned !== true)
   } catch (error: unknown) {
     console.error('Toggle chat session pin failed:', error)
     if (!isRequestErrorHandled(error)) {
       ElMessage.error('操作失败，请稍后重试')
     }
   }
+}
+
+function openMobileMainMenu() {
+  appEvents.emit(APP_EVENT.MOBILE_MAIN_MENU_OPEN)
+}
+
+function handleMobileHeaderTitle() {
+  if (chatObjectKind.value) {
+    openMobileObjectDetail()
+  }
+}
+
+function openMobileObjectDetail() {
+  const id = currentObjectId.value
+  if (!id) return
+
+  if (chatObjectKind.value === 'customer') {
+    void router.push(`/customer/${id}`)
+    return
+  }
+  if (chatObjectKind.value === 'relation') {
+    void router.push({ path: '/relation', query: { openRelationId: id } })
+    return
+  }
+  if (chatObjectKind.value === 'product') {
+    void router.push({ path: '/product', query: { openProductId: id } })
+    return
+  }
+
+  void router.push('/address-book')
 }
 
 function handleObjectAddTask() {
@@ -1418,6 +1493,11 @@ function resolveChatAppIcon(code: string): string {
 /* Material Symbols fill variant */
 .fill-1 {
   font-variation-settings: 'FILL' 1;
+}
+
+.wk-chat-messages--mobile-header {
+  padding-top: calc(62px + max(8px, var(--safe-area-inset-top))) !important;
+  scroll-padding-top: calc(62px + max(8px, var(--safe-area-inset-top)));
 }
 
 .border-t.border-slate-100 .rounded-2xl > p.text-xs.font-bold.text-primary.uppercase.tracking-wider.mb-1,
