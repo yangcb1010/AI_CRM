@@ -51,7 +51,7 @@
           <template #default="{ row }">
             <div class="flex min-w-0 items-center gap-3">
               <div class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
-                <img v-if="row.avatarUrl" :src="row.avatarUrl" class="size-full object-cover" alt="avatar" />
+                <img v-if="row.avatarUrl" :src="row.avatarUrl" class="size-full object-contain" alt="关系人头像" />
                 <span v-else class="flex size-full items-center justify-center bg-primary/10 text-sm font-bold text-primary">
                   {{ relationInitial(row) }}
                 </span>
@@ -118,8 +118,9 @@
             @click="openDetail(relation)"
           >
             <div class="flex items-start gap-3">
-              <div class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white">
-                <span class="flex size-full items-center justify-center bg-primary/10 text-sm font-bold text-primary">
+              <div class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <img v-if="relation.avatarUrl" :src="relation.avatarUrl" class="size-full object-contain" alt="关系人头像" />
+                <span v-else class="flex size-full items-center justify-center bg-primary/10 text-sm font-bold text-primary">
                   {{ relationInitial(relation) }}
                 </span>
               </div>
@@ -216,8 +217,9 @@
       <div v-loading="detailLoading" class="space-y-5">
         <template v-if="currentDetail">
           <div class="flex items-center gap-3">
-            <div class="flex size-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
-              <span class="flex size-full items-center justify-center bg-primary/10 text-base font-bold text-primary">
+            <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <img v-if="currentDetail.avatarUrl" :src="currentDetail.avatarUrl" class="size-full object-contain" alt="关系人头像" />
+              <span v-else class="flex size-full items-center justify-center bg-primary/10 text-base font-bold text-primary">
                 {{ relationInitial(currentDetail) }}
               </span>
             </div>
