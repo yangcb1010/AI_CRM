@@ -11,12 +11,12 @@
     <Transition name="scale-fade">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[3601] flex items-center justify-center p-4"
+        class="knowledge-detail-modal-stage fixed inset-0 z-[3601] flex items-center justify-center p-4"
       >
         <div
           :class="[
-            'flex w-full overflow-hidden bg-white shadow-2xl',
-            isMobile ? 'h-full rounded-none' : 'h-[90vh] max-w-5xl rounded-[2.5rem]'
+            'knowledge-detail-modal-panel relative flex w-full overflow-hidden bg-white shadow-2xl',
+            isMobile ? 'h-full rounded-[1.75rem]' : 'h-[90vh] max-w-5xl rounded-[2.5rem]'
           ]"
           @click.stop
         >
@@ -1003,6 +1003,10 @@ function getTypeIconColor(type?: string): string {
   transform: scale(0.95);
 }
 
+.knowledge-detail-modal-stage {
+  box-sizing: border-box;
+}
+
 .media-preview-shell {
   overscroll-behavior: contain;
 }
@@ -1128,5 +1132,21 @@ function getTypeIconColor(type?: string): string {
 
 .doc-html-preview-shell {
   overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  .knowledge-detail-modal-stage {
+    align-items: stretch;
+    justify-content: stretch;
+    padding:
+      calc(1rem + var(--safe-area-inset-top))
+      max(1rem, var(--safe-area-inset-right))
+      calc(1rem + var(--safe-area-inset-bottom))
+      max(1rem, var(--safe-area-inset-left));
+  }
+
+  .knowledge-detail-modal-panel {
+    max-height: 100%;
+  }
 }
 </style>

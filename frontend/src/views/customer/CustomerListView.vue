@@ -566,7 +566,7 @@
           <div
             v-if="customerStore.totalCount > 0"
             ref="paginationBarRef"
-            class="shrink-0 flex items-center justify-between"
+            class="wk-customer-pagination-bar shrink-0 flex items-center justify-between"
             :class="listViewMode === 'list'
               ? 'border-t border-slate-200 bg-slate-50/50 px-6 py-4'
               : 'px-0 pt-4 pb-0'"
@@ -1752,6 +1752,10 @@ async function handleImportSuccess(_result: CustomerImportResult) {
 }
 
 @media (max-width: 767px) {
+  .wk-customer-pagination-bar {
+    padding-bottom: calc(1rem + var(--safe-area-inset-bottom)) !important;
+  }
+
   .wk-ai-chip {
     min-width: 0;
     max-width: 100%;

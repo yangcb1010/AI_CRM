@@ -467,7 +467,7 @@
         </div>
 
         <!-- Pagination -->
-        <div v-if="showPagination && effectiveTaskViewMode !== 'list'" class="mt-6 flex shrink-0 justify-center">
+        <div v-if="showPagination && effectiveTaskViewMode !== 'list'" class="wk-task-pagination-bar mt-6 flex shrink-0 justify-center">
           <div class="flex items-center gap-2">
             <button
               class="size-8 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -929,6 +929,12 @@ function getRelativeTime(dateStr: string): string {
 .wk-task-list-table__row:hover,
 .wk-task-list-table__row.is-selected {
   background: color-mix(in srgb, var(--wk-primary) 11%, var(--wk-bg-surface));
+}
+
+@media (max-width: 767px) {
+  .wk-task-pagination-bar {
+    padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+  }
 }
 
 .task-list-grid {
