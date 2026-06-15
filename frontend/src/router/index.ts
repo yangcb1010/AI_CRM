@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 const settingsComponent = () => import('@/views/settings/SettingsView.vue')
 const settingsMeta = {
   title: '系统设置',
-  icon: 'settings',
+  icon: 'set',
   permission: ['user', 'role', 'config', 'dept', 'customField']
 }
 
@@ -58,10 +58,14 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '客户管理', icon: 'group', permission: 'customer:view' }
       },
       {
-        path: 'addressBook',
+        path: 'address-book',
         name: 'AddressBook',
         component: () => import('@/views/addressBook/AddressBookListView.vue'),
         meta: { title: '通讯录', icon: 'contacts' }
+      },
+      {
+        path: 'addressBook',
+        redirect: '/address-book'
       },
       {
         path: 'customer/:id',
@@ -91,19 +95,19 @@ const routes: RouteRecordRaw[] = [
         path: 'project/:id',
         name: 'ProjectDetail',
         component: () => import('@/views/project/ProjectDetailView.vue'),
-        meta: { title: '项目详情', hidden: true }
+        meta: { title: '项目详情', hidden: true, permission: 'task' }
       },
       {
         path: 'mail',
         name: 'Mail',
         component: () => import('@/views/mail/MailView.vue'),
-        meta: { title: '邮件', icon: 'mail' }
+        meta: { title: '邮件', icon: 'mail', permission: 'mail:view' }
       },
       {
         path: 'task',
         name: 'TaskList',
         component: () => import('@/views/task/TaskListView.vue'),
-        meta: { title: '任务管理', icon: 'task_alt', permission: 'task' }
+        meta: { title: '任务管理', icon: 'task_alt', permission: 'task:view' }
       },
       {
         path: 'calendar',
