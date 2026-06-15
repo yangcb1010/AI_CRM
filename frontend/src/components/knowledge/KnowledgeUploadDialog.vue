@@ -416,7 +416,7 @@ defineExpose({
 })
 </script>
 
-<style>
+<style lang="scss">
 .wk-knowledge-upload-dialog .el-upload {
   width: 100%;
 }
