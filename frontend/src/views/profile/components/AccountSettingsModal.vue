@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="account-settings-overlay">
-      <div v-if="modelValue" class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6">
+      <div v-if="modelValue" class="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="handleClose" />
 
         <Transition name="account-settings-panel">
@@ -13,7 +13,7 @@
             <div class="bg-white border-b border-slate-200 px-6 md:px-8 py-5 flex items-center justify-between shrink-0">
               <div class="flex items-center gap-4">
                 <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                  <WkIcon name="settings" :size="24" />
+                  <WkIcon name="set" :size="24" />
                 </div>
                 <div>
                   <h2 class="text-xl font-bold text-slate-900">账号设置</h2>
@@ -132,6 +132,60 @@
               <div class="space-y-6">
                 <div class="flex items-center justify-between gap-4">
                   <h3 class="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider">
+                    <span class="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                    第三方登录
+                  </h3>
+                  <span
+                    v-if="externalBindingsLoading"
+                    class="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-primary"
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div
+                    v-for="binding in externalBindings"
+                    :key="binding.provider"
+                    class="external-binding-item"
+                  >
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="external-binding-item__name">{{ binding.providerName }}</p>
+                        <p class="external-binding-item__meta">
+                          {{ binding.bound ? (binding.email || binding.displayName || '已绑定') : (binding.enabled ? '未绑定' : '未配置') }}
+                        </p>
+                      </div>
+                      <span
+                        class="external-binding-item__status"
+                        :class="binding.bound ? 'external-binding-item__status--on' : 'external-binding-item__status--off'"
+                      />
+                    </div>
+                    <button
+                      v-if="binding.bound"
+                      type="button"
+                      class="external-binding-item__action external-binding-item__action--danger"
+                      :disabled="externalBindingProvider === binding.provider"
+                      @click="handleUnbindExternal(binding.provider)"
+                    >
+                      解绑
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      class="external-binding-item__action"
+                      :disabled="!binding.enabled || externalBindingProvider === binding.provider"
+                      @click="handleBindExternal(binding.provider)"
+                    >
+                      绑定
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="h-px bg-slate-100 w-full" />
+
+              <div class="space-y-6">
+                <div class="flex items-center justify-between gap-4">
+                  <h3 class="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider">
                     <span class="w-1.5 h-4 bg-rose-500 rounded-full"></span>
                     安全设置
                   </h3>
@@ -217,19 +271,25 @@ const {
   avatarInputRef,
   avatarPreviewUrl,
   submittingPassword,
+  externalBindings,
+  externalBindingsLoading,
+  externalBindingProvider,
   profileForm,
   passwordForm,
   loadProfile,
+  loadExternalBindings,
   resetAll,
   resetProfileForm,
   handleAvatarChange,
   handleSaveProfile,
-  handleChangePassword
+  handleChangePassword,
+  handleBindExternal,
+  handleUnbindExternal
 } = useAccountSettings()
 
 watch(() => props.modelValue, async (visible) => {
   if (visible) {
-    await loadProfile()
+    await Promise.all([loadProfile(), loadExternalBindings()])
     return
   }
   resetAll()
@@ -260,5 +320,80 @@ function handleClose() {
 .account-settings-panel-leave-to {
   opacity: 0;
   transform: translateY(20px) scale(0.98);
+}
+
+.external-binding-item {
+  display: flex;
+  min-height: 128px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  background: #fff;
+  padding: 1rem;
+}
+
+.external-binding-item__name {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.external-binding-item__meta {
+  margin: 0.35rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.external-binding-item__status {
+  width: 0.65rem;
+  height: 0.65rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.external-binding-item__status--on {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+}
+
+.external-binding-item__status--off {
+  background: #cbd5e1;
+}
+
+.external-binding-item__action {
+  width: 100%;
+  min-height: 36px;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  color: #137fec;
+  font-size: 0.84rem;
+  font-weight: 800;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.external-binding-item__action:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+.external-binding-item__action--danger {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.external-binding-item__action--danger:hover:not(:disabled) {
+  background: #ffe4e6;
+}
+
+.external-binding-item__action:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 </style>
