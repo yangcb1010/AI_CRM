@@ -10,7 +10,7 @@
       class="block min-w-0 flex-1 truncate text-[1rem] leading-5 text-[#0d0d0d] md:text-sm"
       :title="displayTitle"
     >{{ displayTitle }}</span>
-    <div class="shrink-0" @click.stop>
+    <div class="shrink-0" @click.stop @touchend.stop>
       <el-popover
         v-model:visible="menuVisible"
         trigger="click"

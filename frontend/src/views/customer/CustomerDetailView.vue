@@ -2725,6 +2725,34 @@ function formatCustomFieldValue(field: CustomField, value: any): string {
   height: 0;
 }
 
+@media (min-width: 769px) {
+  :global(html.wk-native-mobile) .wk-customer-stage-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--wk-scrollbar-thumb) transparent;
+  }
+
+  :global(html.wk-native-mobile) .wk-customer-stage-scroll::-webkit-scrollbar {
+    display: block;
+    width: var(--wk-scrollbar-size);
+    height: var(--wk-scrollbar-size);
+  }
+
+  :global(html.wk-native-mobile) .wk-customer-stage-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: var(--wk-scrollbar-radius);
+  }
+
+  :global(html.wk-native-mobile) .wk-customer-stage-scroll::-webkit-scrollbar-thumb {
+    background: var(--wk-scrollbar-thumb);
+    border-radius: var(--wk-scrollbar-radius);
+  }
+}
+
 .wk-customer-detail-mobile .md\:w-auto {
   width: 100% !important;
 }

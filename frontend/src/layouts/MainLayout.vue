@@ -56,7 +56,7 @@
           type="button"
           class="group/sidebar-logo relative flex size-8 items-center justify-center overflow-visible rounded-lg bg-[#f5f5f5] text-[#0d0d0d] transition-colors hover:bg-[#ececec]"
           aria-label="展开边栏"
-          @click="primarySidebarCollapsed = false"
+          @click="openPrimarySidebarFromCollapsed"
         >
           <span
             class="absolute inset-0 flex items-center justify-center transition-opacity duration-150"
@@ -357,6 +357,7 @@
                       ? 'bg-[#f3f3f3]'
                       : 'hover:bg-[#f9f9f9]'"
                     @click="handleSelectSession(session.sessionId)"
+                    @touchend="handleNativeTabletSessionTouchEnd($event, session.sessionId)"
                   >
                     <ChatSessionActionsPopover
                       :session="session"
@@ -846,6 +847,7 @@
                       ? 'bg-[#f3f3f3]'
                       : 'hover:bg-[#f9f9f9]'"
                     @click="handleSelectSessionFromMore(session.sessionId)"
+                    @touchend="handleNativeTabletSessionFromMoreTouchEnd($event, session.sessionId)"
                   >
                     <ChatSessionActionsPopover
                       :session="session"
@@ -2068,7 +2070,7 @@ import { useEnumStore } from '@/stores/enums'
 import { appEvents, APP_EVENT } from '@/utils/events'
 import { confirmDeleteChatSession } from '@/utils/confirmDeleteChatSession'
 import { shouldCloseMobileDrawerFromSwipe, type SwipePoint } from '@/utils/mobileDrawerSwipe'
-import { isNativeMobileRuntime } from '@/utils/nativeMobileRuntime'
+import { isNativeMobileRuntime, isNativeTabletRuntime } from '@/utils/nativeMobileRuntime'
 import {
   DEFAULT_SIDEBAR_MODULE_ORDER,
   normalizeSidebarModuleOrder,
@@ -2426,6 +2428,15 @@ function onCollapsedPrimarySidebarEnter() {
 
 function onCollapsedPrimarySidebarLeave() {
   collapsedSidebarAsideHovered.value = false
+}
+
+function openPrimarySidebarFromCollapsed() {
+  if (isNativeTabletRuntime()) {
+    appEvents.emit(APP_EVENT.CHAT_OBJECT_PANEL_CLOSE)
+    chatComposerNarrow.value = false
+    chatComposerAutoCollapseActive.value = false
+  }
+  primarySidebarCollapsed.value = false
 }
 
 function blurMobileKeyboardTarget() {
@@ -4185,6 +4196,23 @@ async function handleSelectSession(sessionId: string, options: { focusComposer?:
 async function handleSelectSessionFromMore(sessionId: string) {
   recentChatSessionsMoreVisible.value = false
   await handleSelectSession(sessionId)
+}
+
+function handleNativeTabletSessionTouchEnd(event: TouchEvent, sessionId: string) {
+  if (!isNativeTabletRuntime()) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  void handleSelectSession(sessionId)
+}
+
+function handleNativeTabletSessionFromMoreTouchEnd(event: TouchEvent, sessionId: string) {
+  if (!isNativeTabletRuntime()) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  recentChatSessionsMoreVisible.value = false
+  void handleSelectSession(sessionId)
 }
 
 async function handleMobileSelectSession(sessionId: string) {

@@ -189,7 +189,7 @@
       <template v-if="currentView === 'chat'">
         <div
           class="flex-1 flex flex-col overflow-hidden"
-          :class="isCenteredEmptyChat && !isMobile ? 'justify-center -translate-y-[100px]' : ''"
+          :class="isCenteredEmptyChat && !isMobile && !isNativeTabletChatLayout ? 'justify-center -translate-y-[100px]' : ''"
         >
           <div
             v-if="showDesktopCustomerHeader"
@@ -1386,6 +1386,7 @@
       v-if="showObjectPanelShell && !customerPanelVisible"
       type="button"
       class="group/sb-toggle absolute right-3 top-3 z-30 flex size-8 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#efefef]"
+      :style="objectPanelRestoreButtonStyle"
       aria-label="展开对象侧栏"
       @click="customerPanelVisible = true"
     >
@@ -1635,6 +1636,7 @@ import { resolveKnowledgeFileSizeBytes } from '@/utils/formatFileSize'
 import { isRequestErrorHandled } from '@/utils/requestError'
 import { shouldRefocusChatComposerAfterSend } from '@/utils/chatComposerFocus'
 import { hideCapacitorKeyboard, registerNativeKeyboardInsetListeners } from '@/utils/capacitorKeyboard'
+import { isNativePlatform, isNativeTabletRuntime, resolveNativeTabletSafeAreaTop } from '@/utils/nativeMobileRuntime'
 import {
   resolveMobileKeyboardInset,
   resolveMobileViewportTopOffset
@@ -1775,6 +1777,7 @@ let lastChatComposerNarrow: boolean | null = null
 let lastChatComposerWidth = 0
 let mobileKeyboardInsetTimer: ReturnType<typeof setTimeout> | null = null
 let removeNativeKeyboardInsetListeners: (() => void) | null = null
+let removeChatObjectPanelCloseListener: (() => void) | null = null
 
 const CHAT_CONTEXT_QUERY_KEYS = ['sessionId', 'customerId', 'employeeId', 'relationId', 'productId'] as const
 type ChatContextQueryKey = (typeof CHAT_CONTEXT_QUERY_KEYS)[number]
@@ -2004,6 +2007,10 @@ const customerPanelStyle = computed(() => ({
   minWidth: `min(${CUSTOMER_PANEL_MIN_WIDTH}px, ${CUSTOMER_PANEL_MAX_WIDTH_RATIO * 100}%)`,
   maxWidth: `${CUSTOMER_PANEL_MAX_WIDTH_RATIO * 100}%`
 }))
+const objectPanelRestoreButtonStyle = computed(() => {
+  const top = resolveNativeTabletSafeAreaTop(isNativeTabletChatLayout.value)
+  return top ? { top } : undefined
+})
 const showDesktopCustomerHeader = computed(() =>
   !isMobile.value && currentView.value === 'chat' && chatObjectKind.value === 'customer' && Boolean(currentObjectId.value)
 )
@@ -2037,7 +2044,12 @@ const effectiveMobileKeyboardInset = computed(() => Math.max(
   mobileKeyboardInset.value,
   nativeKeyboardInset.value
 ))
-const isMobileKeyboardVisible = computed(() => isMobile.value && effectiveMobileKeyboardInset.value > 0)
+const isNativeTabletChatLayout = computed(() => isNativeTabletRuntime() && !isMobile.value)
+const isNativeDesktopChatLayout = computed(() => isNativePlatform() && !isMobile.value)
+const isChatKeyboardFloatingEnabled = computed(() => isMobile.value || isNativeDesktopChatLayout.value)
+const isMobileKeyboardVisible = computed(() =>
+  isChatKeyboardFloatingEnabled.value && effectiveMobileKeyboardInset.value > 0
+)
 const chatComposerWrapStyle = computed(() =>
   isMobileKeyboardVisible.value
     ? { transform: `translate3d(0, -${effectiveMobileKeyboardInset.value}px, 0)` }
@@ -2062,7 +2074,7 @@ const mobileObjectDetailSheetStyle = computed(() => ({
 }))
 const chatMessagesAreaClass = computed(() => {
   if (!isChatEmpty.value) return 'wk-chat-messages--scrollable flex-1 overflow-y-auto pb-4 pt-6 md:pt-8'
-  if (isMobile.value) return 'flex-1 overflow-hidden py-6'
+  if (isMobile.value || isNativeTabletChatLayout.value) return 'flex-1 overflow-hidden py-6'
   return isObjectContextChat.value ? 'flex-1 overflow-hidden py-6' : 'overflow-hidden py-6'
 })
 const mobileChatHeaderKind = computed<'customer' | 'employee' | 'relation' | 'product'>(() => {
@@ -2157,6 +2169,10 @@ const mobileObjectDetailTitle = computed(() => {
 
 onMounted(async () => {
   registerMobileKeyboardInsetListeners()
+  removeChatObjectPanelCloseListener = appEvents.on(
+    APP_EVENT.CHAT_OBJECT_PANEL_CLOSE,
+    closeObjectPanelForNativeTabletPrimarySidebar
+  )
   offSelectedCustomerDetailRefresh = appEvents.on<{ customerId?: string | number }>(
     APP_EVENT.CUSTOMER_DETAIL_REFRESH,
     handleSelectedCustomerDetailRefresh
@@ -2196,6 +2212,8 @@ onBeforeUnmount(() => {
   stopCustomerPanelResize()
   removeMobileObjectDetailDragListeners()
   unregisterMobileKeyboardInsetListeners()
+  removeChatObjectPanelCloseListener?.()
+  removeChatObjectPanelCloseListener = null
   offSelectedCustomerDetailRefresh?.()
   offSelectedCustomerDetailRefresh = null
   customerPanelResizeObserver?.disconnect()
@@ -3188,7 +3206,7 @@ function isMobileComposerFocused(): boolean {
 }
 
 function updateMobileViewportTopOffset() {
-  if (!isMobile.value || typeof window === 'undefined') {
+  if (!isChatKeyboardFloatingEnabled.value || typeof window === 'undefined') {
     mobileViewportTopOffset.value = 0
     return
   }
@@ -3209,7 +3227,7 @@ function updateMobileViewportTopOffset() {
 function updateMobileKeyboardInset() {
   updateMobileViewportTopOffset()
 
-  if (!isMobile.value || typeof window === 'undefined' || !isMobileComposerFocused()) {
+  if (!isChatKeyboardFloatingEnabled.value || typeof window === 'undefined' || !isMobileComposerFocused()) {
     mobileKeyboardInset.value = 0
     nativeKeyboardInset.value = 0
     return
@@ -3245,7 +3263,7 @@ function scheduleMobileKeyboardInsetUpdate() {
 }
 
 function applyNativeKeyboardInset(keyboardHeight: number) {
-  if (!isMobile.value || !isMobileComposerFocused()) return
+  if (!isChatKeyboardFloatingEnabled.value || !isMobileComposerFocused()) return
   nativeKeyboardInset.value = Math.max(0, Math.round(keyboardHeight + MOBILE_KEYBOARD_INSET_GAP_PX))
   updateMobileViewportTopOffset()
 }
@@ -3835,6 +3853,11 @@ function openMobileMainMenu() {
   appEvents.emit(APP_EVENT.MOBILE_MAIN_MENU_OPEN)
 }
 
+function closeObjectPanelForNativeTabletPrimarySidebar() {
+  if (!isNativeTabletChatLayout.value) return
+  customerPanelVisible.value = false
+}
+
 function handleMobileHeaderTitle() {
   if (chatObjectKind.value === 'customer') {
     openMobileObjectDetail()
@@ -4257,6 +4280,16 @@ function resolveChatAppIcon(code: string): string {
   }
 
   .wk-chat-composer-wrap--keyboard-open {
+    padding-bottom: 2px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  :global(html.wk-native-mobile) .wk-chat-composer-wrap {
+    padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom));
+  }
+
+  :global(html.wk-native-mobile) .wk-chat-composer-wrap--keyboard-open {
     padding-bottom: 2px !important;
   }
 }

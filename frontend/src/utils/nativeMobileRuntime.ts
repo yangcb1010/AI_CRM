@@ -48,7 +48,35 @@ export function isNativePlatform(): boolean {
 }
 
 export function isNativeMobileRuntime(): boolean {
-  return isMobileViewport() && isNativePlatform()
+  return isNativePlatform()
+}
+
+export function isNativeTabletViewport(
+  viewportWidth: number,
+  viewportHeight: number,
+  nativeRuntime: boolean
+): boolean {
+  if (!nativeRuntime) return false
+
+  const shortSide = Math.min(viewportWidth, viewportHeight)
+  const longSide = Math.max(viewportWidth, viewportHeight)
+
+  return shortSide >= 768 && longSide <= 1366
+}
+
+export function isNativeTabletRuntime(): boolean {
+  if (typeof window === 'undefined') return false
+
+  return isNativeTabletViewport(window.innerWidth, window.innerHeight, isNativePlatform())
+}
+
+export function resolveNativeTabletSafeAreaTop(
+  nativeTabletRuntime: boolean,
+  baseOffsetPx = 12
+): string | undefined {
+  return nativeTabletRuntime
+    ? `calc(${baseOffsetPx}px + var(--safe-area-inset-top))`
+    : undefined
 }
 
 export function isNativePluginAvailable(pluginName: string): boolean {

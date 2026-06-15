@@ -425,6 +425,20 @@ html.wk-native-mobile .wk-safe-bottom {
   padding-bottom: var(--wk-safe-bottom);
 }
 
+@media (min-width: 769px) {
+  html.wk-native-mobile #app {
+    padding-bottom: var(--wk-safe-bottom);
+  }
+
+  html.wk-native-mobile .wk-screen {
+    height: 100%;
+  }
+
+  html.wk-native-mobile .wk-safe-bottom {
+    padding-bottom: 0;
+  }
+}
+
 /* Mobile: prevent double-tap zoom; avoid iOS focus zoom on inputs */
 html, body {
   touch-action: manipulation;

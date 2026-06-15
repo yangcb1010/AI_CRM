@@ -4,17 +4,20 @@
     <div class="flex min-w-0 min-h-0 flex-1 flex-col">
       <!-- Desktop Header -->
       <div v-if="!isMobile" class="wk-knowledge-desktop-header shrink-0">
-        <div class="flex min-h-[84px] items-center justify-between gap-6 px-6 py-4">
-          <div class="flex min-w-0 flex-col gap-1.5">
+        <div
+          class="wk-knowledge-desktop-header__inner flex min-h-[84px] items-center justify-between gap-6 px-6 py-4"
+          :class="{ 'wk-knowledge-desktop-header__inner--native-tablet': isNativeTabletKnowledgeLayout }"
+        >
+          <div class="wk-knowledge-desktop-title flex min-w-0 flex-col gap-1.5">
             <h1 class="text-[22px] font-bold leading-7 text-slate-900">知识库</h1>
             <p class="text-[13px] leading-5 text-slate-500">
               保存产品文档、方案等资料，随时通过 AI 智能检索与赋能销售
             </p>
           </div>
 
-          <div class="flex min-w-0 flex-1 items-center justify-end gap-3">
+          <div class="wk-knowledge-desktop-actions flex min-w-0 flex-1 items-center justify-end gap-3">
             <div
-              class="wk-native-input-shell flex h-10 w-[386px] max-w-[38vw] min-w-[260px] items-center rounded-xl border border-[#dbe8f8] bg-[#f8fbff] px-1.5 transition-all focus-within:border-primary/60"
+              class="wk-knowledge-desktop-search wk-native-input-shell flex h-10 w-[386px] max-w-[38vw] min-w-[260px] items-center rounded-xl border border-[#dbe8f8] bg-[#f8fbff] px-1.5 transition-all focus-within:border-primary/60"
             >
               <span class="material-symbols-outlined shrink-0 pl-2 pr-1 text-[22px] leading-none text-[#8fa6c5]">search</span>
               <input
@@ -672,8 +675,10 @@ import KnowledgeSearchResultPanel from '@/components/knowledge/KnowledgeSearchRe
 import KnowledgeScriptGeneratorDialog from '@/components/knowledge/KnowledgeScriptGeneratorDialog.vue'
 import KnowledgeUploadDialog from '@/components/knowledge/KnowledgeUploadDialog.vue'
 import FileTypeIcon from '@/components/common/FileTypeIcon.vue'
+import { isNativeTabletRuntime } from '@/utils/nativeMobileRuntime'
 
 const { isMobile } = useResponsive()
+const isNativeTabletKnowledgeLayout = computed(() => isNativeTabletRuntime() && !isMobile.value)
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
@@ -1093,6 +1098,30 @@ function getParseStatusLabel(status?: string): string {
 </script>
 
 <style scoped>
+.wk-knowledge-desktop-header__inner--native-tablet {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.wk-knowledge-desktop-header__inner--native-tablet .wk-knowledge-desktop-title {
+  flex: 1 1 100%;
+}
+
+.wk-knowledge-desktop-header__inner--native-tablet .wk-knowledge-desktop-actions {
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.wk-knowledge-desktop-header__inner--native-tablet .wk-knowledge-desktop-search {
+  width: auto;
+  min-width: min(260px, 100%);
+  max-width: none;
+  flex: 1 1 280px;
+}
+
 .wk-knowledge-list-shell {
   border-color: var(--wk-border-subtle);
   background: var(--wk-bg-surface);
