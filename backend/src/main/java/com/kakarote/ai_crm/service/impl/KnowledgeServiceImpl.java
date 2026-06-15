@@ -64,6 +64,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -252,6 +253,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     @Override
     public BasePage<KnowledgeVO> queryPageList(KnowledgeQueryBO queryBO) {
+        if (StrUtil.isNotBlank(queryBO.getFileType())) {
+            queryBO.setFileType(queryBO.getFileType().trim().toLowerCase(Locale.ROOT));
+        }
         BasePage<KnowledgeVO> page = queryBO.parse();
         baseMapper.queryPageList(page, queryBO);
         return page;

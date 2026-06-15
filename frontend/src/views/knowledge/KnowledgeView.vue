@@ -227,6 +227,49 @@
               <span class="ml-1 text-sm text-slate-400">{{ totalCount }} 项结果</span>
             </div>
             <div class="flex items-center gap-2">
+              <el-dropdown trigger="click">
+                <button
+                  type="button"
+                  :class="[
+                    'inline-flex size-9 items-center justify-center rounded-lg border bg-[#f8fbff] transition-colors hover:border-primary/30 hover:bg-primary/5',
+                    selectedFileType === 'all'
+                      ? 'border-slate-200 text-primary'
+                      : 'border-primary/25 bg-primary/5 text-primary'
+                  ]"
+                  :title="selectedFileTypeLabel"
+                >
+                  <span class="material-symbols-outlined text-[21px] leading-none">filter_list</span>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-for="item in fileTypeMenuItems"
+                      :key="item.id"
+                      @click="handleFileTypeFilter(item.id)"
+                    >
+                      <span
+                        :class="[
+                          'flex min-w-[130px] items-center gap-3 py-1 text-[13px]',
+                          selectedFileType === item.id ? 'font-semibold text-primary' : 'text-slate-600'
+                        ]"
+                      >
+                        <span
+                          :class="[
+                            'material-symbols-outlined text-[21px] leading-none',
+                            selectedFileType === item.id ? 'text-primary' : 'text-slate-400'
+                          ]"
+                        >{{ item.icon }}</span>
+                        {{ item.label }}
+                        <span
+                          v-if="selectedFileType === item.id"
+                          class="material-symbols-outlined ml-auto text-[18px] leading-none text-primary"
+                        >check</span>
+                      </span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
               <!-- View Mode Toggle -->
               <div class="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                 <button
@@ -721,7 +764,7 @@ import { useRoute } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
 import { queryKnowledgeList, uploadKnowledge, deleteKnowledge, downloadKnowledge, reparseKnowledge, aiSearchKnowledge } from '@/api/knowledge'
 import { ElMessage, ElMessageBox, UploadInstance, UploadRequestOptions } from 'element-plus'
-import type { Knowledge, KnowledgeAiSearchVO, KnowledgeQueryBO, KnowledgeType } from '@/types/common'
+import type { Knowledge, KnowledgeAiSearchVO, KnowledgeFileType, KnowledgeQueryBO, KnowledgeType } from '@/types/common'
 import KnowledgeDetailModal from '@/components/knowledge/KnowledgeDetailModal.vue'
 import KnowledgeScriptGeneratorDialog from '@/components/knowledge/KnowledgeScriptGeneratorDialog.vue'
 import { renderMarkdown } from '@/utils/markdown'
@@ -749,6 +792,7 @@ const uploadCompletedCount = ref(0)
 const uploadTotalCount = ref(0)
 const uploadRef = ref<UploadInstance>()
 const selectedCategory = ref('all')
+const selectedFileType = ref<KnowledgeFileType | 'all'>('all')
 
 const categories = [
   { id: 'all', label: '全部知识', icon: 'auto_stories' },
@@ -760,11 +804,23 @@ const categories = [
   { id: 'recording', label: '录音文件', icon: 'mic' }
 ]
 
+const fileTypeMenuItems = [
+  { id: 'all', label: '全部类型', icon: 'filter_list' },
+  { id: 'image', label: '图片', icon: 'image' },
+  { id: 'document', label: '文档', icon: 'description' },
+  { id: 'spreadsheet', label: '电子表格', icon: 'table_chart' },
+  { id: 'presentation', label: '演示文稿', icon: 'slideshow' },
+  { id: 'pdf', label: 'PDF', icon: 'picture_as_pdf' },
+  { id: 'audio', label: '音频', icon: 'audio_file' },
+  { id: 'video', label: '视频', icon: 'video_file' }
+] as const
+
 const queryParams = reactive<KnowledgeQueryBO>({
   page: 1,
   limit: 12,
   keyword: '',
-  type: undefined
+  type: undefined,
+  fileType: undefined
 })
 
 const uploadForm = reactive({
@@ -786,6 +842,11 @@ const uploadButtonText = computed(() => {
 })
 
 const totalPages = computed(() => Math.ceil(totalCount.value / (queryParams.limit || 12)))
+
+const selectedFileTypeLabel = computed(() => {
+  const selected = fileTypeMenuItems.find(item => item.id === selectedFileType.value)
+  return selectedFileType.value === 'all' ? '文件类型' : `文件类型：${selected?.label || '全部类型'}`
+})
 
 const aiSearchAnswerHtml = computed(() => {
   if (!aiSearchResult.value?.answer) return ''
@@ -868,6 +929,14 @@ function handleSearch() {
 function handleCategoryFilter(categoryId: string) {
   selectedCategory.value = categoryId
   queryParams.type = categoryId === 'all' ? undefined : categoryId as KnowledgeType
+  queryParams.page = 1
+  fetchList()
+  runAiSearch()
+}
+
+function handleFileTypeFilter(fileType: KnowledgeFileType | 'all') {
+  selectedFileType.value = fileType
+  queryParams.fileType = fileType === 'all' ? undefined : fileType
   queryParams.page = 1
   fetchList()
   runAiSearch()
