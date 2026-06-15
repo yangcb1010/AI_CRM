@@ -1,5 +1,6 @@
 package com.kakarote.ai_crm.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
@@ -9,6 +10,7 @@ import com.kakarote.ai_crm.entity.VO.CustomerListVO;
 import com.kakarote.ai_crm.entity.VO.GlobalSearchResultVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 import java.util.Map;
@@ -46,6 +48,28 @@ public interface CustomerMapper extends BaseMapper<Customer> {
      * 按等级统计客户数量
      */
     Long countByLevel(@Param("level") String level);
+
+    @InterceptorIgnore(dataPermission = "true")
+    @Select("""
+            SELECT *
+            FROM crm_customer
+            WHERE company_name = #{companyName}
+              AND status = 1
+            ORDER BY create_time DESC
+            """)
+    List<Customer> selectByExactCompanyNameIgnoreDataPermission(@Param("companyName") String companyName);
+
+    @InterceptorIgnore(dataPermission = "true")
+    @Select("""
+            SELECT *
+            FROM crm_customer
+            WHERE company_name LIKE CONCAT('%', #{keyword}, '%')
+              AND status = 1
+            ORDER BY create_time DESC
+            LIMIT #{limit}
+            """)
+    List<Customer> selectByCompanyNameLikeIgnoreDataPermission(@Param("keyword") String keyword,
+                                                               @Param("limit") Integer limit);
 
     Long countGlobalSearch(@Param("keyword") String keyword, @Param("pattern") String pattern);
 

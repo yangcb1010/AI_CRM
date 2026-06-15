@@ -94,6 +94,17 @@ public class CustomerTools {
                 return buildDuplicateConfirmationMessage(bo, existingCustomers, sessionId != null);
             }
 
+            List<Customer> existingCustomersIgnoringDataPermission =
+                customerService.findCustomersByExactCompanyNameIgnoreDataPermission(normalizedCompanyName);
+            if (!existingCustomersIgnoringDataPermission.isEmpty()) {
+                return buildExistingNoAccessMessage(normalizedCompanyName);
+            }
+
+            AiCustomerMatcher.CustomerMatchResult existingNoAccess = aiCustomerMatcher.match(normalizedCompanyName);
+            if (existingNoAccess.isExistsNoAccess()) {
+                return buildExistingNoAccessMessage(normalizedCompanyName);
+            }
+
             Long customerId = customerService.addCustomer(bo);
             return buildCreateSuccessMessage(bo, customerId);
         } catch (Exception e) {
@@ -311,6 +322,9 @@ public class CustomerTools {
                 customerId = Long.parseLong(normalizedIdentifier);
             } catch (NumberFormatException e) {
                 AiCustomerMatcher.CustomerMatchResult matchResult = aiCustomerMatcher.match(normalizedIdentifier);
+                if (matchResult.isExistsNoAccess()) {
+                    return buildExistingNoAccessMessage(normalizedIdentifier);
+                }
                 if (matchResult.isAmbiguous()) {
                     return "获取客户详情失败: 客户名称「" + normalizedIdentifier + "」无法唯一匹配，可能是：" + matchResult.formatCandidateNames() + "。请提供更完整的客户名称。";
                 }
@@ -433,6 +447,10 @@ public class CustomerTools {
             result.append("\n如果用户明确表示“不创建 / 取消 / 算了”，请调用 cancelPendingCustomerCreation。");
         }
         return result.toString().trim();
+    }
+
+    private String buildExistingNoAccessMessage(String companyName) {
+        return "客户已存在：「" + companyName + "」。";
     }
 
     private String formatExistingCustomer(Customer customer) {
