@@ -36,6 +36,7 @@ import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.ICustomerService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.WeKnoraClient;
+import com.kakarote.ai_crm.utils.KnowledgeAnswerLocalizationUtil;
 import com.kakarote.ai_crm.utils.UserUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -527,7 +528,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                     .call()
                     .content();
             if (StrUtil.isNotBlank(answer)) {
-                return answer.trim();
+                return KnowledgeAnswerLocalizationUtil.localizeToChinese(answer);
             }
         } catch (Exception e) {
             log.warn("Knowledge AI search answer generation failed: {}", e.getMessage());

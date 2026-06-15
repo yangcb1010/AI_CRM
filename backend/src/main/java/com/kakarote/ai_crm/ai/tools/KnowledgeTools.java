@@ -11,6 +11,7 @@ import com.kakarote.ai_crm.entity.VO.KnowledgeVO;
 import com.kakarote.ai_crm.entity.VO.WeKnoraChunk;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.WeKnoraClient;
+import com.kakarote.ai_crm.utils.KnowledgeAnswerLocalizationUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -179,7 +180,7 @@ public class KnowledgeTools {
 
             StringBuilder sb = new StringBuilder();
             sb.append("## RAG知识库回答\n\n");
-            sb.append(result.getAnswer().trim());
+            sb.append(KnowledgeAnswerLocalizationUtil.localizeToChinese(result.getAnswer()));
 
             if (!scope.invalidKnowledgeIds().isEmpty()) {
                 sb.append("\n\n> 以下文件ID未参与问答：");
