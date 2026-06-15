@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kakarote.ai_crm.ai.DynamicChatClientProvider;
 import com.kakarote.ai_crm.ai.context.AiContextHolder;
+import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
@@ -32,13 +33,17 @@ import com.kakarote.ai_crm.mapper.FollowUpMapper;
 import com.kakarote.ai_crm.mapper.KnowledgeMapper;
 import com.kakarote.ai_crm.mapper.KnowledgeTagMapper;
 import com.kakarote.ai_crm.mapper.CustomerMapper;
+import com.kakarote.ai_crm.service.AiAudioTranscriptionService;
 import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.ICustomerService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.WeKnoraClient;
+import com.kakarote.ai_crm.utils.AiMediaUtil;
+import com.kakarote.ai_crm.utils.DocumentTextExtractor;
 import com.kakarote.ai_crm.utils.KnowledgeAnswerLocalizationUtil;
 import com.kakarote.ai_crm.utils.UserUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -49,12 +54,14 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.MimeType;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -97,6 +104,12 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     @Autowired
     private FileStorageService fileStorageService;
 
+    @Autowired
+    private AiAudioTranscriptionService aiAudioTranscriptionService;
+
+    @Autowired
+    private VideoMediaExtractionService videoMediaExtractionService;
+
     @Lazy
     @Autowired
     private KnowledgeServiceImpl self;
@@ -113,6 +126,8 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     private static final int MAX_TARGETED_SCRIPT_DOC_COUNT = 4;
     private static final int MAX_TARGETED_SCRIPT_DOC_CONTENT_LENGTH = 1000;
     private static final int MAX_TARGETED_SCRIPT_FOLLOWUP_COUNT = 3;
+    private static final int MAX_SEARCHABLE_CONTENT_LENGTH = 20000;
+    private static final int MAX_AI_ANALYZE_SOURCE_LENGTH = 4000;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -138,7 +153,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setCustomerId(customerId);
         knowledge.setFilePath(relativePath);
         knowledge.setFileSize(file.getSize());
+        knowledge.setMimeType(file.getContentType());
         knowledge.setSummary(summary);
+        knowledge.setContentText(extractSearchableContent(file));
         knowledge.setUploadUserId(UserUtil.getUserId());
 
         // 检查文件类型是否被 WeKnora 支持
@@ -182,6 +199,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setFileSize(fileSize);
         knowledge.setMimeType(mimeType);
         knowledge.setSummary(summary);
+        knowledge.setContentText(extractSearchableContent(filePath, mimeType, normalizedFileName));
         knowledge.setUploadUserId(UserUtil.getUserId());
 
         boolean weKnoraSupported = weKnoraClient.isSupportedFileType(normalizedFileName);
@@ -814,6 +832,240 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return normalized.substring(0, Math.max(0, maxLength - 3)) + "...";
     }
 
+    private String resolveAnalyzeContentText(Knowledge knowledge) {
+        String contentText = normalizeSearchableContent(knowledge.getContentText());
+        if (StrUtil.isBlank(contentText) && StrUtil.isNotBlank(knowledge.getFilePath())) {
+            contentText = extractSearchableContent(knowledge.getFilePath(), knowledge.getMimeType(), knowledge.getName());
+            if (StrUtil.isNotBlank(contentText)) {
+                persistKnowledgeContentText(knowledge, contentText);
+            }
+        }
+        if (StrUtil.isBlank(contentText)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "文档内容为空或无法提取，请重新上传可解析的文件");
+        }
+        return contentText;
+    }
+
+    private String transcribeStoredMedia(Knowledge knowledge) {
+        if (StrUtil.isBlank(knowledge.getFilePath())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "文件路径为空，无法读取媒体内容");
+        }
+        try (InputStream inputStream = fileStorageService.getFileStream(knowledge.getFilePath())) {
+            if (inputStream == null) {
+                throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "媒体文件无法读取，请重新上传后重试");
+            }
+            byte[] audioBytes = inputStream.readAllBytes();
+            return aiAudioTranscriptionService.transcribe(
+                    audioBytes,
+                    StrUtil.blankToDefault(knowledge.getName(), FileUtil.getName(knowledge.getFilePath())),
+                    resolveAudioMimeType(knowledge.getMimeType(), knowledge.getName())
+            );
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Failed to read stored audio media: knowledgeId={}, fileName={}",
+                    knowledge.getKnowledgeId(), knowledge.getName(), ex);
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "媒体文件读取失败，请重新上传后重试");
+        }
+    }
+
+    private void persistKnowledgeContentText(Knowledge knowledge, String contentText) {
+        String normalized = normalizeSearchableContent(contentText);
+        if (StrUtil.isBlank(normalized)) {
+            return;
+        }
+        knowledge.setContentText(abbreviate(normalized, MAX_SEARCHABLE_CONTENT_LENGTH));
+        lambdaUpdate()
+                .eq(Knowledge::getKnowledgeId, knowledge.getKnowledgeId())
+                .set(Knowledge::getContentText, knowledge.getContentText())
+                .update();
+    }
+
+    private String buildVideoSearchableContent(String transcript, String audioNote, KnowledgeAiAnalyzeVO result) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("视频音轨内容\n")
+                .append(StrUtil.isNotBlank(transcript) ? transcript : StrUtil.blankToDefault(audioNote, "视频未提取到可用音轨"))
+                .append("\n\n视频画面分析\n")
+                .append(buildAnalyzeResultContent(result));
+        return builder.toString();
+    }
+
+    private String buildAnalyzeResultContent(KnowledgeAiAnalyzeVO result) {
+        if (result == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        if (StrUtil.isNotBlank(result.getCoreHighlights())) {
+            builder.append(result.getCoreHighlights()).append('\n');
+        }
+        if (result.getTalkingPoints() != null && !result.getTalkingPoints().isEmpty()) {
+            builder.append("话术建议: ").append(String.join("；", result.getTalkingPoints())).append('\n');
+        }
+        if (result.getRelatedEntities() != null && !result.getRelatedEntities().isEmpty()) {
+            builder.append("关联实体: ");
+            for (KnowledgeAiAnalyzeVO.RelatedEntity entity : result.getRelatedEntities()) {
+                if (entity == null || StrUtil.isBlank(entity.getName())) {
+                    continue;
+                }
+                builder.append(entity.getName());
+                if (StrUtil.isNotBlank(entity.getType())) {
+                    builder.append(" (").append(entity.getType()).append(')');
+                }
+                builder.append(' ');
+            }
+        }
+        return builder.toString().trim();
+    }
+
+    private String extractSearchableContent(MultipartFile file) {
+        if (file == null || file.isEmpty() || isAudioFile(file.getContentType(), file.getOriginalFilename())
+                || isVideoFile(file.getContentType(), file.getOriginalFilename())) {
+            return null;
+        }
+        try (InputStream inputStream = file.getInputStream()) {
+            return extractSearchableContent(inputStream, file.getContentType(), file.getOriginalFilename());
+        } catch (Exception e) {
+            log.warn("文件文本提取失败: {}", file.getOriginalFilename(), e);
+            return null;
+        }
+    }
+
+    private String extractSearchableContent(String filePath, String mimeType, String fileName) {
+        if (StrUtil.isBlank(filePath) || isAudioFile(mimeType, fileName) || isVideoFile(mimeType, fileName)) {
+            return null;
+        }
+        try (InputStream inputStream = fileStorageService.getFileStream(filePath)) {
+            return extractSearchableContent(inputStream, mimeType, fileName);
+        } catch (Exception e) {
+            log.warn("文件文本提取失败: {}", fileName, e);
+            return null;
+        }
+    }
+
+    private String extractSearchableContent(InputStream inputStream, String mimeType, String fileName) throws Exception {
+        if (inputStream == null) {
+            return null;
+        }
+        String text;
+        if (isPlainTextFile(mimeType, fileName)) {
+            byte[] bytes = inputStream.readNBytes(MAX_SEARCHABLE_CONTENT_LENGTH * 3);
+            text = new String(bytes, StandardCharsets.UTF_8);
+        } else if (isDocumentFile(mimeType, fileName)) {
+            text = DocumentTextExtractor.parseToString(inputStream, mimeType, fileName);
+        } else {
+            return null;
+        }
+        return abbreviate(text, MAX_SEARCHABLE_CONTENT_LENGTH);
+    }
+
+    private boolean isPlainTextFile(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime)
+                && (normalizedMime.startsWith("text/") || "application/json".equals(normalizedMime))) {
+            return true;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        return lower.endsWith(".txt")
+                || lower.endsWith(".md")
+                || lower.endsWith(".csv")
+                || lower.endsWith(".json")
+                || lower.endsWith(".xml")
+                || lower.endsWith(".log");
+    }
+
+    private boolean isDocumentFile(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime)
+                && (normalizedMime.equals("application/pdf")
+                || normalizedMime.equals("application/msword")
+                || normalizedMime.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                || normalizedMime.equals("application/vnd.ms-excel")
+                || normalizedMime.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                || normalizedMime.equals("application/vnd.ms-powerpoint")
+                || normalizedMime.equals("application/vnd.openxmlformats-officedocument.presentationml.presentation"))) {
+            return true;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        return lower.endsWith(".pdf")
+                || lower.endsWith(".doc")
+                || lower.endsWith(".docx")
+                || lower.endsWith(".xls")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".ppt")
+                || lower.endsWith(".pptx");
+    }
+
+    private boolean isAudioFile(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime) && normalizedMime.startsWith("audio/")) {
+            return true;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        return lower.endsWith(".mp3")
+                || lower.endsWith(".wav")
+                || lower.endsWith(".m4a")
+                || lower.endsWith(".aac")
+                || lower.endsWith(".ogg")
+                || lower.endsWith(".oga")
+                || lower.endsWith(".opus")
+                || lower.endsWith(".flac")
+                || lower.endsWith(".weba")
+                || lower.endsWith(".amr");
+    }
+
+    private boolean isVideoFile(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime) && normalizedMime.startsWith("video/")) {
+            return true;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        return lower.endsWith(".mp4")
+                || lower.endsWith(".webm")
+                || lower.endsWith(".mov")
+                || lower.endsWith(".m4v")
+                || lower.endsWith(".avi")
+                || lower.endsWith(".mkv")
+                || lower.endsWith(".ogv")
+                || lower.endsWith(".3gp");
+    }
+
+    private String resolveAudioMimeType(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime) && normalizedMime.startsWith("audio/")) {
+            return normalizedMime;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".wav")) {
+            return "audio/wav";
+        }
+        if (lower.endsWith(".m4a")) {
+            return "audio/mp4";
+        }
+        if (lower.endsWith(".aac")) {
+            return "audio/aac";
+        }
+        if (lower.endsWith(".ogg") || lower.endsWith(".oga") || lower.endsWith(".opus")) {
+            return "audio/ogg";
+        }
+        if (lower.endsWith(".flac")) {
+            return "audio/flac";
+        }
+        if (lower.endsWith(".weba")) {
+            return "audio/webm";
+        }
+        if (lower.endsWith(".amr")) {
+            return "audio/amr";
+        }
+        return "audio/mpeg";
+    }
+
+    private String normalizeMimeType(String mimeType) {
+        if (StrUtil.isBlank(mimeType)) {
+            return null;
+        }
+        return mimeType.split(";")[0].trim().toLowerCase(Locale.ROOT);
+    }
+
     @Override
     public KnowledgeVO getKnowledgeDetail(Long knowledgeId) {
         Knowledge knowledge = getById(knowledgeId);
@@ -893,6 +1145,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         // 重置状态
         knowledge.setWeKnoraParseStatus("pending");
         knowledge.setWeKnoraKnowledgeId(null);
+        knowledge.setContentText(extractSearchableContent(knowledge.getFilePath(), knowledge.getMimeType(), knowledge.getName()));
         updateById(knowledge);
 
         // 重新异步上传（含轮询）
@@ -972,33 +1225,127 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             return cachedResult;
         }
 
-        String contentText = StrUtil.blankToDefault(knowledge.getContentText(), "");
-        // 截断过长的内容
-        if (contentText.length() > 4000) {
-            contentText = contentText.substring(0, 4000) + "...";
-        }
-
-        String summary = StrUtil.blankToDefault(knowledge.getSummary(), "无");
-        String prompt = String.format(AI_ANALYZE_PROMPT_TEMPLATE,
-                knowledge.getName(),
-                StrUtil.blankToDefault(knowledge.getType(), "document"),
-                summary,
-                contentText);
-
         try {
-            String response = chatClientProvider.getChatClient()
-                    .prompt()
-                    .user(prompt)
-                    .call()
-                    .content();
-
-            log.info("AI 文档分析原始响应: {}", response);
-            KnowledgeAiAnalyzeVO result = parseAnalyzeResponse(response, knowledge);
-            persistAnalyzeResult(knowledge, result);
-            return result;
+            if (isAudioFile(knowledge.getMimeType(), knowledge.getName())) {
+                return analyzeAudioKnowledge(knowledge);
+            }
+            if (isVideoFile(knowledge.getMimeType(), knowledge.getName())) {
+                return analyzeVideoKnowledge(knowledge);
+            }
+            return analyzeTextKnowledge(knowledge);
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("AI 文档分析失败，返回默认值", e);
             return buildFallbackAnalyzeResult(knowledge);
+        }
+    }
+
+    private KnowledgeAiAnalyzeVO analyzeTextKnowledge(Knowledge knowledge) {
+        String prompt = buildAnalyzePrompt(knowledge, resolveAnalyzeContentText(knowledge));
+        String response = chatClientProvider.getChatClient()
+                .prompt()
+                .user(prompt)
+                .call()
+                .content();
+
+        log.info("AI 文档分析原始响应: {}", response);
+        KnowledgeAiAnalyzeVO result = parseAnalyzeResponse(response, knowledge);
+        persistAnalyzeResult(knowledge, result);
+        return result;
+    }
+
+    private KnowledgeAiAnalyzeVO analyzeAudioKnowledge(Knowledge knowledge) {
+        String transcript = transcribeStoredMedia(knowledge);
+        if (StrUtil.isBlank(transcript)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "未能识别音频内容，请确认文件可播放后重试");
+        }
+        String contentText = "音频转写内容\n" + transcript;
+        persistKnowledgeContentText(knowledge, contentText);
+        return analyzeTextLikeMediaKnowledge(knowledge, contentText);
+    }
+
+    private KnowledgeAiAnalyzeVO analyzeVideoKnowledge(Knowledge knowledge) {
+        ensureVisionSupported("视频");
+        VideoMediaExtractionService.VideoExtractionResult extraction =
+                videoMediaExtractionService.extract(knowledge.getFilePath(), knowledge.getName());
+
+        String transcript = null;
+        String audioNote = "视频未提取到可用音轨";
+        if (extraction.hasAudio()) {
+            transcript = aiAudioTranscriptionService.transcribe(
+                    extraction.audioBytes(),
+                    extraction.audioFileName(),
+                    extraction.audioContentType()
+            );
+            if (StrUtil.isBlank(transcript)) {
+                throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "未能识别视频音轨内容，请确认文件可播放后重试");
+            }
+            audioNote = transcript;
+        }
+
+        List<Media> frameMedia = extraction.frames().stream()
+                .map(frame -> AiMediaUtil.buildMedia(frame.bytes(), frame.fileName(), MimeType.valueOf(frame.mimeType())))
+                .toList();
+        String prompt = String.format("""
+                你是一个专业的 CRM 助手。请结合视频关键帧和音轨转写，分析以下知识库视频，并以 JSON 格式返回。
+
+                视频名称: %s
+                视频类型: %s
+                视频摘要: %s
+                关键帧数量: %s
+
+                音轨转写或说明:
+                %s
+
+                请严格按以下 JSON 格式返回，不要包含任何其他文字、代码块标记或解释：
+                {
+                  "coreHighlights": "视频核心内容的精炼总结，2-3句话，突出关键信息和价值点",
+                  "talkingPoints": ["基于视频内容的销售话术建议", "话术建议2", "话术建议3"],
+                  "relatedEntities": [{"name": "相关的客户或商机名称", "type": "customer 或 opportunity"}]
+                }
+                """,
+                knowledge.getName(),
+                StrUtil.blankToDefault(knowledge.getMimeType(), "video"),
+                StrUtil.blankToDefault(knowledge.getSummary(), "无"),
+                extraction.frames().size(),
+                abbreviate(audioNote, MAX_AI_ANALYZE_SOURCE_LENGTH));
+
+        String response = chatClientProvider.getChatClient()
+                .prompt()
+                .user(userSpec -> userSpec.text(prompt).media(frameMedia.toArray(Media[]::new)))
+                .call()
+                .content();
+        KnowledgeAiAnalyzeVO result = parseAnalyzeResponse(response, knowledge);
+        persistAnalyzeResult(knowledge, result);
+        persistKnowledgeContentText(knowledge, buildVideoSearchableContent(transcript, audioNote, result));
+        return result;
+    }
+
+    private KnowledgeAiAnalyzeVO analyzeTextLikeMediaKnowledge(Knowledge knowledge, String contentText) {
+        String response = chatClientProvider.getChatClient()
+                .prompt()
+                .user(buildAnalyzePrompt(knowledge, contentText))
+                .call()
+                .content();
+        KnowledgeAiAnalyzeVO result = parseAnalyzeResponse(response, knowledge);
+        persistAnalyzeResult(knowledge, result);
+        return result;
+    }
+
+    private String buildAnalyzePrompt(Knowledge knowledge, String contentText) {
+        return String.format(AI_ANALYZE_PROMPT_TEMPLATE,
+                knowledge.getName(),
+                StrUtil.blankToDefault(knowledge.getType(), "document"),
+                StrUtil.blankToDefault(knowledge.getSummary(), "无"),
+                abbreviate(contentText, MAX_AI_ANALYZE_SOURCE_LENGTH));
+    }
+
+    private void ensureVisionSupported(String mediaLabel) {
+        AiModelCapabilities capabilities = chatClientProvider.getCurrentCapabilities();
+        if (capabilities == null || !capabilities.isSupportsVision()) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID,
+                    "当前模型不支持" + mediaLabel + "画面分析，请切换到支持视觉的模型后重试");
         }
     }
 
