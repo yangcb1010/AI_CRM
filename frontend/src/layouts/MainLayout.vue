@@ -1032,7 +1032,7 @@
             v-model="globalSearchKeyword"
             type="text"
             class="w-full rounded-lg border-none bg-slate-100 py-2 pl-10 pr-4 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/50"
-            placeholder="搜索客户1、关系、任务、日程、知识库..."
+            placeholder="搜索客户、关系、任务、日程、知识库..."
             @focus="handleGlobalSearchFocus"
             @keydown.enter.prevent="handleGlobalSearchEnter"
             @keydown.down.prevent="handleGlobalSearchArrow(1)"
@@ -1601,6 +1601,14 @@
             placement="menu"
             @new-chat="handleFloatingNewChat"
           />
+
+          <Transition name="drawer-overlay">
+            <div
+              v-if="isMobile && drawerVisible && showUserMenu"
+              class="absolute inset-0 z-[19] bg-slate-900/35 backdrop-blur-sm"
+              @click="showUserMenu = false"
+            />
+          </Transition>
 
           <Transition name="profile-drawer">
             <div

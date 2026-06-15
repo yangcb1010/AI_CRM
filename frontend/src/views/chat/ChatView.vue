@@ -605,6 +605,7 @@
           <!-- Input Area -->
           <div
             class="wk-chat-composer-wrap relative z-[80] shrink-0 p-4 md:z-[120] md:p-8 bg-gradient-to-t from-white via-white to-transparent"
+            :class="{ 'wk-chat-composer-wrap--keyboard-open': isMobileKeyboardVisible }"
             :style="chatComposerWrapStyle"
           >
             <div class="max-w-4xl mx-auto space-y-4" :style="chatComposerShellStyle">
@@ -1788,7 +1789,7 @@ const DEFAULT_CHAT_AI_CONFIG: AiConfigUpdateBO = {
   maxTokens: 4096
 }
 const SCROLL_TO_BOTTOM_THRESHOLD_PX = 100
-const MOBILE_KEYBOARD_INSET_GAP_PX = 8
+const MOBILE_KEYBOARD_INSET_GAP_PX = 4
 const MOBILE_KEYBOARD_VISIBLE_THRESHOLD_PX = 24
 const CUSTOMER_PANEL_MIN_WIDTH = 380
 const CUSTOMER_PANEL_MAX_WIDTH_RATIO = 0.5
@@ -2036,8 +2037,9 @@ const effectiveMobileKeyboardInset = computed(() => Math.max(
   mobileKeyboardInset.value,
   nativeKeyboardInset.value
 ))
+const isMobileKeyboardVisible = computed(() => isMobile.value && effectiveMobileKeyboardInset.value > 0)
 const chatComposerWrapStyle = computed(() =>
-  isMobile.value && effectiveMobileKeyboardInset.value > 0
+  isMobileKeyboardVisible.value
     ? { transform: `translate3d(0, -${effectiveMobileKeyboardInset.value}px, 0)` }
     : undefined
 )
@@ -4252,6 +4254,10 @@ function resolveChatAppIcon(code: string): string {
     padding-right: max(0.5rem, var(--safe-area-inset-right));
     padding-bottom: calc(0.5rem + var(--safe-area-inset-bottom));
     padding-left: max(0.5rem, var(--safe-area-inset-left));
+  }
+
+  .wk-chat-composer-wrap--keyboard-open {
+    padding-bottom: 2px !important;
   }
 }
 

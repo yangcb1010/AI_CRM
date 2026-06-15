@@ -9,8 +9,8 @@
     class="customer-basic-info-drawer"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div v-if="customer" class="flex h-full flex-col bg-white shadow-2xl">
-      <div class="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-5">
+    <div v-if="customer" class="customer-basic-info-drawer__shell flex h-full flex-col bg-white shadow-2xl">
+      <div class="customer-basic-info-drawer__header flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-5">
         <div class="flex min-w-0 items-center gap-3">
           <div class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <span class="material-symbols-outlined text-base leading-none">description</span>
@@ -42,7 +42,7 @@
         </div>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+      <div class="customer-basic-info-drawer__body min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <div class="space-y-5 text-left">
           <div>
             <p class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">公司 LOGO</p>
@@ -420,6 +420,62 @@ watch(
 
 <style>
 .customer-basic-info-drawer .el-drawer__body {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0 !important;
+}
+
+.customer-basic-info-drawer__shell {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.customer-basic-info-drawer__body {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  .customer-basic-info-drawer.el-drawer,
+  html.wk-native-mobile .customer-basic-info-drawer.el-drawer.rtl {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: 100vw;
+    max-height: 100dvh;
+    margin: 0 !important;
+  }
+
+  .customer-basic-info-drawer .el-drawer__body {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+
+  .customer-basic-info-drawer__shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    box-shadow: none;
+  }
+
+  .customer-basic-info-drawer__header {
+    padding:
+      calc(12px + var(--safe-area-inset-top))
+      max(1.25rem, var(--safe-area-inset-right))
+      1rem
+      max(1.25rem, var(--safe-area-inset-left));
+  }
+
+  .customer-basic-info-drawer__body {
+    padding:
+      1rem
+      max(1.25rem, var(--safe-area-inset-right))
+      calc(1.25rem + var(--safe-area-inset-bottom))
+      max(1.25rem, var(--safe-area-inset-left));
+  }
 }
 </style>

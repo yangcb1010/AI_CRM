@@ -192,28 +192,28 @@ export async function showDownloadUpdateDialog(
 
   isDownloadUpdateDialogVisible = true
 
-  const note = updateInfo.note || 'No update notes'
+  const note = updateInfo.note || '暂无更新说明'
   const noteLines = note.split(/\r?\n/).filter((line) => line.trim())
 
   try {
     await ElMessageBox.confirm(
       h('div', { class: 'space-y-3 text-left' }, [
-        h('p', { class: 'text-sm text-slate-600' }, `New version ${updateInfo.version} is available. Current version: ${currentVersion}`),
+        h('p', { class: 'text-sm text-slate-600' }, `发现新版本 ${updateInfo.version}，当前版本：${currentVersion}`),
         h('div', { class: 'rounded bg-slate-50 p-3 text-sm leading-6 text-slate-700' }, [
-          h('div', { class: 'mb-1 font-medium text-slate-900 w-full' }, 'Update notes'),
+          h('div', { class: 'mb-1 font-medium text-slate-900 w-full' }, '更新说明'),
           noteLines.length
             ? h(
                 'div',
                 { class: 'space-y-1 whitespace-pre-wrap break-words' },
                 noteLines.map((line) => h('p', line))
               )
-            : h('p', 'No update notes')
+            : h('p', '暂无更新说明')
         ])
       ]),
-      'New Version',
+      '发现新版本',
       {
-        confirmButtonText: 'Update',
-        cancelButtonText: 'Later',
+        confirmButtonText: '立即更新',
+        cancelButtonText: '稍后再说',
         closeOnClickModal: false,
         closeOnPressEscape: false,
         distinguishCancelAndClose: true,
@@ -222,7 +222,7 @@ export async function showDownloadUpdateDialog(
     )
     await performDownloadUpdate(updateInfo.url)
   } catch {
-    // User chose to update later.
+    // 用户选择稍后再说。
   } finally {
     isDownloadUpdateDialogVisible = false
   }

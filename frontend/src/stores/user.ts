@@ -51,7 +51,16 @@ export const useUserStore = defineStore('user', () => {
     token.value = result.token
     setToken(result.token)
     userInfo.value = result.userInfo
-    permissions.value = await apiGetUserAuth() || {}
+    permissionsLoaded.value = false
+    const enterpriseStore = useEnterpriseStore()
+    enterpriseStore.reset()
+    const [info, auth] = await Promise.all([
+      apiGetUserInfo(),
+      apiGetUserAuth(),
+      enterpriseStore.loadConfig({ force: true })
+    ])
+    userInfo.value = info
+    permissions.value = auth || {}
     permissionsLoaded.value = true
   }
 

@@ -664,6 +664,11 @@ const importFile = ref<File | null>(null)
 const importPreview = ref<ProductImportPreviewVO | null>(null)
 const mainImageUploading = ref(false)
 
+type CustomFieldEntry = {
+  key: string
+  value: unknown
+}
+
 const userLoading = ref(false)
 const userOptions = ref<UserOption[]>([])
 
@@ -689,7 +694,7 @@ const customFieldEntries = computed(() => {
   const fields = currentProduct.value?.customFields || {}
   return Object.entries(fields)
     .filter(([, value]) => value !== null && value !== undefined && value !== '')
-    .map(([key, value]) => ({ key, value }))
+    .map(([key, value]): CustomFieldEntry => ({ key, value }))
 })
 
 function normalizeId(value: unknown): string | undefined {

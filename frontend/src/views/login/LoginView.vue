@@ -243,9 +243,9 @@
       </label>
       <p class="mobile-agreement-consent__text">
         点击登录即表示您已同意并接受
-        <a :href="userAgreementHref">《用户协议》</a>
+        <a :href="userAgreementHref" @click.prevent="openLegalDocument('agreement')">《用户协议》</a>
         和
-        <a :href="privacyPolicyHref">《隐私声明》</a>
+        <a :href="privacyPolicyHref" @click.prevent="openLegalDocument('privacy')">《隐私声明》</a>
       </p>
     </div>
 
@@ -269,9 +269,9 @@
           </div>
           <p class="agreement-modal__copy">
             感谢您选择悟空AI CRM。为保障您的个人权益，请先阅读并同意
-            <a :href="agreementDialogUserAgreementHref">《悟空AI CRM用户协议》</a>
+            <a :href="agreementDialogUserAgreementHref" @click.prevent="openLegalDocument('agreement', { returnToAgreementDialog: true })">《悟空AI CRM用户协议》</a>
             与
-            <a :href="agreementDialogPrivacyPolicyHref">《悟空AI CRM隐私声明》</a>
+            <a :href="agreementDialogPrivacyPolicyHref" @click.prevent="openLegalDocument('privacy', { returnToAgreementDialog: true })">《悟空AI CRM隐私声明》</a>
             ，了解我们对个人信息的收集、保存、使用、对外提供和保护方式。
           </p>
           <div class="agreement-modal__actions">
@@ -318,11 +318,13 @@ import {
 import logoImg from '@/assets/images/logo.png'
 import SliderCaptchaDialog from '@/components/auth/SliderCaptchaDialog.vue'
 import { useUserStore } from '@/stores/user'
+import { openLegalDocumentWithInAppBrowser } from '@/utils/inAppBrowser'
 import type { ExternalAuthProvider, ExternalAuthProviderCode } from '@/types/api'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+type LegalDocumentType = 'agreement' | 'privacy'
 
 const loginFormRef = ref<FormInstance>()
 const loading = ref(false)
@@ -350,20 +352,32 @@ const agreementAccepted = ref(readAgreementAccepted())
 const enabledExternalProviders = computed(() =>
   externalProviders.value.filter((provider) => provider.enabled && isSupportedExternalProvider(provider))
 )
-const userAgreementHref = computed(() => router.resolve({ name: 'UserAgreement' }).href)
-const privacyPolicyHref = computed(() => router.resolve({ name: 'PrivacyPolicy' }).href)
-const agreementDialogUserAgreementHref = computed(() =>
-  router.resolve({
-    name: 'UserAgreement',
-    query: buildAgreementDialogReturnQuery()
-  }).href
-)
-const agreementDialogPrivacyPolicyHref = computed(() =>
-  router.resolve({
-    name: 'PrivacyPolicy',
-    query: buildAgreementDialogReturnQuery()
-  }).href
-)
+const userAgreementHref = computed(() => getLegalDocumentHref('agreement'))
+const privacyPolicyHref = computed(() => getLegalDocumentHref('privacy'))
+const agreementDialogUserAgreementHref = computed(() => getLegalDocumentHref('agreement', true))
+const agreementDialogPrivacyPolicyHref = computed(() => getLegalDocumentHref('privacy', true))
+
+function getLegalDocumentRoute(type: LegalDocumentType, returnToAgreementDialog = false) {
+  return {
+    name: type === 'privacy' ? 'PrivacyPolicy' : 'UserAgreement',
+    query: returnToAgreementDialog ? buildAgreementDialogReturnQuery() : undefined
+  }
+}
+
+function getLegalDocumentHref(type: LegalDocumentType, returnToAgreementDialog = false): string {
+  return router.resolve(getLegalDocumentRoute(type, returnToAgreementDialog)).href
+}
+
+async function openLegalDocument(
+  type: LegalDocumentType,
+  options: { returnToAgreementDialog?: boolean } = {}
+) {
+  const href = getLegalDocumentHref(type, options.returnToAgreementDialog)
+  const openedInAppBrowser = await openLegalDocumentWithInAppBrowser(href)
+  if (!openedInAppBrowser) {
+    await router.push(getLegalDocumentRoute(type, options.returnToAgreementDialog))
+  }
+}
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],

@@ -1,6 +1,6 @@
 {
   "name": "wk-ai-crm-frontend",
-  "version": "1.0.35",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
   "dependencies": {
     "@capacitor-community/safe-area": "^8.0.1",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/inappbrowser": "^4.0.0",
     "@capacitor/keyboard": "^8.0.3",
     "@capawesome/capacitor-live-update": "^8.3.0",
     "@element-plus/icons-vue": "^2.3.1",

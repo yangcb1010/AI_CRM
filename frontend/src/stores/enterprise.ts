@@ -10,8 +10,8 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
   const description = ref<string | null>(null)
   const loaded = ref(false)
 
-  async function loadConfig() {
-    if (loaded.value) return
+  async function loadConfig(options: { force?: boolean } = {}) {
+    if (loaded.value && !options.force) return
     try {
       const config = await getEnterpriseConfig()
       name.value = config.name
@@ -29,6 +29,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     logo.value = config.logo
     logoUrl.value = config.logoUrl
     description.value = config.description
+    loaded.value = true
   }
 
   function reset() {

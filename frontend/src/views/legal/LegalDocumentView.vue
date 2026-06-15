@@ -40,15 +40,14 @@ const props = defineProps<{
 
 const route = useRoute()
 
-function getApiBaseUrl(): string {
-  const raw = import.meta.env.VITE_API_BASE_URL
-  if (typeof raw !== 'string') return ''
-  return raw.trim().replace(/\/$/, '')
+const LEGAL_DOCUMENT_URLS: Record<LegalDocumentType, string> = {
+  agreement: 'https://file.72crm.com/static/law/72crm_ai_service.txt',
+  privacy: 'https://file.72crm.com/static/law/72crm_ai_privacy.txt'
 }
 
 const documentTitle = computed(() => (props.documentType === 'privacy' ? '隐私声明' : '用户协议'))
 const documentIntro = computed(() => `请仔细阅读以下${documentTitle.value}内容。`)
-const documentApiUrl = computed(() => `${getApiBaseUrl()}/legal-document/${props.documentType}`)
+const documentUrl = computed(() => LEGAL_DOCUMENT_URLS[props.documentType])
 const backRoute = computed(() => {
   const query: Record<string, string> = {}
   if (route.query.agreementDialog === '1') {
@@ -68,7 +67,7 @@ async function loadDocument(): Promise<void> {
   loadError.value = ''
 
   try {
-    const response = await fetch(documentApiUrl.value, { cache: 'no-store' })
+    const response = await fetch(documentUrl.value, { cache: 'no-store' })
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
