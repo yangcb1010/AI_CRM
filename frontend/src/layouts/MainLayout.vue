@@ -309,6 +309,7 @@ const allMainNavItems: MainNavItem[] = [
   { icon: 'meetingRecord', label: '日程安排', route: '/calendar', permission: 'schedule' },
   { icon: 'knowledge', label: '知识库', route: '/knowledge', permission: 'knowledge' },
   { icon: 'profile', label: '关系', route: '/relation' },
+  { icon: 'contract', label: '产品管理', route: '/product' },
 ]
 
 const allConfigNavItems: ConfigNavItem[] = [
@@ -331,6 +332,7 @@ const activeMenu = computed(() => {
   if (path.startsWith('/customer')) return '/customer'
   if (path.startsWith('/addressBook')) return '/addressBook'
   if (path.startsWith('/relation')) return '/relation'
+  if (path.startsWith('/product')) return '/product'
   if (path.startsWith('/settings')) return '/settings'
   return path
 })
