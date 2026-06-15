@@ -48,7 +48,7 @@ type DownloadBundleOptions = {
 
 type LiveUpdateModule = {
   LiveUpdate: {
-    ready(): Promise<void>
+    ready(): Promise<unknown>
     downloadBundle(options: DownloadBundleOptions): Promise<void>
     setNextBundle(options: { bundleId: string }): Promise<void>
     reload(): Promise<void>
@@ -99,8 +99,7 @@ function getConfiguredAppVersion(): string {
 }
 
 function loadLiveUpdateModule(): Promise<LiveUpdateModule> {
-  const modulePath = './capacitorLiveUpdateNative'
-  return import(/* @vite-ignore */ modulePath) as Promise<LiveUpdateModule>
+  return import('@/utils/capacitorLiveUpdateNative')
 }
 
 async function sendLiveUpdateReadySignal(): Promise<void> {
