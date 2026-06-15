@@ -283,6 +283,11 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不存在");
         }
         BeanUtil.copyProperties(customerUpdateBO, customer, "customerId", "createUserId", "createTime", "customFields");
+        customer.setUpdateTime(new Date());
+        Long updateUserId = getCurrentUserIdOrNull();
+        if (updateUserId != null) {
+            customer.setUpdateUserId(updateUserId);
+        }
         updateById(customer);
 
         // 更新自定义字段
