@@ -1126,7 +1126,7 @@ async function startExternalLogin(provider: ExternalAuthProviderCode) {
   }
 }
 
-async function handleExternalAuthQuery() {
+async function handleExternalAuthQuery(): Promise<boolean> {
   const wecomAuth = typeof route.query.wecomAuth === 'string' ? route.query.wecomAuth : ''
   if (wecomAuth) {
     const message = typeof route.query.message === 'string' ? route.query.message : ''
@@ -1136,7 +1136,7 @@ async function handleExternalAuthQuery() {
       ElMessage.error(message ? `企业微信授权失败：${message}` : '企业微信授权失败')
     }
     await clearExternalAuthQuery()
-    return
+    return true
   }
 
   const externalError = typeof route.query.externalAuthError === 'string' ? route.query.externalAuthError : ''
@@ -1145,17 +1145,17 @@ async function handleExternalAuthQuery() {
     const providerName = provider === 'wechat' ? '微信' : provider === 'wecom' ? '企业微信' : '第三方'
     ElMessage.error(`${providerName}登录失败`)
     await clearExternalAuthQuery()
-    return
+    return true
   }
 
   const loginTicket = typeof route.query.externalLoginTicket === 'string' ? route.query.externalLoginTicket : ''
   if (loginTicket) {
     if (externalLoginTicketProcessing.value) {
-      return
+      return true
     }
     externalLoginTicketProcessing.value = true
-    await clearExternalAuthQuery()
     loading.value = true
+    await clearExternalAuthQuery()
     try {
       const result = await exchangeExternalLoginTicket({
         ticket: loginTicket,
@@ -1169,7 +1169,7 @@ async function handleExternalAuthQuery() {
       loading.value = false
       externalLoginTicketProcessing.value = false
     }
-    return
+    return true
   }
 
   const registerTicket = typeof route.query.externalRegisterTicket === 'string' ? route.query.externalRegisterTicket : ''
@@ -1187,7 +1187,9 @@ async function handleExternalAuthQuery() {
       confirmPassword: ''
     })
     showExternalRegisterDialog.value = true
+    return true
   }
+  return false
 }
 
 function clearExternalAuthQuery() {
@@ -1358,11 +1360,49 @@ async function handleTenantLogin(option: LoginTenantOption) {
   }
 }
 
+function stripWorkbenchAuthParams(redirect: string): string {
+  const queryStart = redirect.indexOf('?')
+  if (queryStart < 0) {
+    return redirect
+  }
+
+  const base = redirect.slice(0, queryStart)
+  const params = new URLSearchParams(redirect.slice(queryStart + 1))
+  const workbenchState = params.get('state') === 'workbench'
+  if (!workbenchState && !params.has('auth_code')) {
+    return redirect
+  }
+
+  params.delete('auth_code')
+  params.delete('code')
+  params.delete('state')
+  const query = params.toString()
+  return query ? `${base}?${query}` : (base || '/')
+}
+
+function normalizeLoginRedirect(value: unknown): string {
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : '/'
+  const redirect = stripWorkbenchAuthParams(raw)
+  return redirect === '/login' || redirect.startsWith('/login?') ? '/' : redirect
+}
+
+function isLazyRouteLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '')
+  return message.includes('Failed to fetch dynamically imported module')
+    || message.includes('Importing a module script failed')
+    || message.includes('error loading dynamically imported module')
+    || message.includes('Loading chunk')
+}
+
+function reloadToHashRoute(redirect: string): void {
+  const target = redirect.startsWith('/') ? redirect : '/'
+  window.location.assign(`${window.location.origin}${window.location.pathname}${window.location.search}#${target}`)
+}
+
 async function completeLoginRedirect() {
   rememberSuccessfulLoginUsername()
-  ElMessage.success('登录成功')
 
-  let redirect = (route.query.redirect as string) || '/'
+  let redirect = normalizeLoginRedirect(route.query.redirect)
 
   if (redirect.includes('/oauth2/authorize')) {
     try {
@@ -1376,9 +1416,20 @@ async function completeLoginRedirect() {
   }
 
   if (redirect.startsWith('http://') || redirect.startsWith('https://')) {
+    ElMessage.success('登录成功')
     window.location.href = redirect
   } else {
-    router.push(redirect)
+    try {
+      await router.push(redirect)
+      ElMessage.success('登录成功')
+    } catch (error) {
+      console.error('Login redirect failed:', error)
+      if (isLazyRouteLoadError(error)) {
+        reloadToHashRoute(redirect)
+        return
+      }
+      throw error
+    }
   }
 }
 
@@ -1533,8 +1584,10 @@ function startCountdown(scene: EmailCodeScene) {
 }
 
 onMounted(async () => {
-  await loadExternalProviders()
-  await handleExternalAuthQuery()
+  const handledExternalAuth = await handleExternalAuthQuery()
+  if (!handledExternalAuth) {
+    void loadExternalProviders()
+  }
   await syncStageHeight(false)
   window.addEventListener('resize', snapStageHeightForResize)
 })

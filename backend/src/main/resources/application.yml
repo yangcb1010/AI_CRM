@@ -136,6 +136,7 @@ wecom:
     callback-url: ${WECOM_OPEN_PLATFORM_CALLBACK_URL:https://aicrm-saas.5kcrm.cn/crmapi/wecom/open/callback}
     auth-redirect-uri: ${WECOM_OPEN_PLATFORM_AUTH_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/wecom/open/auth/callback}
     login-redirect-uri: ${WECOM_OPEN_PLATFORM_LOGIN_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/auth/external/wecom/callback}
+    workbench-redirect-uri: ${WECOM_OPEN_PLATFORM_WORKBENCH_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/crmapi/auth/external/wecom/workbench-callback}
     frontend-redirect-uri: ${WECOM_OPEN_PLATFORM_FRONTEND_REDIRECT_URI:https://aicrm-saas.5kcrm.cn/#/wecom/scrm}
     auth-type: ${WECOM_OPEN_PLATFORM_AUTH_TYPE:1}
     state-ttl-seconds: ${WECOM_OPEN_PLATFORM_STATE_TTL_SECONDS:600}

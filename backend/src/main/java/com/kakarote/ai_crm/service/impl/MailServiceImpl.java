@@ -58,6 +58,7 @@ import com.kakarote.ai_crm.utils.UserUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.FetchProfile;
 import jakarta.mail.Folder;
+import jakarta.mail.MessagingException;
 import jakarta.mail.Message;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
@@ -68,6 +69,7 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.search.SearchTerm;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.angus.mail.imap.IMAPStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
@@ -146,6 +148,11 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
     private static final List<String> DEFAULT_IMAP_FOLDERS = List.of("INBOX", "Sent");
     private static final List<String> DEFAULT_GMAIL_FOLDERS = List.of("INBOX", "SENT");
     private static final List<String> DEFAULT_GRAPH_FOLDERS = List.of("inbox", "sentitems");
+    private static final Map<String, String> IMAP_CLIENT_ID = Map.of(
+            "name", "AICRM",
+            "version", "1.0.0",
+            "vendor", "Kakarote"
+    );
     private static final Pattern ISO_DATE_PATTERN = Pattern.compile("(20\\d{2})[-/.](\\d{1,2})[-/.](\\d{1,2})");
     private static final Pattern CN_DATE_PATTERN = Pattern.compile("(\\d{1,2})月(\\d{1,2})日");
     private static final List<String> ACTION_HINTS = List.of(
@@ -671,6 +678,7 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
         Session session = Session.getInstance(props);
         try (Store store = session.getStore("imap")) {
             store.connect(account.getImapHost(), account.getImapPort(), account.getUsername(), password);
+            sendImapClientId(store);
             Folder folder = store.getFolder(folderName);
             if (folder == null || !folder.exists() || !(folder instanceof UIDFolder uidFolder)) {
                 return null;
@@ -1519,6 +1527,7 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
                         + ", ssl=" + Boolean.TRUE.equals(account.getImapSsl()) + ", folders=" + folders);
         try (Store store = session.getStore("imap")) {
             store.connect(account.getImapHost(), account.getImapPort(), account.getUsername(), password);
+            sendImapClientId(store);
             logSyncStage(syncLog, account, "imap.connected", "IMAP store connected");
             for (String folderName : folders) {
                 logSyncStage(syncLog, account, "imap.folder.lookup", "Looking up folder=" + folderName);
@@ -1954,8 +1963,37 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
         Session session = Session.getInstance(props);
         try (Store store = session.getStore("imap")) {
             store.connect(host, port, username, password);
+            sendImapClientId(store);
+            validateReadableInbox(store);
         } catch (Exception e) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "IMAP 连接失败，请检查服务器、账号和授权码");
+        }
+    }
+
+    private void sendImapClientId(Store store) {
+        if (store instanceof IMAPStore imapStore) {
+            sendImapClientId(imapStore);
+        }
+    }
+
+    private void sendImapClientId(IMAPStore store) {
+        try {
+            store.id(IMAP_CLIENT_ID);
+        } catch (MessagingException e) {
+            log.debug("IMAP ID command ignored: {}", e.getMessage());
+        }
+    }
+
+    private void validateReadableInbox(Store store) throws MessagingException {
+        Folder inbox = store.getFolder("INBOX");
+        if (inbox == null || !inbox.exists()) {
+            throw new MessagingException("INBOX folder not found");
+        }
+        inbox.open(Folder.READ_ONLY);
+        try {
+            // Opening the folder is enough to prove the account can read via IMAP.
+        } finally {
+            inbox.close(false);
         }
     }
 

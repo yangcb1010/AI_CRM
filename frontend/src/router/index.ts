@@ -180,20 +180,67 @@ const router = createRouter({
 
 let isHandlingWecomWorkbenchAuth = false
 
-function getWecomWorkbenchAuthCode(): string {
-  const params = new URLSearchParams(window.location.search)
-  if (params.has('state')) {
+function routeQueryString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : ''
+  }
+  return ''
+}
+
+function getWecomWorkbenchAuthCodeFromParams(params: URLSearchParams): string {
+  const state = params.get('state')?.trim() || ''
+  if (state && state !== 'workbench') {
     return ''
   }
   return params.get('auth_code')?.trim() || params.get('code')?.trim() || ''
 }
 
+function getWecomWorkbenchAuthCodeFromRedirect(redirect: string): string {
+  const queryStart = redirect.indexOf('?')
+  if (queryStart < 0) {
+    return ''
+  }
+  return getWecomWorkbenchAuthCodeFromParams(new URLSearchParams(redirect.slice(queryStart + 1)))
+}
+
+function getWecomWorkbenchAuthCode(to: RouteLocationNormalized): string {
+  const routeParams = new URLSearchParams()
+  Object.entries(to.query).forEach(([key, value]) => {
+    const normalizedValue = routeQueryString(value)
+    if (normalizedValue) {
+      routeParams.set(key, normalizedValue)
+    }
+  })
+
+  return getWecomWorkbenchAuthCodeFromParams(routeParams)
+    || getWecomWorkbenchAuthCodeFromRedirect(routeQueryString(to.query.redirect))
+    || getWecomWorkbenchAuthCodeFromParams(new URLSearchParams(window.location.search))
+}
+
+function stripWecomWorkbenchAuthParams(path: string): string {
+  const queryStart = path.indexOf('?')
+  if (queryStart < 0) {
+    return path
+  }
+
+  const base = path.slice(0, queryStart)
+  const params = new URLSearchParams(path.slice(queryStart + 1))
+  params.delete('auth_code')
+  params.delete('code')
+  params.delete('state')
+  const remaining = params.toString()
+  return remaining ? `${base}?${remaining}` : (base || '/')
+}
+
 function resolveWecomWorkbenchRedirectTarget(to: RouteLocationNormalized): string {
   if (typeof to.query.redirect === 'string' && to.query.redirect) {
-    return to.query.redirect
+    return stripWecomWorkbenchAuthParams(to.query.redirect)
   }
   if (to.name !== 'Login' && to.name !== 'Register' && to.fullPath !== '/') {
-    return to.fullPath
+    return stripWecomWorkbenchAuthParams(to.fullPath)
   }
   return '/chat'
 }
@@ -205,7 +252,7 @@ function buildWecomWorkbenchLoginRedirect(to: RouteLocationNormalized): string {
 }
 
 async function handleWecomWorkbenchAuth(to: RouteLocationNormalized, next: NavigationGuardNext): Promise<boolean> {
-  const authCode = getWecomWorkbenchAuthCode()
+  const authCode = getWecomWorkbenchAuthCode(to)
   if (!authCode) {
     return false
   }

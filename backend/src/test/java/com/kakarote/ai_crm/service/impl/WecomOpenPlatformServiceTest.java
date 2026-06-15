@@ -124,6 +124,66 @@ class WecomOpenPlatformServiceTest {
     }
 
     @Test
+    void buildWorkbenchAuthorizeUrlShouldUseSuiteOauthAndFrontendRedirect() {
+        WecomOpenPlatformService service = newService();
+
+        String authorizeUrl = service.buildWorkbenchAuthorizeUrl("https://crm.example.com/#/scrm");
+
+        assertThat(authorizeUrl).startsWith("https://open.weixin.qq.com/connect/oauth2/authorize?");
+        assertThat(authorizeUrl).contains("appid=suite_1");
+        assertThat(authorizeUrl).contains("redirect_uri=https%3A%2F%2Fcrm.example.com%2F%23%2Fscrm");
+        assertThat(authorizeUrl).contains("response_type=code");
+        assertThat(authorizeUrl).contains("scope=snsapi_base");
+        assertThat(authorizeUrl).endsWith("#wechat_redirect");
+    }
+
+    @Test
+    void resolveWorkbenchFrontendLoginUriShouldDefaultToLoginWithoutRouteTarget() {
+        WecomOpenPlatformService service = newService();
+        WecomOpenPlatformProperties properties = mapper(service, "properties");
+        properties.setFrontendRedirectUri("https://crm.example.com/#/wecom/scrm");
+
+        String redirect = service.resolveWorkbenchFrontendLoginUri(null, mock(HttpServletRequest.class));
+
+        assertThat(redirect).isEqualTo("https://crm.example.com/#/login");
+    }
+
+    @Test
+    void resolveWorkbenchFrontendLoginUriShouldPreserveExplicitRouteTarget() {
+        WecomOpenPlatformService service = newService();
+        WecomOpenPlatformProperties properties = mapper(service, "properties");
+        properties.setFrontendRedirectUri("https://crm.example.com/#/wecom/scrm");
+
+        String redirect = service.resolveWorkbenchFrontendLoginUri("https://crm.example.com/#/scrm",
+                mock(HttpServletRequest.class));
+
+        assertThat(redirect).isEqualTo("https://crm.example.com/#/login?redirect=%2Fscrm");
+    }
+
+    @Test
+    void resolveWorkbenchCallbackUriShouldUseConfiguredPublicCallback() {
+        WecomOpenPlatformService service = newService();
+        WecomOpenPlatformProperties properties = mapper(service, "properties");
+        properties.setWorkbenchRedirectUri("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback");
+
+        String callback = service.resolveWorkbenchCallbackUri(mock(HttpServletRequest.class));
+
+        assertThat(callback).isEqualTo("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback");
+    }
+
+    @Test
+    void resolveWorkbenchCallbackUriShouldDeriveFromExistingPublicLoginCallback() {
+        WecomOpenPlatformService service = newService();
+        WecomOpenPlatformProperties properties = mapper(service, "properties");
+        properties.setWorkbenchRedirectUri(null);
+        properties.setLoginRedirectUri("https://crm.example.com/crmapi/auth/external/wecom/callback");
+
+        String callback = service.resolveWorkbenchCallbackUri(mock(HttpServletRequest.class));
+
+        assertThat(callback).isEqualTo("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback");
+    }
+
+    @Test
     void fetchLoginProfileShouldUseProviderLoginInfoForQrSso() {
         WecomOpenPlatformService service = newService();
         Redis redis = mapper(service, "redis");
@@ -157,6 +217,71 @@ class WecomOpenPlatformServiceTest {
         assertThat(profile.getEmail()).isEqualTo("alice@example.com");
         assertThat(profile.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
         verify(apiClient).fetchLoginInfo("provider-token", "auth_code_1");
+    }
+
+    @Test
+    void fetchWorkbenchProfileShouldUseSuiteOauthUserInfo() {
+        WecomOpenPlatformService service = newService();
+        Redis redis = mapper(service, "redis");
+        WecomOpenApiClient apiClient = mapper(service, "apiClient");
+        WecomCorpConfigMapper configMapper = mapper(service, "configMapper");
+        when(redis.get("wecom:open:suite-token:suite_1")).thenReturn("suite-token");
+
+        JSONObject userInfo = new JSONObject()
+                .fluentPut("CorpId", "real_corp")
+                .fluentPut("UserId", "user_a")
+                .fluentPut("user_ticket", "ticket_1");
+        JSONObject userDetail = new JSONObject()
+                .fluentPut("name", "Alice")
+                .fluentPut("mobile", "13800000000")
+                .fluentPut("biz_mail", "Alice@Example.COM")
+                .fluentPut("avatar", "https://example.com/avatar.png");
+        when(apiClient.fetchUserInfo3rd("suite-token", "code_1")).thenReturn(userInfo);
+        when(apiClient.fetchUserDetail3rd("suite-token", "ticket_1")).thenReturn(userDetail);
+
+        WecomCorpConfig config = new WecomCorpConfig();
+        config.setCorpId("encrypted_corp");
+        config.setArchiveCorpId("real_corp");
+        config.setCorpName("Authorized Corp");
+        when(configMapper.selectAuthorizedThirdPartyByCorpIdIgnoreTenant("real_corp")).thenReturn(config);
+
+        ExternalAuthServiceImpl.ExternalProfile profile = service.fetchWorkbenchProfile("code_1");
+
+        assertThat(profile.getSubject()).isEqualTo("encrypted_corp:user_a");
+        assertThat(profile.getExternalTenantKey()).isEqualTo("encrypted_corp");
+        assertThat(profile.getExternalTenantName()).isEqualTo("Authorized Corp");
+        assertThat(profile.getDisplayName()).isEqualTo("Alice");
+        assertThat(profile.getMobile()).isEqualTo("13800000000");
+        assertThat(profile.getEmail()).isEqualTo("alice@example.com");
+        assertThat(profile.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
+    }
+
+    @Test
+    void fetchLoginProfileShouldCanonicalizeRealCorpIdThroughAuthorizedConfig() {
+        WecomOpenPlatformService service = newService();
+        Redis redis = mapper(service, "redis");
+        WecomOpenApiClient apiClient = mapper(service, "apiClient");
+        WecomCorpConfigMapper configMapper = mapper(service, "configMapper");
+        when(redis.get("wecom:open:provider-token:ww_provider")).thenReturn("provider-token");
+
+        JSONObject loginInfo = new JSONObject();
+        loginInfo.put("corp_info", new JSONObject().fluentPut("corpid", "real_corp"));
+        loginInfo.put("user_info", new JSONObject().fluentPut("userid", "user_a"));
+        when(apiClient.fetchLoginInfo("provider-token", "auth_code_1")).thenReturn(loginInfo);
+
+        WecomCorpConfig config = new WecomCorpConfig();
+        config.setCorpId("encrypted_corp");
+        config.setArchiveCorpId("real_corp");
+        config.setCorpName("Authorized Corp");
+        config.setAuthStatus(WecomOpenPlatformService.AUTH_STATUS_AUTHORIZED);
+        config.setPermanentCodeEncrypted("encrypted_code");
+        when(configMapper.selectAuthorizedThirdPartyByCorpIdIgnoreTenant("real_corp")).thenReturn(config);
+
+        ExternalAuthServiceImpl.ExternalProfile profile = service.fetchLoginProfile("auth_code_1");
+
+        assertThat(profile.getSubject()).isEqualTo("encrypted_corp:user_a");
+        assertThat(profile.getExternalTenantKey()).isEqualTo("encrypted_corp");
+        assertThat(profile.getExternalTenantName()).isEqualTo("Authorized Corp");
     }
 
     @Test

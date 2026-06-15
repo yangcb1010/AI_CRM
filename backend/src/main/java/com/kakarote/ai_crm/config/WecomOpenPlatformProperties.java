@@ -30,6 +30,8 @@ public class WecomOpenPlatformProperties {
 
     private String loginRedirectUri;
 
+    private String workbenchRedirectUri;
+
     private String frontendRedirectUri;
 
     private Integer authType = 0;

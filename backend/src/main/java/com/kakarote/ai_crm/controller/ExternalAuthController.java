@@ -64,6 +64,29 @@ public class ExternalAuthController {
                 request));
     }
 
+    @GetMapping("/wecom/workbench-entry")
+    @Operation(summary = "Redirect WeCom workbench entry to OAuth authorize URL")
+    public void wecomWorkbenchEntry(@RequestParam(required = false) String redirect,
+                                    HttpServletRequest request,
+                                    HttpServletResponse response) throws IOException {
+        response.sendRedirect(externalAuthService.createWecomWorkbenchEntryUrl(redirect, request));
+    }
+
+    @GetMapping("/wecom/workbench-callback")
+    @Operation(summary = "WeCom workbench OAuth callback")
+    public void wecomWorkbenchCallback(@RequestParam(required = false) String code,
+                                       @RequestParam(value = "auth_code", required = false) String authCode,
+                                       @RequestParam(required = false) String state,
+                                       @RequestParam(required = false) String error,
+                                       HttpServletRequest request,
+                                       HttpServletResponse response) throws IOException {
+        response.sendRedirect(externalAuthService.handleWecomWorkbenchCallback(
+                authCode == null || authCode.isBlank() ? code : authCode,
+                state,
+                error,
+                request));
+    }
+
     @GetMapping("/wecom/workbench-login")
     @Operation(summary = "Exchange WeCom workbench auth code")
     public Result<ExternalAuthAuthorizeVO> wecomWorkbenchLogin(@RequestParam(required = false) String code,

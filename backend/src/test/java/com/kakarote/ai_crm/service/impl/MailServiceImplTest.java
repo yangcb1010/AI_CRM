@@ -11,6 +11,7 @@ import com.kakarote.ai_crm.entity.VO.MailSyncResultVO;
 import com.kakarote.ai_crm.mapper.MailAccountMapper;
 import com.kakarote.ai_crm.mapper.MailSyncLogMapper;
 import com.kakarote.ai_crm.service.support.SyncTaskExecutor;
+import org.eclipse.angus.mail.imap.IMAPStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -67,6 +69,19 @@ class MailServiceImplTest {
         assertThat(account.getLastSyncError()).isNull();
         verify(accountMapper).updateById(account);
         verify(syncTaskExecutor).submit(anyString(), any(Runnable.class));
+    }
+
+    @Test
+    void sendImapClientIdShouldIdentifyAngusImapStore() throws Exception {
+        MailServiceImpl service = new MailServiceImpl();
+        IMAPStore store = mock(IMAPStore.class);
+
+        ReflectionTestUtils.invokeMethod(service, "sendImapClientId", store);
+
+        verify(store).id(argThat(id ->
+                "AICRM".equals(id.get("name"))
+                        && "1.0.0".equals(id.get("version"))
+                        && "Kakarote".equals(id.get("vendor"))));
     }
 
     private static void bindLoginUser(Long userId, Long tenantId) {

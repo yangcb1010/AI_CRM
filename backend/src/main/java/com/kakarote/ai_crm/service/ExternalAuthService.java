@@ -29,6 +29,13 @@ public interface ExternalAuthService {
                                 String redirect,
                                 HttpServletRequest request);
 
+    String handleWecomWorkbenchCallback(String code,
+                                        String state,
+                                        String error,
+                                        HttpServletRequest request);
+
+    String createWecomWorkbenchEntryUrl(String redirect, HttpServletRequest request);
+
     LoginResponseVO loginByTicket(ExternalAuthTicketLoginBO loginBO,
                                   HttpServletRequest request,
                                   HttpServletResponse response);

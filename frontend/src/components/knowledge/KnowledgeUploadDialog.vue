@@ -64,28 +64,57 @@
             :http-request="noopUpload"
             :disabled="uploading"
             drag
+            multiple
             :accept="accept"
           >
             <div
               class="rounded-[2rem] border-2 border-dashed border-slate-200 bg-white p-8 text-center transition-all hover:border-primary hover:bg-primary/5 md:p-10"
             >
-              <template v-if="selectedFile">
-                <div
-                  class="mx-auto flex max-w-xl items-center gap-4 rounded-2xl bg-slate-900 p-4 text-left"
-                >
-                  <div
-                    class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white"
-                  >
-                    <span class="material-symbols-outlined text-lg">
-                      {{ getSelectedFileIcon(selectedFile.name) }}
-                    </span>
+              <template v-if="selectedFiles.length">
+                <div class="mx-auto max-w-xl rounded-2xl bg-slate-900 p-4 text-left">
+                  <div class="flex items-center gap-4">
+                    <div
+                      class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white"
+                    >
+                      <span class="material-symbols-outlined text-lg">
+                        {{ getSelectedFileIcon(selectedFiles[0].name) }}
+                      </span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-bold text-white">
+                        已选择 {{ selectedFiles.length }} 个文件
+                      </p>
+                      <p class="mt-0.5 text-xs text-slate-300">
+                        总大小 {{ selectedTotalSizeText }}
+                      </p>
+                      <p class="mt-2 text-xs text-slate-400">点击继续添加文件，或拖拽更多文件到此处</p>
+                    </div>
                   </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-bold text-white">{{ selectedFile.name }}</p>
-                    <p class="mt-0.5 text-xs text-slate-300">
-                      {{ `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` }}
-                    </p>
-                    <p class="mt-2 text-xs text-slate-400">点击更换文件，或拖拽新文件到此处</p>
+                  <div class="mt-4 max-h-48 space-y-2 overflow-y-auto pr-1">
+                    <div
+                      v-for="file in selectedFiles"
+                      :key="getFileKey(file)"
+                      class="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2"
+                    >
+                      <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
+                        <span class="material-symbols-outlined text-base">
+                          {{ getSelectedFileIcon(file.name) }}
+                        </span>
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate text-xs font-bold text-white">{{ file.name }}</p>
+                        <p class="mt-0.5 text-[11px] text-slate-300">{{ formatFileSize(file.size) }}</p>
+                      </div>
+                      <button
+                        type="button"
+                        class="flex size-7 shrink-0 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        :disabled="uploading"
+                        aria-label="移除文件"
+                        @click.stop="removeSelectedFile(file)"
+                      >
+                        <span class="material-symbols-outlined text-base">close</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </template>
@@ -125,7 +154,7 @@
         <button
           type="button"
           class="flex-1 rounded-2xl bg-primary py-3.5 text-sm font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="uploading || !selectedFile"
+          :disabled="uploading || selectedFiles.length === 0"
           @click="confirmUpload"
         >
           <span class="inline-flex items-center justify-center gap-2">
@@ -133,7 +162,7 @@
               v-if="uploading"
               class="inline-block size-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent"
             />
-            {{ uploading ? '上传中...' : primaryActionLabel }}
+            {{ primaryButtonText }}
           </span>
         </button>
       </div>
@@ -210,11 +239,26 @@ const visible = computed({
 })
 
 const uploading = ref(false)
-const selectedFile = ref<File | null>(null)
-const fileQueuedFromTrigger = ref<File | null>(null)
+const selectedFiles = ref<File[]>([])
+const fileQueuedFromTrigger = ref<File[]>([])
+const uploadCompletedCount = ref(0)
+const uploadTotalCount = ref(0)
 const form = ref({
   type: 'document',
   summary: ''
+})
+
+const selectedTotalSizeText = computed(() =>
+  formatFileSize(selectedFiles.value.reduce((total, file) => total + file.size, 0))
+)
+
+const primaryButtonText = computed(() => {
+  if (!uploading.value) return props.primaryActionLabel
+  if (uploadTotalCount.value > 1) {
+    const current = Math.min(uploadCompletedCount.value + 1, uploadTotalCount.value)
+    return `上传中 ${current}/${uploadTotalCount.value}`
+  }
+  return '上传中...'
 })
 
 watch(
@@ -228,13 +272,16 @@ watch(
     }
     form.value.type = 'document'
     form.value.summary = ''
-    selectedFile.value = fileQueuedFromTrigger.value
-    fileQueuedFromTrigger.value = null
+    selectedFiles.value = appendUniqueFiles([], fileQueuedFromTrigger.value)
+    fileQueuedFromTrigger.value = []
   }
 )
 
 function resetForm() {
-  selectedFile.value = null
+  selectedFiles.value = []
+  fileQueuedFromTrigger.value = []
+  uploadCompletedCount.value = 0
+  uploadTotalCount.value = 0
   form.value = { type: 'document', summary: '' }
 }
 
@@ -250,7 +297,7 @@ function getSelectedFileIcon(fileName: string): string {
 }
 
 function onBeforeFileSelect(file: File) {
-  selectedFile.value = file
+  selectedFiles.value = appendUniqueFiles(selectedFiles.value, [file])
   return false
 }
 
@@ -263,13 +310,18 @@ function noopUpload(_options: UploadRequestOptions) {
  * @returns false 表示阻止 el-upload 默认行为
  */
 function onTriggerBeforeUpload(file: File) {
-  fileQueuedFromTrigger.value = file
+  if (visible.value) {
+    selectedFiles.value = appendUniqueFiles(selectedFiles.value, [file])
+  } else {
+    fileQueuedFromTrigger.value = appendUniqueFiles(fileQueuedFromTrigger.value, [file])
+  }
   visible.value = true
   return false
 }
 
 function openEmpty() {
-  fileQueuedFromTrigger.value = null
+  fileQueuedFromTrigger.value = []
+  selectedFiles.value = []
   visible.value = true
 }
 
@@ -279,24 +331,81 @@ function close() {
 }
 
 async function confirmUpload() {
-  if (!selectedFile.value) return
+  if (selectedFiles.value.length === 0) return
   uploading.value = true
+  uploadCompletedCount.value = 0
+  uploadTotalCount.value = selectedFiles.value.length
+  const failedFiles: File[] = []
+  let successCount = 0
+
   try {
-    await uploadKnowledge(
-      selectedFile.value,
-      form.value.type,
-      props.customerId,
-      form.value.summary,
-      props.employeeId,
-      props.relationId
-    )
-    ElMessage.success(props.successMessage)
-    visible.value = false
-    resetForm()
-    emit('success')
+    for (const file of selectedFiles.value) {
+      try {
+        await uploadKnowledge(
+          file,
+          form.value.type,
+          props.customerId,
+          form.value.summary,
+          props.employeeId,
+          props.relationId
+        )
+        successCount += 1
+      } catch {
+        failedFiles.push(file)
+      } finally {
+        uploadCompletedCount.value += 1
+      }
+    }
+
+    if (successCount > 0) {
+      emit('success')
+    }
+
+    if (failedFiles.length === 0) {
+      ElMessage.success(successCount > 1 ? `成功上传 ${successCount} 个文件` : props.successMessage)
+      visible.value = false
+      resetForm()
+    } else {
+      selectedFiles.value = failedFiles
+      if (successCount > 0) {
+        ElMessage.warning(`成功上传 ${successCount} 个文件，${failedFiles.length} 个文件上传失败`)
+      } else {
+        ElMessage.error('文件上传失败，请重试')
+      }
+    }
   } finally {
     uploading.value = false
+    uploadCompletedCount.value = 0
+    uploadTotalCount.value = 0
   }
+}
+
+function removeSelectedFile(file: File) {
+  if (uploading.value) return
+  const key = getFileKey(file)
+  selectedFiles.value = selectedFiles.value.filter(item => getFileKey(item) !== key)
+}
+
+function appendUniqueFiles(current: File[], files: File[]) {
+  const keys = new Set(current.map(getFileKey))
+  const next = [...current]
+  for (const file of files) {
+    const key = getFileKey(file)
+    if (keys.has(key)) continue
+    keys.add(key)
+    next.push(file)
+  }
+  return next
+}
+
+function getFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(2)} MB`
 }
 
 defineExpose({

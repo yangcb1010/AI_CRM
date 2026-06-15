@@ -78,6 +78,7 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
     private static final Set<String> PROVIDERS = Set.copyOf(PROVIDER_ORDER);
     private static final String SCENE_LOGIN = "LOGIN";
     private static final String SCENE_BIND = "BIND";
+    private static final String SCENE_WORKBENCH = "WORKBENCH";
     private static final int ENABLED_STATUS = 1;
     private static final String WECOM_EMPLOYEE_PERMISSION_MODULE = "wecomEmployeeSession";
     private static final String DEFAULT_WECOM_TENANT_NAME = "\u4f01\u4e1a\u5fae\u4fe1\u4f01\u4e1a";
@@ -222,13 +223,53 @@ public class ExternalAuthServiceImpl implements ExternalAuthService {
     public String handleWorkbenchLogin(String code,
                                        String redirect,
                                        HttpServletRequest request) {
-        String normalizedProvider = "wecom";
-        requireUsableProvider(normalizedProvider);
+        requireUsableWecomOpenPlatform();
         if (StrUtil.isBlank(code)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Missing WeCom workbench auth code");
         }
-        ExternalProfile profile = fetchProfile(normalizedProvider, code, request);
+        ExternalProfile profile = wecomOpenPlatformService.fetchWorkbenchProfile(code);
         return completeLogin(profile, resolveRedirect(redirect, request), request);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String handleWecomWorkbenchCallback(String code,
+                                               String state,
+                                               String error,
+                                               HttpServletRequest request) {
+        requireUsableWecomOpenPlatform();
+        AuthState authState = consumeState(state);
+        if (!"wecom".equals(authState.getProvider()) || !SCENE_WORKBENCH.equals(authState.getScene())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Invalid WeCom workbench auth state");
+        }
+        if (StrUtil.isNotBlank(error)) {
+            return appendQuery(authState.getRedirect(), "externalAuthError", error, "provider", "wecom");
+        }
+        if (StrUtil.isBlank(code)) {
+            return appendQuery(authState.getRedirect(), "externalAuthError", "missing_code", "provider", "wecom");
+        }
+        ExternalProfile profile = wecomOpenPlatformService.fetchWorkbenchProfile(code);
+        return completeLogin(profile, authState.getRedirect(), request);
+    }
+
+    @Override
+    public String createWecomWorkbenchEntryUrl(String redirect, HttpServletRequest request) {
+        requireUsableWecomOpenPlatform();
+        AuthState authState = new AuthState();
+        authState.setProvider("wecom");
+        authState.setScene(SCENE_WORKBENCH);
+        authState.setRedirect(wecomOpenPlatformService.resolveWorkbenchFrontendLoginUri(redirect, request));
+        String state = storeState(authState);
+        String callbackUri = wecomOpenPlatformService.resolveWorkbenchCallbackUri(request);
+        log.debug("WeCom workbench OAuth authorize created: callbackUri={}, frontendRedirect={}",
+                callbackUri, authState.getRedirect());
+        return wecomOpenPlatformService.buildWorkbenchAuthorizeUrl(callbackUri, state);
+    }
+
+    private void requireUsableWecomOpenPlatform() {
+        if (wecomOpenPlatformService == null || !wecomOpenPlatformService.isUsable()) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "WeCom third-party app is not configured");
+        }
     }
 
     private String completeLogin(ExternalProfile profile, String redirect, HttpServletRequest request) {

@@ -16,7 +16,7 @@ public interface WecomCorpConfigMapper extends BaseMapper<WecomCorpConfig> {
     @Select("""
             SELECT *
             FROM crm_wecom_corp_config
-            WHERE corp_id = #{corpId}
+            WHERE (corp_id = #{corpId} OR archive_corp_id = #{corpId})
               AND auth_status = 'AUTHORIZED'
             ORDER BY update_time DESC
             LIMIT 1

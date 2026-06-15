@@ -47,6 +47,7 @@ import org.w3c.dom.Element;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -71,6 +72,7 @@ public class WecomOpenPlatformService {
     private static final String EXTERNAL_LOGIN_TICKET_KEY_PREFIX = "external-auth:login-ticket:";
     private static final String INSTALL_URL = "https://open.work.weixin.qq.com/3rdapp/install";
     private static final String LOGIN_URL = "https://open.work.weixin.qq.com/wwopen/sso/3rd_qrConnect";
+    private static final String WORKBENCH_AUTHORIZE_URL = "https://open.weixin.qq.com/connect/oauth2/authorize";
     private static final String WECOM_EMPLOYEE_PERMISSION_MODULE = "wecomEmployeeSession";
 
     @Autowired
@@ -279,15 +281,58 @@ public class WecomOpenPlatformService {
         if (StrUtil.isBlank(corpId) || StrUtil.isBlank(userId)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "WeCom login profile is incomplete");
         }
+
+        JSONObject rawProfile = new JSONObject();
+        rawProfile.put("loginInfo", loginInfo);
+        return buildWecomExternalProfile(corpId, userId, corpInfo, userInfo, rawProfile);
+    }
+
+    public ExternalAuthServiceImpl.ExternalProfile fetchWorkbenchProfile(String code) {
+        requireUsable();
+        if (StrUtil.isBlank(code)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "WeCom workbench auth code is empty");
+        }
+        String suiteAccessToken = fetchSuiteAccessToken();
+        JSONObject userInfo = apiClient.fetchUserInfo3rd(suiteAccessToken, code);
+        String userTicket = userInfo == null ? null : userInfo.getString("user_ticket");
+        JSONObject userDetail = StrUtil.isBlank(userTicket) ? null : apiClient.fetchUserDetail3rd(suiteAccessToken, userTicket);
+        String corpId = firstNotBlank(
+                userInfo == null ? null : userInfo.getString("CorpId"),
+                userInfo == null ? null : userInfo.getString("corpid"),
+                userInfo == null ? null : userInfo.getString("corp_id"),
+                userDetail == null ? null : userDetail.getString("CorpId"),
+                userDetail == null ? null : userDetail.getString("corpid")
+        );
+        String userId = firstNotBlank(
+                userInfo == null ? null : userInfo.getString("UserId"),
+                userInfo == null ? null : userInfo.getString("userid"),
+                userInfo == null ? null : userInfo.getString("open_userid"),
+                userDetail == null ? null : userDetail.getString("UserId"),
+                userDetail == null ? null : userDetail.getString("userid")
+        );
+        if (StrUtil.isBlank(corpId) || StrUtil.isBlank(userId)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "WeCom workbench profile is incomplete");
+        }
+        JSONObject rawProfile = new JSONObject();
+        rawProfile.put("userInfo3rd", userInfo);
+        if (userDetail != null) {
+            rawProfile.put("userDetail3rd", userDetail);
+        }
+        return buildWecomExternalProfile(corpId, userId, null, userDetail == null ? userInfo : userDetail, rawProfile);
+    }
+
+    private ExternalAuthServiceImpl.ExternalProfile buildWecomExternalProfile(String corpId,
+                                                                              String userId,
+                                                                              JSONObject corpInfo,
+                                                                              JSONObject userInfo,
+                                                                              JSONObject rawProfile) {
         WecomCorpConfig config = configMapper.selectAuthorizedThirdPartyByCorpIdIgnoreTenant(corpId);
+        String canonicalCorpId = config == null || StrUtil.isBlank(config.getCorpId()) ? corpId : config.getCorpId();
         String corpName = firstNotBlank(
                 config == null ? null : config.getCorpName(),
                 corpInfo == null ? null : corpInfo.getString("corp_name"),
                 corpInfo == null ? null : corpInfo.getString("corp_full_name")
         );
-
-        JSONObject rawProfile = new JSONObject();
-        rawProfile.put("loginInfo", loginInfo);
         String displayName = firstNotBlank(
                 userInfo == null ? null : userInfo.getString("name"),
                 userInfo == null ? null : userInfo.getString("english_name"),
@@ -301,16 +346,35 @@ public class WecomOpenPlatformService {
 
         ExternalAuthServiceImpl.ExternalProfile profile = new ExternalAuthServiceImpl.ExternalProfile();
         profile.setProvider("wecom");
-        profile.setSubject(corpId + ":" + userId);
+        profile.setSubject(canonicalCorpId + ":" + userId);
         profile.setEmail(email);
         profile.setMobile(StrUtil.isBlank(mobile) ? null : mobile);
         profile.setDisplayName(displayName);
         profile.setAvatarUrl(userInfo == null ? null : userInfo.getString("avatar"));
-        profile.setExternalTenantKey(corpId);
+        profile.setExternalTenantKey(canonicalCorpId);
         profile.setExternalTenantName(corpName);
         profile.setEmailVerified(Boolean.FALSE);
         profile.setRawJson(rawProfile.toJSONString());
         return profile;
+    }
+
+    public String buildWorkbenchAuthorizeUrl(String redirectUri) {
+        return buildWorkbenchAuthorizeUrl(redirectUri, "workbench");
+    }
+
+    public String buildWorkbenchAuthorizeUrl(String redirectUri, String state) {
+        requireUsable();
+        String target = firstNotBlank(StrUtil.trim(redirectUri), properties.getFrontendRedirectUri());
+        if (StrUtil.isBlank(target)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "WeCom workbench redirect uri is not configured");
+        }
+        return WORKBENCH_AUTHORIZE_URL
+                + "?appid=" + encode(properties.getSuiteId())
+                + "&redirect_uri=" + encode(target)
+                + "&response_type=code"
+                + "&scope=snsapi_base"
+                + "&state=" + encode(StrUtil.blankToDefault(StrUtil.trim(state), "workbench"))
+                + "#wechat_redirect";
     }
 
     public String buildLoginAuthorizeUrl(String callbackUri, String state) {
@@ -330,6 +394,104 @@ public class WecomOpenPlatformService {
                 .path("/auth/external/wecom/callback")
                 .build()
                 .toUriString();
+    }
+
+    public String resolveWorkbenchCallbackUri(HttpServletRequest request) {
+        String configured = firstNotBlank(
+                StrUtil.trim(properties.getWorkbenchRedirectUri()),
+                deriveWorkbenchCallbackUri(properties.getLoginRedirectUri()),
+                deriveWorkbenchCallbackUri(properties.getAuthRedirectUri()),
+                deriveWorkbenchCallbackUri(properties.getCallbackUrl())
+        );
+        if (StrUtil.isNotBlank(configured)) {
+            return configured;
+        }
+        return ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/auth/external/wecom/workbench-callback")
+                .build()
+                .toUriString();
+    }
+
+    public String resolveWorkbenchFrontendLoginUri(String redirect, HttpServletRequest request) {
+        String target = StrUtil.trim(redirect);
+        if (StrUtil.isBlank(target)) {
+            return frontendLoginUri(resolveFrontendRedirect(null, request), null);
+        }
+        if (target.startsWith("/") && !target.startsWith("//")) {
+            return appendQuery(frontendLoginUri(resolveFrontendRedirect(null, request), null), "redirect", target);
+        }
+        return frontendLoginUri(target, target);
+    }
+
+    private String frontendLoginUri(String source, String explicitTarget) {
+        String trimmed = StrUtil.trim(source);
+        if (StrUtil.isBlank(trimmed)) {
+            return "/#/login";
+        }
+        if (trimmed.contains("#/login")) {
+            return trimmed;
+        }
+
+        int hashIndex = trimmed.indexOf('#');
+        String base = hashIndex >= 0 ? trimmed.substring(0, hashIndex) : trimmed;
+        String login = base + "#/login";
+        String target = extractHashRoute(explicitTarget);
+        if (StrUtil.isBlank(target) || "/login".equals(target)) {
+            return login;
+        }
+        return appendQuery(login, "redirect", target);
+    }
+
+    private String extractHashRoute(String url) {
+        if (StrUtil.isBlank(url)) {
+            return null;
+        }
+        String trimmed = StrUtil.trim(url);
+        if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+            return trimmed;
+        }
+        int hashIndex = trimmed.indexOf('#');
+        if (hashIndex < 0 || hashIndex + 1 >= trimmed.length()) {
+            return null;
+        }
+        String route = trimmed.substring(hashIndex + 1);
+        if (StrUtil.isBlank(route)) {
+            return null;
+        }
+        return route.startsWith("/") ? route : "/" + route;
+    }
+
+    private String deriveWorkbenchCallbackUri(String configuredUri) {
+        String trimmed = StrUtil.trim(configuredUri);
+        if (StrUtil.isBlank(trimmed)
+                || (!trimmed.startsWith("http://") && !trimmed.startsWith("https://"))) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(trimmed);
+            if (StrUtil.isBlank(uri.getScheme()) || StrUtil.isBlank(uri.getHost())) {
+                return null;
+            }
+            String path = StrUtil.blankToDefault(uri.getPath(), "");
+            String contextPath = "";
+            int externalAuthIndex = path.indexOf("/auth/external/wecom/");
+            if (externalAuthIndex > 0) {
+                contextPath = path.substring(0, externalAuthIndex);
+            } else {
+                int crmapiIndex = path.indexOf("/crmapi/");
+                if (crmapiIndex >= 0) {
+                    contextPath = path.substring(0, crmapiIndex + "/crmapi".length());
+                }
+            }
+            return UriComponentsBuilder.fromUri(uri)
+                    .replacePath(contextPath + "/auth/external/wecom/workbench-callback")
+                    .replaceQuery(null)
+                    .fragment(null)
+                    .build()
+                    .toUriString();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String fetchSuiteAccessToken() {

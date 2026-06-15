@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -356,8 +357,8 @@ class ExternalAuthServiceImplTest {
         Redis redis = mapper(service, "redis");
         ExternalAuthIdentityMapper identityMapper = mapper(service, "identityMapper");
         WecomOpenPlatformService wecomOpenPlatformService = mapper(service, "wecomOpenPlatformService");
-        when(wecomOpenPlatformService.isLoginUsable()).thenReturn(true);
-        when(wecomOpenPlatformService.fetchLoginProfile("auth_code_1")).thenReturn(wecomProfile());
+        when(wecomOpenPlatformService.isUsable()).thenReturn(true);
+        when(wecomOpenPlatformService.fetchWorkbenchProfile("auth_code_1")).thenReturn(wecomProfile());
         ExternalAuthIdentity identity = new ExternalAuthIdentity();
         identity.setId(99L);
         identity.setProvider("wecom");
@@ -377,6 +378,66 @@ class ExternalAuthServiceImplTest {
         verify(redis).setex(keyCaptor.capture(), any(Integer.class), ticketCaptor.capture());
         assertThat(keyCaptor.getValue()).startsWith("external-auth:login-ticket:");
         assertThat(ticketCaptor.getValue()).contains("\"identityId\":99");
+    }
+
+    @Test
+    void createWecomWorkbenchEntryUrlShouldStoreStateAndUseBackendCallback() {
+        ExternalAuthServiceImpl service = newService();
+        Redis redis = mapper(service, "redis");
+        WecomOpenPlatformService wecomOpenPlatformService = mapper(service, "wecomOpenPlatformService");
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(wecomOpenPlatformService.isUsable()).thenReturn(true);
+        when(wecomOpenPlatformService.resolveWorkbenchCallbackUri(request))
+                .thenReturn("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback");
+        when(wecomOpenPlatformService.resolveWorkbenchFrontendLoginUri(null, request))
+                .thenReturn("https://crm.example.com/#/login");
+        when(wecomOpenPlatformService.buildWorkbenchAuthorizeUrl(
+                eq("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback"),
+                any(String.class)))
+                .thenReturn("https://open.weixin.qq.com/connect/oauth2/authorize?appid=suite_1");
+
+        String authorizeUrl = service.createWecomWorkbenchEntryUrl(null, request);
+
+        assertThat(authorizeUrl).isEqualTo("https://open.weixin.qq.com/connect/oauth2/authorize?appid=suite_1");
+        ArgumentCaptor<String> stateValueCaptor = ArgumentCaptor.forClass(String.class);
+        verify(redis).setex(Mockito.startsWith("external-auth:state:"), any(Integer.class), stateValueCaptor.capture());
+        ExternalAuthServiceImpl.AuthState state = JSON.parseObject(stateValueCaptor.getValue(),
+                ExternalAuthServiceImpl.AuthState.class);
+        assertThat(state.getProvider()).isEqualTo("wecom");
+        assertThat(state.getScene()).isEqualTo("WORKBENCH");
+        assertThat(state.getRedirect()).isEqualTo("https://crm.example.com/#/login");
+        verify(wecomOpenPlatformService).buildWorkbenchAuthorizeUrl(
+                eq("https://crm.example.com/crmapi/auth/external/wecom/workbench-callback"),
+                any(String.class));
+    }
+
+    @Test
+    void handleWecomWorkbenchCallbackShouldExchangeCodeAndReturnLoginTicket() {
+        ExternalAuthServiceImpl service = newService();
+        Redis redis = mapper(service, "redis");
+        ExternalAuthIdentityMapper identityMapper = mapper(service, "identityMapper");
+        WecomOpenPlatformService wecomOpenPlatformService = mapper(service, "wecomOpenPlatformService");
+        ExternalAuthServiceImpl.AuthState state = new ExternalAuthServiceImpl.AuthState();
+        state.setProvider("wecom");
+        state.setScene("WORKBENCH");
+        state.setRedirect("https://crm.example.com/#/login");
+        when(redis.get("external-auth:state:state_1")).thenReturn(JSON.toJSONString(state));
+        when(wecomOpenPlatformService.isUsable()).thenReturn(true);
+        when(wecomOpenPlatformService.fetchWorkbenchProfile("code_1")).thenReturn(wecomProfile());
+        ExternalAuthIdentity identity = new ExternalAuthIdentity();
+        identity.setId(99L);
+        identity.setProvider("wecom");
+        identity.setSubject("corp_1:user_a");
+        identity.setTenantId(66L);
+        identity.setUserId(77L);
+        when(identityMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(identity);
+
+        String redirect = service.handleWecomWorkbenchCallback("code_1", "state_1", null,
+                mock(HttpServletRequest.class));
+
+        assertThat(redirect).startsWith("https://crm.example.com/#/login?externalLoginTicket=");
+        assertThat(redirect).contains("provider=wecom");
+        verify(redis).del("external-auth:state:state_1");
     }
 
     @Test
