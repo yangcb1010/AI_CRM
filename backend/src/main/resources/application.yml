@@ -76,6 +76,21 @@ oidc:
   token-expiry: 3600
   session-cookie: CRM_SESSION
 
+external-auth:
+  frontend-redirect-uri: ${EXTERNAL_AUTH_FRONTEND_REDIRECT_URI:}
+  state-ttl-seconds: 600
+  ticket-ttl-seconds: 300
+  google:
+    enabled: ${EXTERNAL_AUTH_GOOGLE_ENABLED:false}
+    client-id: ${EXTERNAL_AUTH_GOOGLE_CLIENT_ID:}
+    client-secret: ${EXTERNAL_AUTH_GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${EXTERNAL_AUTH_GOOGLE_REDIRECT_URI:}
+  wechat:
+    enabled: ${EXTERNAL_AUTH_WECHAT_ENABLED:false}
+    client-id: ${EXTERNAL_AUTH_WECHAT_CLIENT_ID:}
+    client-secret: ${EXTERNAL_AUTH_WECHAT_CLIENT_SECRET:}
+    redirect-uri: ${EXTERNAL_AUTH_WECHAT_REDIRECT_URI:}
+
 weknora:
   enabled: true
   base-url: http://39.97.38.69/api/v1

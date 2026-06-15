@@ -122,7 +122,7 @@ const routes: RouteRecordRaw[] = [
         redirect: '/settings/system/enterprise'
       },
       {
-        path: 'settings/system/:systemTab(enterprise|api|agent|storage|customField)',
+        path: 'settings/system/:systemTab(enterprise|api|auth|agent|storage|customField)',
         name: 'SettingsSystem',
         component: settingsComponent,
         meta: settingsMeta

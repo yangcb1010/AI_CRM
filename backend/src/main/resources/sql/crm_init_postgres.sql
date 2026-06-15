@@ -878,7 +878,39 @@ CREATE INDEX idx_operation_log_create_time ON crm_operation_log (create_time);
 COMMENT ON TABLE crm_operation_log IS '操作日志表';
 
 -- ============================================
--- 16. 后端访问日志表 (crm_access_log)
+-- 16. 外部账号绑定表 (crm_external_auth_identity)
+-- ============================================
+DROP TABLE IF EXISTS crm_external_auth_identity CASCADE;
+CREATE TABLE crm_external_auth_identity (
+    id BIGINT NOT NULL,
+    provider VARCHAR(32) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    user_id BIGINT NOT NULL,
+    email VARCHAR(255),
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    display_name VARCHAR(100),
+    avatar_url VARCHAR(500),
+    raw_profile TEXT,
+    status INTEGER NOT NULL DEFAULT 1,
+    bind_time TIMESTAMP,
+    last_login_time TIMESTAMP,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE (provider, subject),
+    UNIQUE (provider, user_id)
+);
+
+CREATE INDEX idx_external_auth_user_id ON crm_external_auth_identity (user_id);
+
+CREATE TRIGGER trg_external_auth_identity_update_time
+    BEFORE UPDATE ON crm_external_auth_identity
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+COMMENT ON TABLE crm_external_auth_identity IS '外部账号绑定表';
+
+-- ============================================
+-- 17. 后端访问日志表 (crm_access_log)
 -- ============================================
 DROP TABLE IF EXISTS crm_error_log CASCADE;
 DROP TABLE IF EXISTS crm_access_log CASCADE;

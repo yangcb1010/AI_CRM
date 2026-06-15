@@ -8,7 +8,7 @@ import {
   getUserAuth as apiGetUserAuth
 } from '@/api/auth'
 import { setToken, removeToken, getToken } from '@/utils/request'
-import type { UserInfo, LoginParams } from '@/types/api'
+import type { UserInfo, LoginParams, LoginResult } from '@/types/api'
 import { useEnterpriseStore } from './enterprise'
 
 export const useUserStore = defineStore('user', () => {
@@ -38,6 +38,10 @@ export const useUserStore = defineStore('user', () => {
 
   async function login(params: LoginParams): Promise<void> {
     const result = await apiLogin(params)
+    await applyLoginResult(result)
+  }
+
+  async function applyLoginResult(result: LoginResult): Promise<void> {
     token.value = result.token
     setToken(result.token)
     userInfo.value = result.userInfo
@@ -106,6 +110,7 @@ export const useUserStore = defineStore('user', () => {
     userId,
     avatar,
     login,
+    applyLoginResult,
     logout,
     fetchUserInfo,
     setUserInfo,

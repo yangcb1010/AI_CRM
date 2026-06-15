@@ -3,6 +3,7 @@ export type SettingsMainTab = 'team' | 'role' | 'system'
 export type SystemSettingsTab =
   | 'enterprise'
   | 'api'
+  | 'auth'
   | 'agent'
   | 'storage'
   | 'customField'

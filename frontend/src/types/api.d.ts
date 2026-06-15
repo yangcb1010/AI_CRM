@@ -29,6 +29,34 @@ export interface LoginResult {
   userInfo: UserInfo
 }
 
+export type ExternalAuthProviderCode = 'google' | 'wechat'
+
+export interface ExternalAuthProvider {
+  provider: ExternalAuthProviderCode
+  name: string
+  enabled: boolean
+}
+
+export interface ExternalAuthAuthorizeResult {
+  provider: ExternalAuthProviderCode
+  authorizeUrl: string
+}
+
+export interface ExternalAuthTicketLoginParams {
+  ticket: string
+}
+
+export interface ExternalAuthBinding {
+  provider: ExternalAuthProviderCode
+  name: string
+  subject: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+  bindTime?: string
+  lastLoginTime?: string
+}
+
 export interface UserInfo {
   userId: string
   username: string

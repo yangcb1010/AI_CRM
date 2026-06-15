@@ -1,0 +1,44 @@
+package com.kakarote.ai_crm.config;
+
+import cn.hutool.core.util.StrUtil;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Data
+@Component
+@ConfigurationProperties(prefix = "external-auth")
+public class ExternalAuthProperties {
+
+    private ProviderConfig google = new ProviderConfig();
+
+    private ProviderConfig wechat = new ProviderConfig();
+
+    private String frontendRedirectUri;
+
+    private Integer stateTtlSeconds = 600;
+
+    private Integer ticketTtlSeconds = 300;
+
+    public ProviderConfig getProvider(String provider) {
+        return switch (StrUtil.emptyToDefault(provider, "").toLowerCase()) {
+            case "google" -> google;
+            case "wechat" -> wechat;
+            default -> null;
+        };
+    }
+
+    @Data
+    public static class ProviderConfig {
+        private Boolean enabled = Boolean.FALSE;
+        private String clientId;
+        private String clientSecret;
+        private String redirectUri;
+
+        public boolean isUsable() {
+            return Boolean.TRUE.equals(enabled)
+                    && StrUtil.isNotBlank(clientId)
+                    && StrUtil.isNotBlank(clientSecret);
+        }
+    }
+}
