@@ -13,11 +13,13 @@ import com.kakarote.ai_crm.entity.PO.ManagerUser;
 import com.kakarote.ai_crm.entity.PO.Project;
 import com.kakarote.ai_crm.entity.PO.ProjectLane;
 import com.kakarote.ai_crm.entity.PO.ProjectTask;
+import com.kakarote.ai_crm.entity.PO.ProjectTaskAttachment;
 import com.kakarote.ai_crm.entity.VO.ProjectVO;
 import com.kakarote.ai_crm.mapper.CustomerMapper;
 import com.kakarote.ai_crm.mapper.ManageUserMapper;
 import com.kakarote.ai_crm.mapper.ProjectLaneMapper;
 import com.kakarote.ai_crm.mapper.ProjectMapper;
+import com.kakarote.ai_crm.mapper.ProjectTaskAttachmentMapper;
 import com.kakarote.ai_crm.mapper.ProjectTaskMapper;
 import com.kakarote.ai_crm.service.IProjectService;
 import com.kakarote.ai_crm.utils.UserUtil;
@@ -43,17 +45,20 @@ public class ProjectServiceImpl implements IProjectService {
     private final ProjectMapper projectMapper;
     private final ProjectLaneMapper projectLaneMapper;
     private final ProjectTaskMapper projectTaskMapper;
+    private final ProjectTaskAttachmentMapper projectTaskAttachmentMapper;
     private final ManageUserMapper manageUserMapper;
     private final CustomerMapper customerMapper;
 
     public ProjectServiceImpl(ProjectMapper projectMapper,
                               ProjectLaneMapper projectLaneMapper,
                               ProjectTaskMapper projectTaskMapper,
+                              ProjectTaskAttachmentMapper projectTaskAttachmentMapper,
                               ManageUserMapper manageUserMapper,
                               CustomerMapper customerMapper) {
         this.projectMapper = projectMapper;
         this.projectLaneMapper = projectLaneMapper;
         this.projectTaskMapper = projectTaskMapper;
+        this.projectTaskAttachmentMapper = projectTaskAttachmentMapper;
         this.manageUserMapper = manageUserMapper;
         this.customerMapper = customerMapper;
     }
@@ -91,7 +96,9 @@ public class ProjectServiceImpl implements IProjectService {
                 .stream()
                 .map(this::toLaneVO)
                 .toList());
-        project.setTasks(projectTaskMapper.selectProjectTasks(projectId, StrUtil.trimToNull(taskKeyword)));
+        List<ProjectVO.ProjectTaskVO> tasks = projectTaskMapper.selectProjectTasks(projectId, StrUtil.trimToNull(taskKeyword));
+        tasks.forEach(this::fillTaskAttachments);
+        project.setTasks(tasks);
         return project;
     }
 
@@ -179,6 +186,8 @@ public class ProjectServiceImpl implements IProjectService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteProject(Long projectId) {
         getProjectEntity(projectId);
+        projectTaskAttachmentMapper.delete(Wrappers.<ProjectTaskAttachment>lambdaQuery()
+                .eq(ProjectTaskAttachment::getProjectId, projectId));
         projectTaskMapper.delete(Wrappers.<ProjectTask>lambdaQuery().eq(ProjectTask::getProjectId, projectId));
         projectLaneMapper.delete(Wrappers.<ProjectLane>lambdaQuery().eq(ProjectLane::getProjectId, projectId));
         projectMapper.deleteById(projectId);
@@ -239,6 +248,7 @@ public class ProjectServiceImpl implements IProjectService {
         task.setCreateUserId(currentUserId);
         task.setUpdateUserId(currentUserId);
         projectTaskMapper.insert(task);
+        saveTaskAttachments(projectId, task.getTaskId(), taskBO.getAttachments());
         return getProject(projectId);
     }
 
@@ -256,13 +266,38 @@ public class ProjectServiceImpl implements IProjectService {
         }
         task.setUpdateUserId(UserUtil.getUserId());
         projectTaskMapper.updateById(task);
+        saveTaskAttachments(projectId, task.getTaskId(), taskBO.getAttachments());
         return getProject(projectId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProjectVO addTaskAttachment(Long projectId, Long taskId, ProjectBO.TaskAttachmentSave attachmentBO) {
+        getProjectTask(projectId, taskId);
+        saveTaskAttachment(projectId, taskId, attachmentBO);
+        return getProject(projectId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProjectVO deleteTaskAttachment(Long projectId, Long taskId, Long attachmentId) {
+        ProjectTaskAttachment attachment = getProjectTaskAttachment(projectId, taskId, attachmentId);
+        projectTaskAttachmentMapper.deleteById(attachment.getAttachmentId());
+        return getProject(projectId);
+    }
+
+    @Override
+    public ProjectVO.ProjectTaskAttachmentVO getTaskAttachment(Long projectId, Long taskId, Long attachmentId) {
+        return toTaskAttachmentVO(getProjectTaskAttachment(projectId, taskId, attachmentId));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ProjectVO deleteTask(Long projectId, Long taskId) {
         getProjectTask(projectId, taskId);
+        projectTaskAttachmentMapper.delete(Wrappers.<ProjectTaskAttachment>lambdaQuery()
+                .eq(ProjectTaskAttachment::getProjectId, projectId)
+                .eq(ProjectTaskAttachment::getTaskId, taskId));
         projectTaskMapper.deleteById(taskId);
         return getProject(projectId);
     }
@@ -289,6 +324,63 @@ public class ProjectServiceImpl implements IProjectService {
         task.setCustomerId(taskBO.getCustomerId());
         task.setCustomerName(resolveCustomerName(taskBO.getCustomerId(), taskBO.getCustomerName()));
         task.setAiSourceText(normalizeOptional(taskBO.getAiSourceText()));
+    }
+
+    private void saveTaskAttachments(Long projectId, Long taskId, List<ProjectBO.TaskAttachmentSave> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+        attachments.stream()
+                .filter(Objects::nonNull)
+                .forEach(attachment -> saveTaskAttachment(projectId, taskId, attachment));
+    }
+
+    private void saveTaskAttachment(Long projectId, Long taskId, ProjectBO.TaskAttachmentSave attachmentBO) {
+        if (attachmentBO == null) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Attachment is required");
+        }
+        String filePath = normalizeOptional(attachmentBO.getFilePath());
+        String name = normalizeOptional(attachmentBO.getFileName());
+        if (StrUtil.isBlank(name)) {
+            name = StrUtil.blankToDefault(filePath, "Attachment");
+        }
+        ProjectTaskAttachment attachment = new ProjectTaskAttachment();
+        attachment.setProjectId(projectId);
+        attachment.setTaskId(taskId);
+        attachment.setName(name);
+        attachment.setFilePath(filePath);
+        attachment.setFileUrl(filePath);
+        attachment.setFileSize(attachmentBO.getFileSize());
+        attachment.setMimeType(StrUtil.blankToDefault(normalizeOptional(attachmentBO.getMimeType()), "application/octet-stream"));
+        attachment.setCreateUserId(UserUtil.getUserId());
+        attachment.setCreateUserName(currentUserDisplayName());
+        projectTaskAttachmentMapper.insert(attachment);
+    }
+
+    private void fillTaskAttachments(ProjectVO.ProjectTaskVO task) {
+        List<ProjectVO.ProjectTaskAttachmentVO> attachments = projectTaskAttachmentMapper.selectList(
+                        Wrappers.<ProjectTaskAttachment>lambdaQuery()
+                                .eq(ProjectTaskAttachment::getTaskId, task.getTaskId())
+                                .orderByDesc(ProjectTaskAttachment::getCreateTime)
+                                .orderByDesc(ProjectTaskAttachment::getAttachmentId))
+                .stream()
+                .map(this::toTaskAttachmentVO)
+                .toList();
+        task.setAttachments(attachments);
+        task.setHasAttachments(!attachments.isEmpty());
+    }
+
+    private ProjectVO.ProjectTaskAttachmentVO toTaskAttachmentVO(ProjectTaskAttachment attachment) {
+        ProjectVO.ProjectTaskAttachmentVO vo = new ProjectVO.ProjectTaskAttachmentVO();
+        vo.setAttachmentId(attachment.getAttachmentId());
+        vo.setName(attachment.getName());
+        vo.setFileUrl(attachment.getFileUrl());
+        vo.setFilePath(attachment.getFilePath());
+        vo.setFileSize(attachment.getFileSize());
+        vo.setMimeType(attachment.getMimeType());
+        vo.setCreatedByName(attachment.getCreateUserName());
+        vo.setCreateTime(attachment.getCreateTime());
+        return vo;
     }
 
     private void insertLane(Long projectId, String code, String name, int sortOrder, boolean systemFlag, Long userId) {
@@ -325,6 +417,16 @@ public class ProjectServiceImpl implements IProjectService {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Project task does not exist");
         }
         return task;
+    }
+
+    private ProjectTaskAttachment getProjectTaskAttachment(Long projectId, Long taskId, Long attachmentId) {
+        ProjectTaskAttachment attachment = projectTaskAttachmentMapper.selectById(attachmentId);
+        if (attachment == null
+                || !Objects.equals(attachment.getProjectId(), projectId)
+                || !Objects.equals(attachment.getTaskId(), taskId)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Project task attachment does not exist");
+        }
+        return attachment;
     }
 
     private ProjectLane firstLane(Long projectId) {
@@ -392,6 +494,15 @@ public class ProjectServiceImpl implements IProjectService {
             return null;
         }
         return value.trim();
+    }
+
+    private String currentUserDisplayName() {
+        try {
+            ManagerUser user = UserUtil.getLoginUser().getUser();
+            return StrUtil.blankToDefault(user.getRealname(), user.getUsername());
+        } catch (Exception ignored) {
+            return String.valueOf(UserUtil.getUserId());
+        }
     }
 
     private String normalizeProjectStatus(String status) {

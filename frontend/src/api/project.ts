@@ -4,6 +4,7 @@ import type {
   ProjectLaneSave,
   ProjectPageResult,
   ProjectQuery,
+  ProjectTaskAttachmentPayload,
   ProjectTaskMove,
   ProjectTaskSave,
   ProjectUpdate,
@@ -48,6 +49,22 @@ export function addProjectTask(projectId: string, data: ProjectTaskSave): Promis
 
 export function updateProjectTask(projectId: string, data: ProjectTaskSave): Promise<ProjectVO> {
   return post(`/project/${projectId}/task/update`, data)
+}
+
+export function addProjectTaskAttachment(
+  projectId: string,
+  taskId: string,
+  data: ProjectTaskAttachmentPayload
+): Promise<ProjectVO> {
+  return post(`/project/${projectId}/task/${taskId}/attachment/add`, data)
+}
+
+export function deleteProjectTaskAttachment(
+  projectId: string,
+  taskId: string,
+  attachmentId: string
+): Promise<ProjectVO> {
+  return post(`/project/${projectId}/task/${taskId}/attachment/delete/${attachmentId}`)
 }
 
 export function moveProjectTask(projectId: string, data: ProjectTaskMove): Promise<ProjectVO> {

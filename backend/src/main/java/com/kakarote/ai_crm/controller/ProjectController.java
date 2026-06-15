@@ -108,6 +108,22 @@ public class ProjectController {
         return Result.ok(projectService.updateTask(projectId, taskBO));
     }
 
+    @PostMapping("/{projectId}/task/{taskId}/attachment/add")
+    @Operation(summary = "Add project task attachment")
+    public Result<ProjectVO> addTaskAttachment(@PathVariable Long projectId,
+                                               @PathVariable Long taskId,
+                                               @RequestBody ProjectBO.TaskAttachmentSave attachmentBO) {
+        return Result.ok(projectService.addTaskAttachment(projectId, taskId, attachmentBO));
+    }
+
+    @PostMapping("/{projectId}/task/{taskId}/attachment/delete/{attachmentId}")
+    @Operation(summary = "Delete project task attachment")
+    public Result<ProjectVO> deleteTaskAttachment(@PathVariable Long projectId,
+                                                  @PathVariable Long taskId,
+                                                  @PathVariable Long attachmentId) {
+        return Result.ok(projectService.deleteTaskAttachment(projectId, taskId, attachmentId));
+    }
+
     @PostMapping("/{projectId}/task/delete/{taskId}")
     @Operation(summary = "Delete project task")
     public Result<ProjectVO> deleteTask(@PathVariable Long projectId, @PathVariable Long taskId) {

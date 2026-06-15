@@ -295,6 +295,7 @@ COMMENT ON COLUMN crm_product.status IS 'active=enabled, inactive=disabled';
 -- 5.3. Project board tables (crm_project, crm_project_lane, crm_project_task)
 -- ============================================
 DROP TABLE IF EXISTS crm_project_task CASCADE;
+DROP TABLE IF EXISTS crm_project_task_attachment CASCADE;
 DROP TABLE IF EXISTS crm_project_lane CASCADE;
 DROP TABLE IF EXISTS crm_project CASCADE;
 CREATE TABLE crm_project (
@@ -377,9 +378,33 @@ CREATE TRIGGER trg_project_task_update_time
     BEFORE UPDATE ON crm_project_task
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
+CREATE TABLE crm_project_task_attachment (
+    attachment_id BIGINT NOT NULL,
+    project_id BIGINT NOT NULL,
+    task_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    file_url TEXT,
+    file_path TEXT,
+    file_size BIGINT,
+    mime_type VARCHAR(255),
+    create_user_id BIGINT,
+    create_user_name VARCHAR(100),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (attachment_id)
+);
+
+CREATE INDEX idx_crm_project_task_attachment_project
+    ON crm_project_task_attachment(project_id, create_time DESC);
+CREATE INDEX idx_crm_project_task_attachment_task
+    ON crm_project_task_attachment(task_id, create_time DESC);
+
 COMMENT ON TABLE crm_project IS 'Project board';
 COMMENT ON TABLE crm_project_lane IS 'Project board lanes';
 COMMENT ON TABLE crm_project_task IS 'Project board tasks';
+COMMENT ON TABLE crm_project_task_attachment IS 'Project task attachments';
+COMMENT ON COLUMN crm_project_task_attachment.file_path IS 'Stored file path';
+COMMENT ON COLUMN crm_project_task_attachment.file_size IS 'File size in bytes';
+COMMENT ON COLUMN crm_project_task_attachment.mime_type IS 'File MIME type';
 
 -- ============================================
 -- 5.4. Mail tables

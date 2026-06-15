@@ -5,11 +5,14 @@ import com.kakarote.ai_crm.entity.BO.ProjectBO;
 import com.kakarote.ai_crm.entity.PO.ManagerUser;
 import com.kakarote.ai_crm.entity.PO.Project;
 import com.kakarote.ai_crm.entity.PO.ProjectLane;
+import com.kakarote.ai_crm.entity.PO.ProjectTask;
+import com.kakarote.ai_crm.entity.PO.ProjectTaskAttachment;
 import com.kakarote.ai_crm.entity.VO.ProjectVO;
 import com.kakarote.ai_crm.mapper.CustomerMapper;
 import com.kakarote.ai_crm.mapper.ManageUserMapper;
 import com.kakarote.ai_crm.mapper.ProjectLaneMapper;
 import com.kakarote.ai_crm.mapper.ProjectMapper;
+import com.kakarote.ai_crm.mapper.ProjectTaskAttachmentMapper;
 import com.kakarote.ai_crm.mapper.ProjectTaskMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +45,9 @@ class ProjectServiceImplTest {
     private ProjectTaskMapper projectTaskMapper;
 
     @Mock
+    private ProjectTaskAttachmentMapper projectTaskAttachmentMapper;
+
+    @Mock
     private ManageUserMapper manageUserMapper;
 
     @Mock
@@ -51,7 +57,14 @@ class ProjectServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        projectService = new ProjectServiceImpl(projectMapper, projectLaneMapper, projectTaskMapper, manageUserMapper, customerMapper);
+        projectService = new ProjectServiceImpl(
+            projectMapper,
+            projectLaneMapper,
+            projectTaskMapper,
+            projectTaskAttachmentMapper,
+            manageUserMapper,
+            customerMapper
+        );
         setCurrentUser(1001L);
     }
 
@@ -90,6 +103,38 @@ class ProjectServiceImplTest {
         });
     }
 
+    @Test
+    void addTaskAttachmentStoresFileMetadataAndReturnsProjectDetail() {
+        ProjectTask task = new ProjectTask();
+        task.setTaskId(3001L);
+        task.setProjectId(2001L);
+        when(projectTaskMapper.selectById(3001L)).thenReturn(task);
+        when(projectMapper.getProjectById(2001L)).thenReturn(projectDetail(2001L));
+        when(projectLaneMapper.selectList(any())).thenReturn(List.of());
+        when(projectTaskMapper.selectProjectTasks(2001L, null)).thenReturn(List.of(taskVO(3001L)));
+        when(projectTaskAttachmentMapper.selectList(any())).thenReturn(List.of());
+
+        ProjectBO.TaskAttachmentSave attachment = new ProjectBO.TaskAttachmentSave();
+        attachment.setFileName("proposal.pdf");
+        attachment.setFilePath("project/2001/proposal.pdf");
+        attachment.setFileSize(1234L);
+        attachment.setMimeType("application/pdf");
+
+        ProjectVO result = projectService.addTaskAttachment(2001L, 3001L, attachment);
+
+        ArgumentCaptor<ProjectTaskAttachment> captor = ArgumentCaptor.forClass(ProjectTaskAttachment.class);
+        verify(projectTaskAttachmentMapper).insert(captor.capture());
+        ProjectTaskAttachment saved = captor.getValue();
+        assertThat(saved.getProjectId()).isEqualTo(2001L);
+        assertThat(saved.getTaskId()).isEqualTo(3001L);
+        assertThat(saved.getName()).isEqualTo("proposal.pdf");
+        assertThat(saved.getFilePath()).isEqualTo("project/2001/proposal.pdf");
+        assertThat(saved.getFileSize()).isEqualTo(1234L);
+        assertThat(saved.getMimeType()).isEqualTo("application/pdf");
+        assertThat(saved.getCreateUserId()).isEqualTo(1001L);
+        assertThat(result.getProjectId()).isEqualTo(2001L);
+    }
+
     private ManagerUser activeUser(Long userId) {
         ManagerUser user = new ManagerUser();
         user.setUserId(userId);
@@ -97,6 +142,22 @@ class ProjectServiceImplTest {
         user.setRealname("User " + userId);
         user.setStatus(1);
         return user;
+    }
+
+    private ProjectVO projectDetail(Long projectId) {
+        ProjectVO project = new ProjectVO();
+        project.setProjectId(projectId);
+        project.setName("Implementation");
+        project.setStatus("NOT_STARTED");
+        return project;
+    }
+
+    private ProjectVO.ProjectTaskVO taskVO(Long taskId) {
+        ProjectVO.ProjectTaskVO task = new ProjectVO.ProjectTaskVO();
+        task.setTaskId(taskId);
+        task.setProjectId(2001L);
+        task.setTitle("Prepare proposal");
+        return task;
     }
 
     private void setCurrentUser(Long userId) {

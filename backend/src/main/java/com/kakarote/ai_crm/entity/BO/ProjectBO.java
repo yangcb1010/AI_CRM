@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 public class ProjectBO {
 
@@ -59,6 +60,15 @@ public class ProjectBO {
         private String customerName;
         private Boolean generatedByAi;
         private String aiSourceText;
+        private List<TaskAttachmentSave> attachments;
+    }
+
+    @Data
+    public static class TaskAttachmentSave {
+        private String fileName;
+        private String filePath;
+        private Long fileSize;
+        private String mimeType;
     }
 
     @Data

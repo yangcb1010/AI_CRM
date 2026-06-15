@@ -60,9 +60,24 @@ public class ProjectVO {
         @JsonSerialize(using = ToStringSerializer.class)
         private Long customerId;
         private String customerName;
+        private Boolean hasAttachments;
         private Boolean generatedByAi;
         private String aiSourceText;
+        private List<ProjectTaskAttachmentVO> attachments = new ArrayList<>();
         private Date createTime;
         private Date updateTime;
+    }
+
+    @Data
+    public static class ProjectTaskAttachmentVO {
+        @JsonSerialize(using = ToStringSerializer.class)
+        private Long attachmentId;
+        private String name;
+        private String fileUrl;
+        private String filePath;
+        private Long fileSize;
+        private String mimeType;
+        private Date createTime;
+        private String createdByName;
     }
 }

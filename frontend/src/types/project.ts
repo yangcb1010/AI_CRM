@@ -24,10 +24,30 @@ export interface ProjectTaskVO {
   priority?: ProjectTaskPriority | string
   customerId?: string
   customerName?: string
+  hasAttachments?: boolean
   generatedByAi?: boolean
   aiSourceText?: string
+  attachments?: ProjectTaskAttachment[]
   createTime?: string
   updateTime?: string
+}
+
+export interface ProjectTaskAttachment {
+  attachmentId: string
+  name: string
+  fileUrl?: string
+  filePath?: string
+  fileSize?: number
+  mimeType?: string
+  createTime?: string
+  createdByName?: string
+}
+
+export interface ProjectTaskAttachmentPayload {
+  fileName?: string
+  filePath?: string
+  fileSize?: number
+  mimeType?: string
 }
 
 export interface ProjectVO {
@@ -89,6 +109,7 @@ export interface ProjectTaskSave {
   customerName?: string
   generatedByAi?: boolean
   aiSourceText?: string
+  attachments?: ProjectTaskAttachmentPayload[]
 }
 
 export interface ProjectTaskMove {
