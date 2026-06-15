@@ -388,6 +388,7 @@ import {
   disconnectMailbox,
   getMailAuthStatus,
   getMailMessage,
+  listMailboxSyncLogs,
   markMailRead,
   queryDrafts,
   queryInbox,
@@ -407,12 +408,14 @@ import {
   type MailDraftPayload,
   type MailImapConnectPayload,
   type MailMessage,
+  type MailSyncLog,
   type MailTemplate,
   type MailTemplatePayload,
 } from '@/api/mail'
 
 type MailTab = 'drafts' | 'sent' | 'inbox' | 'templates'
 type AutoSaveState = 'idle' | 'saving' | 'saved' | 'failed'
+const SYNC_STATUS_MAX_LOGS = 5
 
 const { isMobile } = useResponsive()
 
@@ -572,6 +575,12 @@ async function loadActiveTab() {
   const query = {
     page: pagination.page,
     limit: pagination.limit,
+    accountId: authStatus.currentAccount?.accountId,
+    keyword: keyword.value.trim() || undefined,
+  }
+  const templateQuery = {
+    page: pagination.page,
+    limit: pagination.limit,
     keyword: keyword.value.trim() || undefined,
   }
   try {
@@ -588,7 +597,7 @@ async function loadActiveTab() {
       inboxMessages.value = result.list || []
       totalRow.value = result.totalRow || 0
     } else {
-      const result = await queryMailTemplates({ ...query, category: templateCategoryFilter.value || undefined })
+      const result = await queryMailTemplates({ ...templateQuery, category: templateCategoryFilter.value || undefined })
       templates.value = result.list || []
       totalRow.value = result.totalRow || 0
     }
@@ -604,9 +613,49 @@ function handleTabChange() {
 
 async function handleRefresh() {
   if (activeTab.value !== 'templates' && authStatus.currentAccount?.accountId) {
-    await syncMailbox(authStatus.currentAccount.accountId)
+    await syncCurrentMailbox(false)
   }
   await loadActiveTab()
+}
+
+async function syncCurrentMailbox(notifyNoNew: boolean) {
+  const account = authStatus.currentAccount
+  if (!account?.accountId) return false
+
+  const result = await syncMailbox(account.accountId)
+  account.lastSyncStatus = result.status || 'success'
+  account.lastSyncTime = new Date().toISOString()
+  if (result.errorMessage) {
+    account.lastSyncError = result.errorMessage
+  }
+
+  await loadAuthStatus()
+  const latestLog = await findLatestMailboxSyncLog(account.accountId, result.logId)
+  const status = latestLog?.status || result.status
+  const savedCount = latestLog?.savedCount ?? result.savedCount ?? 0
+  const errorMessage = latestLog?.errorMessage || result.errorMessage
+
+  if (status === 'failed') {
+    ElMessage.error(errorMessage || '邮箱同步失败，请稍后重试')
+    return false
+  }
+  if (savedCount > 0) {
+    ElMessage.success(`邮箱同步完成，新增 ${savedCount} 封邮件`)
+  } else if (notifyNoNew) {
+    ElMessage.info('邮箱同步完成，暂无新邮件')
+  }
+  return true
+}
+
+async function findLatestMailboxSyncLog(accountId: string, logId?: string): Promise<MailSyncLog | null> {
+  try {
+    const logs = await listMailboxSyncLogs(accountId, SYNC_STATUS_MAX_LOGS)
+    if (!logs.length) return null
+    if (!logId) return logs[0]
+    return logs.find(log => String(log.logId) === String(logId)) || logs[0]
+  } catch {
+    return null
+  }
 }
 
 function handleCompose() {
@@ -855,7 +904,7 @@ async function handleAccountCommand(command: string) {
     return
   }
   if (command === 'sync' && authStatus.currentAccount?.accountId) {
-    await syncMailbox(authStatus.currentAccount.accountId)
+    await syncCurrentMailbox(true)
     await loadActiveTab()
     return
   }
@@ -869,6 +918,8 @@ async function handleAccountCommand(command: string) {
   if (command.startsWith('default:')) {
     await setDefaultMailbox(command.slice('default:'.length))
     await loadAuthStatus()
+    pagination.page = 1
+    await loadActiveTab()
   }
 }
 
