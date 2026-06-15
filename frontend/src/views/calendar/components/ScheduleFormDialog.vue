@@ -574,7 +574,8 @@ async function handleSaveSchedule() {
   padding: 14px 24px 22px !important;
 }
 
-.el-overlay:has(.schedule-dialog) {
+.el-overlay:has(.schedule-dialog),
+.el-overlay-dialog:has(.schedule-dialog) {
   overflow: hidden;
 }
 </style>

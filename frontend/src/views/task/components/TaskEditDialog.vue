@@ -281,7 +281,8 @@ const participants = computed({
   padding: 14px 24px 22px !important;
 }
 /* Prevent overlay from scrolling — dialog body scrolls internally */
-.el-overlay:has(.task-dialog) {
+.el-overlay:has(.task-dialog),
+.el-overlay-dialog:has(.task-dialog) {
   overflow: hidden;
 }
 
