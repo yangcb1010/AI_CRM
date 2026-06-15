@@ -13,6 +13,7 @@ import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.ai.provider.AiModelCapabilities;
 import com.kakarote.ai_crm.ai.state.PendingCustomerCreationStore;
 import com.kakarote.ai_crm.ai.tools.KnowledgeTools;
+import com.kakarote.ai_crm.ai.tools.support.AiToolExecutionRecorder;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
 import com.kakarote.ai_crm.entity.BO.ChatSendBO;
@@ -41,6 +42,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.io.InputStream;
 import java.net.URI;
@@ -84,6 +86,9 @@ public class ChatServiceImpl implements IChatService {
 
     @Autowired
     private KnowledgeTools knowledgeTools;
+
+    @Autowired
+    private AiToolExecutionRecorder aiToolExecutionRecorder;
 
     private static final int MAX_EXTRACTED_TEXT_LENGTH = 3000;
 
@@ -404,6 +409,7 @@ public class ChatServiceImpl implements IChatService {
         AtomicReference<Integer> completionTokensRef = new AtomicReference<>(0);
         AtomicReference<Integer> totalTokensRef = new AtomicReference<>(0);
         AtomicReference<String> modelNameRef = new AtomicReference<>(null);
+        AtomicReference<AiToolExecutionRecorder.ToolExecution> toolFailureRef = new AtomicReference<>(null);
 
         String unavailableTip = resolveAiUnavailableTip();
         if (unavailableTip != null) {
@@ -422,6 +428,7 @@ public class ChatServiceImpl implements IChatService {
         }
 
         ChatClient chatClient = chatClientProvider.getChatClient();
+        aiToolExecutionRecorder.begin(sessionId);
 
         final String finalSystemPrompt = enhancedSystemPrompt;
         final String finalContent = enhancedContent;
@@ -461,14 +468,29 @@ public class ChatServiceImpl implements IChatService {
                 if (chatResponse.getMetadata() != null && chatResponse.getMetadata().getModel() != null) {
                     modelNameRef.set(chatResponse.getMetadata().getModel());
                 }
+                AiToolExecutionRecorder.ToolExecution latestFailure =
+                    aiToolExecutionRecorder.getLatestFailure(sessionId);
+                if (latestFailure != null) {
+                    toolFailureRef.set(latestFailure);
+                }
             })
             .mapNotNull(chatResponse -> {
+                if (toolFailureRef.get() != null) {
+                    return null;
+                }
                 if (chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null) {
                     return chatResponse.getResult().getOutput().getText();
                 }
                 return null;
             })
+            .concatWith(Mono.defer(() -> {
+                AiToolExecutionRecorder.ToolExecution failure = toolFailureRef.get();
+                return failure == null ? Mono.empty() : Mono.just(buildToolFailureReply(failure));
+            }))
             .doOnComplete(() -> {
+                String responseText = toolFailureRef.get() == null
+                    ? fullResponse.toString()
+                    : buildToolFailureReply(toolFailureRef.get());
                 TokenUsageSnapshot usage = resolveTokenUsage(
                     promptTokensRef.get(),
                     completionTokensRef.get(),
@@ -476,19 +498,26 @@ public class ChatServiceImpl implements IChatService {
                     finalSystemPrompt,
                     history,
                     finalContent,
-                    fullResponse.toString()
+                    responseText
                 );
                 log.debug("AI 对话完成，响应长度: {}, tokens: prompt={}, completion={}, total={}",
-                    fullResponse.length(), usage.promptTokens(), usage.completionTokens(), usage.totalTokens());
-                saveMessage(sessionId, "assistant", fullResponse.toString(),
+                    responseText.length(), usage.promptTokens(), usage.completionTokens(), usage.totalTokens());
+                saveMessage(sessionId, "assistant", responseText,
                     usage.promptTokens(), usage.completionTokens(),
                     usage.totalTokens(), modelNameRef.get());
                 updateSessionTime(sessionId);
                 AiContextHolder.clear();
             })
-            .doOnError(error -> {
+            .onErrorResume(error -> {
                 log.error("AI 对话错误: {}", error.getMessage(), error);
-                saveMessage(sessionId, "assistant", "抱歉，处理您的请求时发生错误。请稍后重试。");
+                String errorMsg = resolveToolFailureReply(sessionId, "抱歉，处理您的请求时发生错误。请稍后重试。");
+                saveMessage(sessionId, "assistant", errorMsg);
+                updateSessionTime(sessionId);
+                AiContextHolder.clear();
+                return Flux.just(errorMsg);
+            })
+            .doFinally(signalType -> {
+                aiToolExecutionRecorder.finish(sessionId);
                 AiContextHolder.clear();
             });
     }
@@ -555,6 +584,7 @@ public class ChatServiceImpl implements IChatService {
 
         try {
             ChatClient chatClient = chatClientProvider.getChatClient();
+            aiToolExecutionRecorder.begin(sessionId);
 
             final String finalSystemPrompt = enhancedSystemPrompt;
             final String finalContent = enhancedContent;
@@ -570,6 +600,7 @@ public class ChatServiceImpl implements IChatService {
 
             var chatResponse = requestSpec.call().chatResponse();
             String response = chatResponse.getResult().getOutput().getText();
+            response = resolveToolFailureReply(sessionId, response);
 
             int promptTokens = 0, completionTokens = 0, totalTokens = 0;
             String modelName = null;
@@ -599,10 +630,11 @@ public class ChatServiceImpl implements IChatService {
 
             return response;
         } catch (Exception e) {
-            String errorMsg = "抱歉，处理您的请求时发生错误。请稍后重试。";
+            String errorMsg = resolveToolFailureReply(sessionId, "抱歉，处理您的请求时发生错误。请稍后重试。");
             saveMessage(sessionId, "assistant", errorMsg);
             return errorMsg;
         } finally {
+            aiToolExecutionRecorder.finish(sessionId);
             AiContextHolder.clear();
         }
     }
@@ -985,6 +1017,20 @@ public class ChatServiceImpl implements IChatService {
         }
 
         return new TokenUsageSnapshot(resolvedPromptTokens, resolvedCompletionTokens, resolvedTotalTokens);
+    }
+
+    private String resolveToolFailureReply(Long sessionId, String modelResponse) {
+        AiToolExecutionRecorder.ToolExecution failure = aiToolExecutionRecorder.getLatestFailure(sessionId);
+        if (failure != null) {
+            return buildToolFailureReply(failure);
+        }
+        return modelResponse;
+    }
+
+    private String buildToolFailureReply(AiToolExecutionRecorder.ToolExecution failure) {
+        String reason = failure == null ? null : failure.errorReason();
+        reason = StrUtil.blankToDefault(reason, "工具调用失败，但未返回具体错误信息。");
+        return "工具调用失败：" + reason;
     }
 
     private int estimatePromptTokens(String systemPrompt, List<Message> history, String currentContent) {
