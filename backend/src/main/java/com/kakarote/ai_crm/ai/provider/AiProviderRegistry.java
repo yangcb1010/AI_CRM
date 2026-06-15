@@ -14,6 +14,10 @@ public final class AiProviderRegistry {
     public static final String DEFAULT_PROVIDER = "dashscope";
 
     private static final Map<String, AiProviderDescriptor> PROVIDERS = new LinkedHashMap<>();
+    private static final Map<String, String> PROVIDER_ALIASES = Map.of(
+            "kimi", "moonshot",
+            "moonshot-ai", "moonshot"
+    );
 
     static {
         register(AiProviderDescriptor.builder()
@@ -23,7 +27,7 @@ public final class AiProviderRegistry {
                 .baseUrl("https://api.openai.com")
                 .completionsPath(null)
                 .embeddingsPath(null)
-                .recommendedModels(List.of("gpt-5.4", "gpt-5.2", "gpt-5-mini", "gpt-5-nano"))
+                .recommendedModels(List.of("gpt-5.2", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"))
                 .modelHint("填写 OpenAI 官方模型名称，例如 gpt-5.4。")
                 .extraHeadersHint("")
                 .defaultCapabilities(defaultCapabilities(true))
@@ -41,19 +45,17 @@ public final class AiProviderRegistry {
                 .completionsPath(null)
                 .embeddingsPath(null)
                 .recommendedModels(List.of(
-                        "qwen3.5-plus",
-                        "qwen3-max-2026-01-23",
-                        "qwen3-coder-next",
-                        "qwen3-coder-plus",
-                        "qwen-plus-latest"
+                        "qwen-plus",
+                        "qwen3-max",
+                        "qwen3.6-plus"
                 ))
-                .modelHint("填写通义千问模型名称，例如 qwen3.5-plus。")
+                .modelHint("填写通义千问模型名称，例如 qwen3.6-plus。")
                 .extraHeadersHint("")
                 .defaultCapabilities(defaultCapabilities(true))
                 .apiUrlKeywords(List.of("dashscope.aliyuncs.com"))
                 .toolCallEnabledKeywords(List.of())
                 .toolCallDisabledKeywords(List.of())
-                .visionEnabledKeywords(List.of("3.5-plus", "vl", "vision", "qvq", "omni"))
+                .visionEnabledKeywords(List.of("qwen3.6-plus", "vl", "vision", "qvq", "omni"))
                 .build());
 
         register(AiProviderDescriptor.builder()
@@ -64,12 +66,10 @@ public final class AiProviderRegistry {
                 .completionsPath(null)
                 .embeddingsPath(null)
                 .recommendedModels(List.of(
-                        "kimi-k2-thinking-turbo",
-                        "kimi-k2-0905-preview",
-                        "kimi-k2-turbo-preview",
-                        "kimi-latest"
+                        "kimi-k2.5",
+                        "kimi-k2.6"
                 ))
-                .modelHint("填写 Kimi 模型名称，例如 kimi-k2-0905-preview。旧版 kimi-thinking-preview 不建议作为 CRM 主模型。")
+                .modelHint("填写 Kimi 模型名称，例如 kimi-k2.6。旧版 kimi-thinking-preview 不建议作为 CRM 主模型。")
                 .extraHeadersHint("")
                 .defaultCapabilities(defaultCapabilities())
                 .apiUrlKeywords(List.of("api.moonshot.cn", "moonshot.cn"))
@@ -88,12 +88,12 @@ public final class AiProviderRegistry {
         register(AiProviderDescriptor.builder()
                 .code("deepseek")
                 .displayName("DeepSeek")
-                .description("DeepSeek 提供与 OpenAI 兼容的接口，推荐使用 deepseek-chat。")
+                .description("DeepSeek 提供与 OpenAI 兼容的接口，推荐使用 deepseek-v4-pro。")
                 .baseUrl("https://api.deepseek.com")
                 .completionsPath("/chat/completions")
                 .embeddingsPath(null)
-                .recommendedModels(List.of("deepseek-chat", "deepseek-reasoner"))
-                .modelHint("填写 DeepSeek 模型名称，例如 deepseek-chat。")
+                .recommendedModels(List.of("deepseek-v4-flash", "deepseek-v4-pro"))
+                .modelHint("填写 DeepSeek 模型名称，例如 deepseek-v4-pro。")
                 .extraHeadersHint("")
                 .defaultCapabilities(defaultCapabilities())
                 .apiUrlKeywords(List.of("api.deepseek.com", "deepseek.com"))
@@ -112,11 +112,7 @@ public final class AiProviderRegistry {
                 .recommendedModels(List.of(
                         "doubao-seed-2-0-pro-260215",
                         "doubao-seed-2-0-lite-260428",
-                        "doubao-seed-2-0-mini-260428",
-                        "doubao-seed-1-8-251228",
-                        "doubao-seed-1-8-32k-251228",
-                        "doubao-seed-code",
-                        "doubao-seed-1-6-251015"
+                        "doubao-seed-2-0-mini-260428"
                 ))
                 .modelHint("填写火山方舟模型 ID 或 Endpoint ID，例如 doubao-seed-2-0-pro-260215。")
                 .extraHeadersHint("")
@@ -221,12 +217,13 @@ public final class AiProviderRegistry {
         if (StrUtil.isBlank(providerCode)) {
             return PROVIDERS.get(DEFAULT_PROVIDER);
         }
-        return PROVIDERS.getOrDefault(providerCode.trim().toLowerCase(), PROVIDERS.get(DEFAULT_PROVIDER));
+        return PROVIDERS.getOrDefault(normalizeProviderCode(providerCode), PROVIDERS.get(DEFAULT_PROVIDER));
     }
 
     public static AiProviderDescriptor resolve(String providerCode, String apiUrl) {
-        if (StrUtil.isNotBlank(providerCode) && PROVIDERS.containsKey(providerCode.trim().toLowerCase())) {
-            return get(providerCode);
+        String normalizedProviderCode = normalizeProviderCode(providerCode);
+        if (StrUtil.isNotBlank(normalizedProviderCode) && PROVIDERS.containsKey(normalizedProviderCode)) {
+            return get(normalizedProviderCode);
         }
         if (StrUtil.isNotBlank(apiUrl)) {
             for (AiProviderDescriptor descriptor : PROVIDERS.values()) {
@@ -235,7 +232,7 @@ public final class AiProviderRegistry {
                 }
             }
         }
-        if (StrUtil.isNotBlank(providerCode)) {
+        if (StrUtil.isNotBlank(normalizedProviderCode)) {
             return get("custom");
         }
         return get(DEFAULT_PROVIDER);
@@ -266,7 +263,11 @@ public final class AiProviderRegistry {
     }
 
     private static String normalizeProviderCode(String providerCode) {
-        return StrUtil.blankToDefault(providerCode, DEFAULT_PROVIDER).trim().toLowerCase();
+        if (StrUtil.isBlank(providerCode)) {
+            return "";
+        }
+        String normalized = providerCode.trim().toLowerCase();
+        return PROVIDER_ALIASES.getOrDefault(normalized, normalized);
     }
 
     private static void register(AiProviderDescriptor descriptor) {

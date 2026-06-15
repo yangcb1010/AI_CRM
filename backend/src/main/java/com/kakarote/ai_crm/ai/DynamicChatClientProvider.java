@@ -109,7 +109,7 @@ public class DynamicChatClientProvider {
     @Value("${spring.ai.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode}")
     private String defaultBaseUrl;
 
-    @Value("${spring.ai.openai.chat.options.model:qwen3.5-plus}")
+    @Value("${spring.ai.openai.chat.options.model:qwen3.6-plus}")
     private String defaultModel;
 
     @Value("${spring.ai.openai.chat.options.temperature:0.7}")
