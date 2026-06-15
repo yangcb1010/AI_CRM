@@ -570,6 +570,97 @@
                         <span>知识库检索</span>
                       </span>
                     </button>
+                    <el-popover
+                      v-model:visible="chatModelPopoverVisible"
+                      placement="top-end"
+                      trigger="click"
+                      :width="300"
+                      :teleported="true"
+                      :disabled="chatStore.modelOptionsLoading"
+                      popper-class="wk-chat-model-popper"
+                    >
+                      <template #reference>
+                        <button
+                          type="button"
+                          class="wk-chat-model-trigger"
+                          :disabled="chatStore.modelOptionsLoading"
+                          :title="`当前模型：${composerModelLabel}`"
+                        >
+                          <span class="wk-chat-model-trigger__icon" aria-hidden="true">
+                            <template v-if="chatStore.selectedModel">
+                              <img
+                                v-if="modelShowImage(chatStore.selectedModel)"
+                                :src="modelIconSrc(chatStore.selectedModel)"
+                                alt=""
+                                class="size-full object-fill"
+                                @error="onModelImageError($event)"
+                              />
+                              <span v-else>{{ selectedModelInitial }}</span>
+                            </template>
+                            <span v-else>{{ selectedModelInitial }}</span>
+                          </span>
+                          <span class="wk-chat-model-trigger__label min-w-0 flex-1 truncate">{{ composerModelLabel }}</span>
+                          <span class="material-symbols-outlined shrink-0 text-[18px] leading-none text-[#8f8f8f]">expand_more</span>
+                        </button>
+                      </template>
+
+                      <div class="wk-chat-model-menu">
+                        <template v-if="modelOptionGroups.length > 0">
+                          <template v-for="group in modelOptionGroups" :key="group.source">
+                            <div v-if="modelOptionGroups.length > 1" class="wk-chat-model-menu__group-label">
+                              {{ group.label }}
+                            </div>
+                            <button
+                              v-for="option in group.options"
+                              :key="chatStore.toModelKey(option)"
+                              type="button"
+                              class="wk-chat-model-menu__item"
+                              @click="handleModelChange(chatStore.toModelKey(option))"
+                            >
+                              <span class="wk-chat-model-menu__logo" aria-hidden="true">
+                                <img
+                                  v-if="modelShowImage(option)"
+                                  :src="modelIconSrc(option)"
+                                  alt=""
+                                  class="size-5 object-fill"
+                                  @error="onModelImageError($event)"
+                                />
+                                <span v-else>{{ modelOptionLabel(option).slice(0, 1) }}</span>
+                              </span>
+                              <span class="min-w-0 flex-1 truncate text-[14px] text-[#0d0d0d]">
+                                {{ modelOptionLabel(option) }}
+                              </span>
+                              <span
+                                class="material-symbols-outlined flex size-5 shrink-0 items-center justify-center text-[20px] leading-none"
+                                :class="chatStore.selectedModelKey === chatStore.toModelKey(option) ? 'text-primary' : 'invisible'"
+                                aria-hidden="true"
+                              >
+                                check
+                              </span>
+                            </button>
+                          </template>
+                        </template>
+                        <button
+                          v-if="canManageAiConfig"
+                          type="button"
+                          class="wk-chat-model-menu__more"
+                          @click="handleOpenMoreModels"
+                        >
+                          <span class="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+                            add_circle
+                          </span>
+                          <span class="min-w-0 flex-1 truncate">
+                            {{ modelOptionGroups.length > 0 ? '管理模型配置' : '配置自建模型' }}
+                          </span>
+                          <span class="material-symbols-outlined text-[18px] leading-none text-[#8f8f8f]" aria-hidden="true">
+                            chevron_right
+                          </span>
+                        </button>
+                        <p v-else-if="modelOptionGroups.length === 0" class="wk-chat-model-menu__empty">
+                          暂无可用模型，请联系管理员配置。
+                        </p>
+                      </div>
+                    </el-popover>
                     <button
                       class="size-10 rounded-xl bg-primary text-white flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
                       :disabled="(!inputText.trim() && selectedFiles.length === 0 && selectedKnowledgeItems.length === 0) || chatStore.currentSessionIsStreaming || isUploading"
@@ -778,8 +869,16 @@ import type { ScheduleVO } from '@/api/schedule'
 import type { AddressBookDetail } from '@/types/addressBook'
 import type { ProductVO } from '@/types/product'
 import type { RelationDetailVO } from '@/types/relation'
-import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO, Knowledge, Task } from '@/types/common'
+import type { ChatSession, ChatAttachmentDTO, ChatAttachmentVO, ChatModelOption, Knowledge, Task } from '@/types/common'
 import type { AiConfig, AiConfigUpdateBO, AiProvider, AiProviderPreset } from '@/types/systemConfig'
+import dashscopeBrandUrl from '@/assets/model-provider-brands/dashscope.svg?url'
+import openaiBrandUrl from '@/assets/model-provider-brands/openai.svg?url'
+import deepseekBrandUrl from '@/assets/model-provider-brands/deepseek.svg?url'
+import moonshotBrandUrl from '@/assets/model-provider-brands/moonshot.svg?url'
+import arkBrandUrl from '@/assets/model-provider-brands/ark.svg?url'
+import hunyuanBrandUrl from '@/assets/model-provider-brands/hunyuan.svg?url'
+import minimaxBrandUrl from '@/assets/model-provider-brands/minimax.svg?url'
+import zhipuBrandUrl from '@/assets/model-provider-brands/zhipu.svg?url'
 
 type ComposerAttachmentPreviewItem =
   | { kind: 'knowledge'; key: string; knowledge: Knowledge }
@@ -799,6 +898,8 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const chatInputRef = ref<HTMLTextAreaElement | null>(null)
 const selectedFiles = ref<File[]>([])
 const selectedKnowledgeItems = ref<Knowledge[]>([])
+const chatModelPopoverVisible = ref(false)
+const chatModelImageLoadFailed = ref<Record<string, boolean>>({})
 const composerAttachmentPreviewItems = computed<ComposerAttachmentPreviewItem[]>(() => {
   const items: ComposerAttachmentPreviewItem[] = []
 
@@ -917,8 +1018,23 @@ const activeQuickActions = computed(() => {
   return quickActions
 })
 
+const modelOptionGroups = computed(() => {
+  const customOptions = chatStore.modelOptions.filter(option => option.modelSource === 'custom')
+  const systemOptions = chatStore.modelOptions.filter(option => option.modelSource !== 'custom')
+  return [
+    { source: 'custom', label: '自建模型', options: customOptions },
+    { source: 'system', label: '系统模型', options: systemOptions }
+  ].filter(group => group.options.length > 0)
+})
+
 const aiReady = computed(() => Boolean(aiConfig.value?.ready))
 const canManageAiConfig = computed(() => userStore.hasPermission('config:ai'))
+const composerModelLabel = computed(() => {
+  if (chatStore.modelOptionsLoading) return '加载模型...'
+  const model = chatStore.selectedModel
+  return model ? modelOptionLabel(model) : '选择模型'
+})
+const selectedModelInitial = computed(() => composerModelLabel.value.slice(0, 1) || '?')
 const aiStatusBadgeText = computed(() => {
   return aiReady.value ? '模型已就绪' : '待配置'
 })
@@ -985,6 +1101,7 @@ const mobileChatHeaderAvatarUrl = computed(() => {
 onMounted(async () => {
   await Promise.all([
     chatStore.fetchApplications(),
+    chatStore.fetchModelOptions(),
     chatStore.fetchSessions(),
     agentStore.fetchEnabledAgents(),
     loadAiConfig()
@@ -1077,6 +1194,14 @@ watch(
   () => {
     userAvatarLoadFailed.value = false
   }
+)
+
+watch(
+  () => chatStore.modelOptions,
+  () => {
+    chatModelImageLoadFailed.value = {}
+  },
+  { deep: true }
 )
 
 watch(
@@ -1297,6 +1422,58 @@ function openApiKeySetup() {
   prepareApiKeySetupModal().then(() => {
     isApiKeyModalOpen.value = true
   })
+}
+
+function modelOptionLabel(option: ChatModelOption): string {
+  return option.displayName || option.modelName
+}
+
+const MODEL_PROVIDER_BRAND_URL: Record<string, string> = {
+  dashscope: dashscopeBrandUrl,
+  openai: openaiBrandUrl,
+  deepseek: deepseekBrandUrl,
+  moonshot: moonshotBrandUrl,
+  ark: arkBrandUrl,
+  arkl: arkBrandUrl,
+  hunyuan: hunyuanBrandUrl,
+  minimax: minimaxBrandUrl,
+  zhipu: zhipuBrandUrl
+}
+
+function providerBrandAssetUrl(provider: string): string | undefined {
+  const id = provider?.trim().toLowerCase()
+  if (!id || !/^[-a-z0-9._]+$/.test(id)) return undefined
+  return MODEL_PROVIDER_BRAND_URL[id]
+}
+
+function modelIconSrc(option: ChatModelOption): string | undefined {
+  const fromApi = option.icon?.trim()
+  if (fromApi) return fromApi
+  return providerBrandAssetUrl(option.provider)
+}
+
+function modelShowImage(option: ChatModelOption): boolean {
+  const src = modelIconSrc(option)
+  if (!src) return false
+  return !chatModelImageLoadFailed.value[src]
+}
+
+function onModelImageError(event: Event) {
+  const target = event.target as HTMLImageElement | null
+  const src = target?.currentSrc || target?.src
+  if (!src) return
+  chatModelImageLoadFailed.value = { ...chatModelImageLoadFailed.value, [src]: true }
+}
+
+function handleModelChange(modelKey: string) {
+  chatStore.setSelectedModelKey(modelKey)
+  chatModelPopoverVisible.value = false
+  void nextTick(() => chatInputRef.value?.focus())
+}
+
+function handleOpenMoreModels() {
+  chatModelPopoverVisible.value = false
+  openApiKeySetup()
 }
 
 async function handleSend() {
@@ -1889,6 +2066,141 @@ function resolveChatAppIcon(code: string): string {
     0 0 18px 8px rgb(203 213 225 / 0.12);
 }
 
+.wk-chat-model-trigger {
+  display: inline-flex;
+  width: min(190px, 28vw);
+  min-width: 132px;
+  height: 40px;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0 10px;
+  color: #0d0d0d;
+  font-size: 13px;
+  line-height: 1;
+  text-align: left;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.wk-chat-model-trigger:hover:not(:disabled) {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.wk-chat-model-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.wk-chat-model-trigger__icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wk-chat-model-trigger__label {
+  display: block;
+}
+
+.wk-chat-model-menu {
+  display: flex;
+  max-height: min(420px, 60vh);
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.wk-chat-model-menu__group-label {
+  padding: 8px 8px 4px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.wk-chat-model-menu__item,
+.wk-chat-model-menu__more {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 9px 10px;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.wk-chat-model-menu__item:hover,
+.wk-chat-model-menu__more:hover {
+  background: #f5f5f5;
+}
+
+.wk-chat-model-menu__logo {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wk-chat-model-menu__more {
+  margin-top: 4px;
+  border-top: 1px solid #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wk-chat-model-menu__empty {
+  margin: 0;
+  padding: 14px 10px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .wk-chat-model-trigger {
+    width: 40px;
+    min-width: 40px;
+    flex: 0 0 40px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .wk-chat-model-trigger__label,
+  .wk-chat-model-trigger > .material-symbols-outlined {
+    display: none;
+  }
+}
+
 .scroll-to-bottom-enter-active,
 .scroll-to-bottom-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -1916,4 +2228,16 @@ function resolveChatAppIcon(code: string): string {
   scroll-padding-top: calc(62px + max(8px, var(--safe-area-inset-top)));
 }
 
+</style>
+
+<style>
+.wk-chat-model-popper.el-popper {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 60px rgb(15 23 42 / 0.16) !important;
+}
+
+.wk-chat-model-popper .el-popper__arrow::before {
+  border-color: #e5e7eb !important;
+}
 </style>
