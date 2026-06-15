@@ -1,4 +1,4 @@
-import { get, post } from '@/utils/request'
+import { download, get, post } from '@/utils/request'
 import type {
   ProjectCreate,
   ProjectAttachmentPayload,
@@ -83,6 +83,23 @@ export function deleteProjectTaskAttachment(
   attachmentId: string
 ): Promise<ProjectVO> {
   return post(`/project/${projectId}/task/${taskId}/attachment/delete/${attachmentId}`)
+}
+
+export function getProjectTaskAttachmentBlob(
+  projectId: string,
+  taskId: string,
+  attachmentId: string
+): Promise<Blob> {
+  return get(`/project/${projectId}/task/${taskId}/attachment/${attachmentId}/download`, { responseType: 'blob' })
+}
+
+export function downloadProjectTaskAttachment(
+  projectId: string,
+  taskId: string,
+  attachmentId: string,
+  filename?: string
+): Promise<void> {
+  return download(`/project/${projectId}/task/${taskId}/attachment/${attachmentId}/download`, filename)
 }
 
 export function moveProjectTask(projectId: string, data: ProjectTaskMove): Promise<ProjectVO> {
