@@ -4553,7 +4553,7 @@ async function handleDeleteSession(sessionId: string) {
 }
 
 async function handlePinChatSession(session: ChatSession) {
-  const nextPinned = session.pinned !== true
+  const nextPinned = !session.pinned
   try {
     await chatStore.setSessionPinned(session.sessionId, nextPinned)
     ElMessage.success(nextPinned ? '已置顶' : '已取消置顶')
@@ -4735,7 +4735,7 @@ function handleGlobalSearchEnter() {
 function navigateToSearchResult(result: GlobalSearchResult) {
   globalSearchKeyword.value = result.title || globalSearchKeyword.value
   closeGlobalSearchDropdown()
-  void router.push(result.routePath || '/chat')
+  void router.push(result.routePath)
 }
 
 function getSearchResultIcon(entityType: GlobalSearchResult['entityType']): WkIconName {
