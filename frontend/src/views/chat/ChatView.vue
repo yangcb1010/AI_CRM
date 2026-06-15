@@ -895,7 +895,7 @@ import { ref, computed, onBeforeUnmount, onMounted, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useAgentStore } from '@/stores/agent'
 import { useUserStore } from '@/stores/user'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
@@ -951,6 +951,7 @@ type ComposerAttachmentPreviewItem =
 const chatStore = useChatStore()
 const agentStore = useAgentStore()
 const userStore = useUserStore()
+const route = useRoute()
 const router = useRouter()
 const { isMobile } = useResponsive()
 
@@ -1004,6 +1005,10 @@ let recordedMimeType = ''
 let skipNextTranscription = false
 let transcriptionToken = 0
 let speechInputBase = ''
+let applyingChatRouteQuery = false
+
+const CHAT_CONTEXT_QUERY_KEYS = ['sessionId', 'customerId', 'employeeId', 'relationId', 'productId'] as const
+type ChatContextQueryKey = (typeof CHAT_CONTEXT_QUERY_KEYS)[number]
 
 const MAX_FILE_COUNT = MAX_CHAT_ATTACHMENT_COUNT
 const DEFAULT_CHAT_AI_CONFIG: AiConfigUpdateBO = {
@@ -1201,6 +1206,7 @@ onMounted(async () => {
     agentStore.fetchEnabledAgents(),
     loadAiConfig()
   ])
+  await applyChatRouteQuery()
 })
 
 onBeforeUnmount(() => {
@@ -1306,6 +1312,13 @@ watch(
     void loadObjectPanelDetail()
   },
   { immediate: true }
+)
+
+watch(
+  () => CHAT_CONTEXT_QUERY_KEYS.map(key => getRouteQueryString(key)).join('|'),
+  () => {
+    void applyChatRouteQuery()
+  }
 )
 
 async function loadObjectPanelDetail() {
@@ -2096,6 +2109,7 @@ function getKnowledgeCardSubtitle(item: Knowledge): string {
 }
 
 async function handleNewSession() {
+  await clearChatContextRouteQuery()
   isPinnedToBottom.value = true
   showScrollToBottomButton.value = false
   chatStore.clearMessages()
@@ -2106,14 +2120,100 @@ async function handleNewSession() {
   }
 }
 
-async function handleSelectSession(sessionId: string) {
-  if (chatStore.currentSessionId === sessionId && currentView.value === 'chat') return
+async function handleSelectSession(sessionId: string, options: { keepRouteQuery?: boolean } = {}) {
+  if (!options.keepRouteQuery) {
+    await clearChatContextRouteQuery()
+  }
+  if (chatStore.currentSessionId === sessionId && currentView.value === 'chat') {
+    activateChatPanel()
+    return
+  }
   isPinnedToBottom.value = true
   showScrollToBottomButton.value = false
   currentView.value = 'chat'
   await chatStore.selectSession(sessionId)
   if (isMobile.value) {
     mobilePanel.value = 'chat'
+  }
+}
+
+function getRouteQueryString(key: ChatContextQueryKey): string {
+  const value = route.query[key]
+  if (typeof value === 'string') return value.trim()
+  if (Array.isArray(value)) return (typeof value[0] === 'string' ? value[0] : '').trim()
+  return ''
+}
+
+function hasChatContextRouteQuery(): boolean {
+  return CHAT_CONTEXT_QUERY_KEYS.some(key => Boolean(getRouteQueryString(key)))
+}
+
+async function clearChatContextRouteQuery() {
+  if (!hasChatContextRouteQuery()) return
+  const query = { ...route.query }
+  CHAT_CONTEXT_QUERY_KEYS.forEach(key => {
+    delete query[key]
+  })
+  await router.replace({ path: route.path, query })
+}
+
+function activateChatPanel() {
+  isPinnedToBottom.value = true
+  showScrollToBottomButton.value = false
+  currentView.value = 'chat'
+  if (isMobile.value) {
+    mobilePanel.value = 'chat'
+  }
+}
+
+function focusComposerWhenReady() {
+  if (!isMobile.value) {
+    chatStore.requestComposerFocus()
+  }
+}
+
+async function applyChatRouteQuery() {
+  if (applyingChatRouteQuery) return
+
+  const sessionId = getRouteQueryString('sessionId')
+  const customerId = getRouteQueryString('customerId')
+  const employeeId = getRouteQueryString('employeeId')
+  const relationId = getRouteQueryString('relationId')
+  const productId = getRouteQueryString('productId')
+
+  if (!sessionId && !customerId && !employeeId && !relationId && !productId) return
+
+  applyingChatRouteQuery = true
+  try {
+    if (sessionId) {
+      if (!chatStore.sessions.some(session => session.sessionId === sessionId)) {
+        await chatStore.fetchSessions()
+      }
+      if (!chatStore.sessions.some(session => session.sessionId === sessionId)) {
+        ElMessage.warning('找不到该对话')
+        await clearChatContextRouteQuery()
+        return
+      }
+      await handleSelectSession(sessionId, { keepRouteQuery: true })
+      focusComposerWhenReady()
+      return
+    }
+
+    activateChatPanel()
+
+    if (customerId) {
+      await chatStore.openCustomerChat({ customerId, companyName: '客户对话' })
+    } else if (employeeId) {
+      await chatStore.openEmployeeChat({ userId: employeeId, realname: '员工' })
+    } else if (relationId) {
+      await chatStore.openRelationChat({ relationId, name: '关系人' })
+    } else if (productId) {
+      await chatStore.openProductChat({ productId, productName: '产品对话' })
+    }
+
+    focusComposerWhenReady()
+  } finally {
+    applyingChatRouteQuery = false
   }
 }
 
