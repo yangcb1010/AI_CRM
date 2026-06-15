@@ -35,6 +35,7 @@ export const useChatStore = defineStore('chat', () => {
   const applications = ref<ChatAppOption[]>([])
   const applicationsLoading = ref(false)
   const currentAppCode = ref('crm')
+  let fetchSessionsPromise: Promise<void> | null = null
 
   // Getters
   const currentSession = computed(() =>
@@ -47,12 +48,21 @@ export const useChatStore = defineStore('chat', () => {
 
   // Actions
   async function fetchSessions() {
-    sessionsLoading.value = true
-    try {
-      sessions.value = await getSessionList()
-    } finally {
-      sessionsLoading.value = false
+    if (fetchSessionsPromise) {
+      return fetchSessionsPromise
     }
+
+    sessionsLoading.value = true
+    fetchSessionsPromise = getSessionList()
+      .then((nextSessions) => {
+        sessions.value = nextSessions
+      })
+      .finally(() => {
+        sessionsLoading.value = false
+        fetchSessionsPromise = null
+      })
+
+    return fetchSessionsPromise
   }
 
   async function fetchApplications() {
