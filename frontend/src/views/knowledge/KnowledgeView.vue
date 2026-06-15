@@ -204,7 +204,7 @@
                   >
                     <div class="flex items-center gap-2">
                       <span class="material-symbols-outlined text-sm text-primary">{{ getTypeIconName(reference.type || '') }}</span>
-                      <span class="max-w-[14rem] truncate text-xs font-bold text-slate-800">{{ reference.name }}</span>
+                      <span class="max-w-[14rem] truncate text-xs font-bold text-slate-800">{{ formatReferenceName(reference.name) }}</span>
                     </div>
                     <div class="mt-2 flex items-center gap-3 text-[11px] text-slate-400">
                       <span>{{ reference.matchPercent ?? 0 }}%</span>
@@ -854,8 +854,16 @@ const selectedFileTypeLabel = computed(() => {
 
 const aiSearchAnswerHtml = computed(() => {
   if (!aiSearchResult.value?.answer) return ''
-  return renderMarkdown(aiSearchResult.value.answer)
+  return renderMarkdown(normalizeAiSearchAnswer(aiSearchResult.value.answer))
 })
+
+function normalizeAiSearchAnswer(answer: string): string {
+  return answer.replace(/(?:\.\.\.|…)+\s*$/, '').trimEnd()
+}
+
+function formatReferenceName(name?: string): string {
+  return String(name || '').replace(/^\d+[_-]+/, '').trim() || '未命名文件'
+}
 
 const visiblePages = computed(() => {
   const total = totalPages.value
