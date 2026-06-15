@@ -17,6 +17,7 @@ import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
 import com.kakarote.ai_crm.entity.VO.CustomerImportPreviewVO;
 import com.kakarote.ai_crm.entity.VO.CustomerImportResultVO;
 import com.kakarote.ai_crm.entity.VO.CustomerListVO;
+import com.kakarote.ai_crm.entity.VO.CustomerLogoUploadVO;
 import com.kakarote.ai_crm.entity.VO.DashboardStatsVO;
 import com.kakarote.ai_crm.service.ICustomerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -157,6 +158,13 @@ public class CustomerController {
     @RequirePermission("customer:import")
     public Result<CustomerImportResultVO> confirmImport(@RequestBody List<CustomerImportBO> rows) {
         return Result.ok(customerService.confirmImport(rows));
+    }
+
+    @PostMapping("/logo/upload")
+    @Operation(summary = "Upload customer logo")
+    @RequirePermission("customer:edit")
+    public Result<CustomerLogoUploadVO> uploadLogo(@RequestParam("file") MultipartFile file) {
+        return Result.ok(customerService.uploadCustomerLogo(file));
     }
 
     @PostMapping("/ai-parse")

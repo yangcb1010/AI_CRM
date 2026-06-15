@@ -24,7 +24,8 @@
           <div class="flex justify-between">
             <div class="flex gap-4 min-w-0">
               <div class="size-14 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
-                <span class="text-2xl font-bold text-slate-400">{{ customer.companyName?.charAt(0) || '?' }}</span>
+                <img v-if="customer.logoUrl" :src="customer.logoUrl" alt="" class="size-full object-cover" />
+                <span v-else class="text-2xl font-bold text-slate-400">{{ customer.companyName?.charAt(0) || '?' }}</span>
               </div>
               <div class="min-w-0 space-y-2">
                 <div class="flex items-center gap-3 flex-wrap">

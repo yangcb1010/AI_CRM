@@ -17,6 +17,7 @@ import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
 import com.kakarote.ai_crm.entity.VO.CustomerImportPreviewVO;
 import com.kakarote.ai_crm.entity.VO.CustomerImportResultVO;
 import com.kakarote.ai_crm.entity.VO.CustomerListVO;
+import com.kakarote.ai_crm.entity.VO.CustomerLogoUploadVO;
 import com.kakarote.ai_crm.entity.VO.DashboardStatsVO;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,6 +58,8 @@ public interface ICustomerService extends IService<Customer> {
     CustomerImportPreviewVO importPreview(MultipartFile file);
 
     CustomerImportResultVO confirmImport(List<CustomerImportBO> rows);
+
+    CustomerLogoUploadVO uploadCustomerLogo(MultipartFile file);
 
     CustomerAiParseVO aiParseCustomer(CustomerAiParseBO parseBO);
 

@@ -37,6 +37,12 @@ public class CustomerListVO {
     @Schema(description = "客户来源")
     private String source;
 
+    @Schema(description = "Logo")
+    private String logo;
+
+    @Schema(description = "Logo URL")
+    private String logoUrl;
+
     @Schema(description = "报价金额")
     private BigDecimal quotation;
 

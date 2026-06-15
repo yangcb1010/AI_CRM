@@ -93,6 +93,40 @@
                         class="w-full wk-crm-el-field-input"
                       />
                     </div>
+                    <div class="md:col-span-2 flex items-center gap-4">
+                      <div class="size-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                        <img v-if="logoPreviewUrl" :src="logoPreviewUrl" alt="" class="size-full object-cover" />
+                        <span v-else class="text-xl font-bold text-slate-400">{{ formData.companyName?.charAt(0) || '?' }}</span>
+                      </div>
+                      <div class="flex items-center gap-2 min-w-0">
+                        <input
+                          ref="logoInputRef"
+                          type="file"
+                          class="hidden"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          @change="handleLogoFileChange"
+                        />
+                        <button
+                          type="button"
+                          class="h-10 px-4 rounded-xl bg-slate-900 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50"
+                          :disabled="logoUploading"
+                          @click="logoInputRef?.click()"
+                        >
+                          <span v-if="logoUploading" class="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                          <span v-else class="material-symbols-outlined text-base">add_photo_alternate</span>
+                          {{ formData.logo ? '更换Logo' : '上传Logo' }}
+                        </button>
+                        <button
+                          v-if="formData.logo"
+                          type="button"
+                          class="size-10 rounded-xl text-slate-500 hover:bg-slate-100 inline-flex items-center justify-center"
+                          title="移除Logo"
+                          @click="clearLogo"
+                        >
+                          <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      </div>
+                    </div>
                     <div class="space-y-1.5">
                       <label class="text-xs font-bold text-slate-500 uppercase ml-1">所属行业</label>
                       <el-input
@@ -231,7 +265,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useResponsive } from '@/composables/useResponsive'
 import { useCustomerStore } from '@/stores/customer'
-import { aiParseCustomer } from '@/api/customer'
+import { aiParseCustomer, uploadCustomerLogo } from '@/api/customer'
 import type { CustomerAiParseVO } from '@/api/customer'
 import { getPresignedUploadUrl, uploadToMinIO } from '@/api/file'
 import { isRequestErrorHandled } from '@/utils/requestError'
@@ -262,6 +296,9 @@ const isEdit = computed(() => props.mode === 'edit')
 const submitting = ref(false)
 const dynamicFieldFormRef = ref<InstanceType<typeof DynamicFieldForm>>()
 const customFieldValues = ref<Record<string, any>>({})
+const logoInputRef = ref<HTMLInputElement | null>(null)
+const logoUploading = ref(false)
+const logoPreviewUrl = ref('')
 
 const formData = reactive<CustomerAddBO>({
   companyName: '',
@@ -270,6 +307,7 @@ const formData = reactive<CustomerAddBO>({
   stage: 'lead',
   source: '',
   website: '',
+  logo: '',
   address: '',
   quotation: undefined,
   remark: '',
@@ -306,11 +344,13 @@ function hydrateFromCustomer() {
     stage: (c?.stage || 'lead') as CustomerStage,
     source: (c?.source || '') as any,
     website: (c?.website || '') as any,
+    logo: (c?.logo || '') as any,
     address: (c?.address || '') as any,
     quotation: (c?.quotation ?? undefined) as any,
     remark: ((c as any)?.remark || '') as any,
     description: (c?.description || '') as any
   })
+  logoPreviewUrl.value = (c?.logoUrl || '') as any
   const pc = getPrimaryContactFromCustomer(c)
   formData.contactName = pc.name || ''
   formData.contactPhone = pc.phone || ''
@@ -326,6 +366,7 @@ function resetAll() {
     stage: 'lead',
     source: '',
     website: '',
+    logo: '',
     address: '',
     quotation: undefined,
     remark: '',
@@ -335,6 +376,7 @@ function resetAll() {
     contactEmail: ''
   })
   customFieldValues.value = {}
+  logoPreviewUrl.value = ''
   aiInputText.value = ''
   aiParsing.value = false
   aiParseResult.value = null
@@ -374,6 +416,34 @@ function removeAiImage() {
   if (aiImagePreview.value) URL.revokeObjectURL(aiImagePreview.value)
   aiImageFile.value = null
   aiImagePreview.value = null
+}
+
+async function handleLogoFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || logoUploading.value) return
+
+  logoUploading.value = true
+  try {
+    const result = await uploadCustomerLogo(file)
+    formData.logo = result.logo
+    logoPreviewUrl.value = result.logoUrl || ''
+    ElMessage.success('Logo上传成功')
+  } catch (error: unknown) {
+    console.error('Upload customer logo failed:', error)
+    if (!isRequestErrorHandled(error)) {
+      const message = error instanceof Error ? error.message : '上传失败'
+      ElMessage.error(message)
+    }
+  } finally {
+    logoUploading.value = false
+  }
+}
+
+function clearLogo() {
+  formData.logo = ''
+  logoPreviewUrl.value = ''
 }
 
 async function handleAiExtract() {

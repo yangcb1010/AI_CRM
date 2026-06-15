@@ -85,6 +85,8 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private static final Set<String> CUSTOMER_LOGO_EXTENSIONS = Set.of(".png", ".jpg", ".jpeg", ".webp", ".gif");
+
     private static final String AI_CUSTOMER_PARSE_PROMPT = """
         你是一个专业的 CRM 助手。请从以下输入（文字描述、名片信息、邮件内容等）中提取客户信息，并进行智能分析。
 
@@ -281,6 +283,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                         }
                     }
                     vo.setCustomFields(customFields);
+                    fillCustomerLogoUrl(vo);
                     return vo;
                 })
                 .collect(Collectors.toList());
@@ -378,6 +381,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         vo.setStage(toStr(row.get("stage")));
         vo.setLevel(toStr(row.get("level")));
         vo.setSource(toStr(row.get("source")));
+        vo.setLogo(toStr(row.get("logo")));
         vo.setQuotation(toBigDecimal(row.get("quotation")));
         vo.setContractAmount(toBigDecimal(row.get("contract_amount")));
         vo.setRevenue(toBigDecimal(row.get("revenue")));
@@ -424,6 +428,25 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         try { return Integer.valueOf(val.toString()); } catch (NumberFormatException e) { return null; }
     }
 
+    private void fillCustomerLogoUrl(CustomerListVO vo) {
+        if (vo == null) {
+            return;
+        }
+        vo.setLogoUrl(resolveFileUrl(vo.getLogo()));
+    }
+
+    private String resolveFileUrl(String filePath) {
+        if (StrUtil.isBlank(filePath)) {
+            return null;
+        }
+        try {
+            return fileStorageService.getUrl(filePath);
+        } catch (Exception e) {
+            log.warn("Resolve customer logo URL failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
     @Override
     public List<Customer> findCustomersByExactCompanyName(String companyName) {
         String normalizedCompanyName = StrUtil.trim(companyName);
@@ -443,7 +466,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         if (ObjectUtil.isNull(detail)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不存在");
         }
-
+        detail.setLogoUrl(resolveFileUrl(detail.getLogo()));
 
         // Get contacts - wrapped in try-catch to prevent failures from breaking the entire API
         try {
@@ -1369,6 +1392,52 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         contact.setIsPrimary(0);
         contact.setStatus(1);
         contactMapper.insert(contact);
+    }
+
+    @Override
+    public CustomerLogoUploadVO uploadCustomerLogo(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Logo image is required");
+        }
+
+        String extension = resolveCustomerLogoExtension(file);
+        if (extension == null) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Only png, jpg, jpeg, webp and gif images are supported");
+        }
+
+        String datePath = DateUtil.format(new Date(), "yyyy/MM/dd");
+        String path = "customer/logo/" + datePath + "/" + UUID.randomUUID().toString().replace("-", "") + extension;
+        String logo = fileStorageService.upload(file, path);
+
+        CustomerLogoUploadVO vo = new CustomerLogoUploadVO();
+        vo.setLogo(logo);
+        vo.setLogoUrl(resolveFileUrl(logo));
+        return vo;
+    }
+
+    private String resolveCustomerLogoExtension(MultipartFile file) {
+        String filename = file.getOriginalFilename();
+        if (StrUtil.isNotBlank(filename)) {
+            int dotIndex = filename.lastIndexOf('.');
+            if (dotIndex >= 0 && dotIndex < filename.length() - 1) {
+                String extension = filename.substring(dotIndex).toLowerCase(Locale.ROOT);
+                if (CUSTOMER_LOGO_EXTENSIONS.contains(extension)) {
+                    return extension;
+                }
+            }
+        }
+
+        String contentType = StrUtil.trim(file.getContentType());
+        if (StrUtil.isBlank(contentType)) {
+            return null;
+        }
+        return switch (contentType.toLowerCase(Locale.ROOT)) {
+            case "image/png" -> ".png";
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            case "image/webp" -> ".webp";
+            case "image/gif" -> ".gif";
+            default -> null;
+        };
     }
 
     @Override

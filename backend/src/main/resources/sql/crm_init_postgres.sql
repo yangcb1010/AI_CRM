@@ -28,6 +28,7 @@ CREATE TABLE crm_customer (
     source VARCHAR(100),
     address VARCHAR(500),
     website VARCHAR(255),
+    logo VARCHAR(500),
     quotation DECIMAL(15,2) DEFAULT 0,
     contract_amount DECIMAL(15,2) DEFAULT 0,
     revenue DECIMAL(15,2) DEFAULT 0,

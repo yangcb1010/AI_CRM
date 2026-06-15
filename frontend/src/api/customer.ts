@@ -107,6 +107,17 @@ export function importCustomerPreview(file: File): Promise<CustomerImportPreview
   return upload('/customer/import/preview', formData)
 }
 
+export interface CustomerLogoUploadVO {
+  logo: string
+  logoUrl?: string
+}
+
+export function uploadCustomerLogo(file: File): Promise<CustomerLogoUploadVO> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return upload('/customer/logo/upload', formData)
+}
+
 /**
  * Confirm import
  */

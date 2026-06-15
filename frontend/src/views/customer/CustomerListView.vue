@@ -169,8 +169,9 @@
               <el-table-column label="公司名称" fixed="left" min-width="240">
                 <template #default="{ row }">
                   <div class="flex items-center gap-3 min-w-0">
-                    <div class="size-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0">
-                      {{ row.companyName?.charAt(0) || '?' }}
+                    <div class="size-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
+                      <img v-if="row.logoUrl" :src="row.logoUrl" alt="" class="size-full object-cover" />
+                      <span v-else>{{ row.companyName?.charAt(0) || '?' }}</span>
                     </div>
                     <span class="text-sm font-semibold text-slate-900 truncate block transition-colors">{{ row.companyName }}</span>
                   </div>
