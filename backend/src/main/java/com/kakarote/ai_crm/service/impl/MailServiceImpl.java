@@ -102,7 +102,9 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -174,6 +176,7 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ConcurrentHashMap<Long, ReentrantLock> accountSyncLocks = new ConcurrentHashMap<>();
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -397,7 +400,7 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
     @Override
     public MailSyncResultVO syncAccount(Long accountId) {
         MailAccount account = loadUserAccount(accountId);
-        return syncAccountInternal(account);
+        return syncAccountWithLock(account);
     }
 
     @Override
@@ -415,7 +418,7 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
                 .last("LIMIT 20"));
         for (MailAccount account : accounts) {
             try {
-                syncAccountInternal(account);
+                syncAccountWithLock(account);
             } catch (Exception e) {
                 log.warn("自动同步邮箱失败: accountId={}, error={}", account.getAccountId(), e.getMessage());
             }
@@ -1011,6 +1014,22 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
             result.setErrorMessage(e.getMessage());
             finishSyncLog(syncLog, result);
             return result;
+        }
+    }
+
+    private MailSyncResultVO syncAccountWithLock(MailAccount account) {
+        if (account == null || account.getAccountId() == null) {
+            return syncAccountInternal(account);
+        }
+        ReentrantLock lock = accountSyncLocks.computeIfAbsent(account.getAccountId(), ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            return syncAccountInternal(account);
+        } finally {
+            lock.unlock();
+            if (!lock.hasQueuedThreads()) {
+                accountSyncLocks.remove(account.getAccountId(), lock);
+            }
         }
     }
 
