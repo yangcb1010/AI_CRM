@@ -1701,7 +1701,7 @@ const showMobileTopChrome = computed(() =>
 )
 const showMobileTopViewportShield = computed(() => showMobileTopChrome.value)
 const showMobileNewSessionAction = computed(() =>
-  showMobileFloatingBar.value && Boolean(chatStore.currentSessionId)
+  showMobileFloatingBar.value && Boolean(chatStore.currentSessionId) && !chatStore.isNewSessionPending
 )
 const mobileChatFloatingActionCount = computed(() =>
   showMobileNewSessionAction.value ? 1 : 0
