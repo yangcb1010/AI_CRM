@@ -186,7 +186,10 @@
     >
       <!-- Chat View -->
       <template v-if="currentView === 'chat'">
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div
+          class="flex-1 flex flex-col overflow-hidden"
+          :class="isCenteredEmptyChat && !isMobile ? 'justify-center -translate-y-[100px]' : ''"
+        >
           <div
             v-if="showDesktopCustomerHeader"
             class="wk-chat-customer-header relative z-20 shrink-0 border-b border-[#ececec] bg-white py-2 pl-4 pr-4 md:pl-8"
@@ -383,12 +386,21 @@
           <!-- Messages Area -->
           <div
             ref="messagesContainer"
-            class="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scroll-smooth pb-4"
-            :class="{ 'wk-chat-messages--mobile-header': showMobileTopChrome }"
+            class="wk-chat-messages scroll-smooth"
+            :class="[
+              chatMessagesAreaClass,
+              {
+                'wk-chat-messages--empty-chat': isCenteredEmptyChat,
+                'wk-chat-messages--mobile-header': showMobileTopChrome,
+                'wk-chat-messages--mobile-floating-actions': showMobileFloatingBar
+              }
+            ]"
             @scroll="handleMessagesScroll"
+            @touchmove.passive="dismissMobileKeyboardForConversationScroll"
           >
+            <div class="wk-chat-messages__inner px-4 md:px-8">
             <!-- Welcome Section (no messages) -->
-            <template v-if="chatStore.messages.length === 0">
+            <template v-if="isChatEmpty && !isObjectContextChat">
               <div class="wk-chat-empty-welcome mx-auto flex max-w-3xl flex-col items-center space-y-5 py-6 text-center">
                 <div class="flex flex-col items-center gap-4 sm:flex-row">
                   <div
@@ -412,7 +424,8 @@
               <div
                 v-for="message in chatStore.messages"
                 :key="message.id"
-                class="wk-chat-message max-w-3xl mx-auto message-enter"
+                class="wk-chat-message mx-auto message-enter"
+                :class="message.role === 'user' ? 'wk-chat-message--user' : 'wk-chat-message--assistant'"
               >
                 <div
                   v-if="getDocumentAttachments(message).length > 0"
@@ -443,12 +456,12 @@
                 </div>
 
                 <!-- AI Message -->
-                <div v-if="message.role !== 'user'" class="group flex gap-4 pb-4 md:gap-5 md:pb-8">
-                  <div class="size-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
+                <div v-if="message.role !== 'user'" class="group flex w-full gap-3 pb-4 md:gap-4 md:pb-8">
+                  <div v-if="false" class="size-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
                     <WkIcon name="ai" class="text-lg" />
                   </div>
                   <div class="flex-1 space-y-3 min-w-0">
-                    <div class="max-w-full text-left text-[15px] leading-7 text-[#0d0d0d]">
+                    <div class="max-w-full text-left text-[16px] leading-7 text-[#0d0d0d]">
                       <div
                         class="wk-markdown"
                         :class="{ 'streaming-cursor': message.isStreaming }"
@@ -491,8 +504,8 @@
                 </div>
 
                 <!-- User Message -->
-                <div v-else class="group flex gap-4 md:gap-5 flex-row-reverse">
-                  <div class="size-9 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
+                <div v-else class="group flex w-full flex-wrap flex-row-reverse pb-0">
+                  <div v-if="false" class="size-9 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
                     <img
                       v-if="showUserAvatarImage"
                       :src="userStore.avatar"
@@ -504,7 +517,7 @@
                       {{ userAvatarFallback }}
                     </span>
                   </div>
-                  <div class="space-y-3 min-w-0" :class="isMobile ? 'max-w-[85%]' : 'max-w-[70%]'">
+                  <div class="min-w-[50px] space-y-3" :class="isMobile ? 'max-w-[88%]' : 'max-w-[72%]'">
                     <div class="rounded-[24px] bg-[#f4f4f4] px-4 py-2.5 text-[15px] leading-7 text-[#0d0d0d]">
                       <div class="whitespace-pre-wrap">{{ message.content || '...' }}</div>
                     </div>
@@ -521,7 +534,7 @@
                         />
                       </div>
                     </div>
-                    <div class="wk-chat-message-actions wk-chat-message-actions--user flex h-8 items-center justify-end gap-2">
+                    <div class="wk-chat-message-actions wk-chat-message-actions--user flex h-8 w-full basis-full items-center justify-end gap-2">
                       <span class="text-xs font-medium text-slate-400">{{ formatTime(message.timestamp) }}</span>
                       <button
                         type="button"
@@ -537,6 +550,7 @@
                 </div>
               </div>
             </template>
+            </div>
           </div>
 
           <Transition name="scroll-to-bottom">
@@ -1277,7 +1291,7 @@ import { appEvents, APP_EVENT } from '@/utils/events'
 import { resolveKnowledgeFileSizeBytes } from '@/utils/formatFileSize'
 import { isRequestErrorHandled } from '@/utils/requestError'
 import { shouldRefocusChatComposerAfterSend } from '@/utils/chatComposerFocus'
-import { registerNativeKeyboardInsetListeners } from '@/utils/capacitorKeyboard'
+import { hideCapacitorKeyboard, registerNativeKeyboardInsetListeners } from '@/utils/capacitorKeyboard'
 import {
   resolveMobileKeyboardInset,
   resolveMobileViewportTopOffset
@@ -1569,6 +1583,9 @@ const currentObjectId = computed(() => {
   if (chatObjectKind.value === 'product') return String(session.productId || '')
   return ''
 })
+const isChatEmpty = computed(() => chatStore.messages.length === 0)
+const isObjectContextChat = computed(() => Boolean(chatObjectKind.value && currentObjectId.value))
+const isCenteredEmptyChat = computed(() => isChatEmpty.value && !isObjectContextChat.value)
 const showDesktopCustomerHeader = computed(() =>
   !isMobile.value && currentView.value === 'chat' && chatObjectKind.value === 'customer' && Boolean(currentObjectId.value)
 )
@@ -1621,6 +1638,11 @@ const mobileTopFixedLayerStyle = computed(() =>
       }
     : undefined
 )
+const chatMessagesAreaClass = computed(() => {
+  if (!isChatEmpty.value) return 'wk-chat-messages--scrollable flex-1 overflow-y-auto pb-4 pt-6 md:pt-8'
+  if (isMobile.value) return 'flex-1 overflow-hidden py-6'
+  return isObjectContextChat.value ? 'flex-1 overflow-hidden py-6' : 'overflow-hidden py-6'
+})
 const mobileChatHeaderKind = computed<'customer' | 'employee' | 'relation' | 'product'>(() => {
   if (chatObjectKind.value === 'employee') return 'employee'
   if (chatObjectKind.value === 'relation') return 'relation'
@@ -2679,6 +2701,14 @@ function applyNativeKeyboardInset(keyboardHeight: number) {
   updateMobileViewportTopOffset()
 }
 
+function dismissMobileKeyboardForConversationScroll() {
+  if (!isMobile.value || !isMobileComposerFocused()) return
+  hideCapacitorKeyboard()
+  chatInputRef.value?.blur()
+  mobileKeyboardInset.value = 0
+  nativeKeyboardInset.value = 0
+}
+
 function clearNativeKeyboardInset() {
   nativeKeyboardInset.value = 0
   scheduleMobileKeyboardInsetUpdate()
@@ -3323,8 +3353,42 @@ function resolveChatAppIcon(code: string): string {
   backdrop-filter: blur(14px);
 }
 
+.wk-chat-messages__inner {
+  min-width: 0;
+  width: 100%;
+}
+
+.wk-chat-messages--scrollable .wk-chat-messages__inner {
+  width: calc(100% + var(--wk-chat-messages-scrollbar-offset, 0px));
+}
+
+.wk-chat-messages--mobile-floating-actions {
+  --wk-mobile-floating-bar-clearance: calc(58px + max(0px, var(--safe-area-inset-top)));
+
+  padding-top: 0 !important;
+  scroll-padding-top: var(--wk-mobile-floating-bar-clearance);
+}
+
+.wk-chat-messages--mobile-floating-actions .wk-chat-messages__inner {
+  padding-top: var(--wk-mobile-floating-bar-clearance);
+}
+
+.wk-chat-messages--empty-chat .wk-chat-messages__inner {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.wk-chat-messages--empty-chat.wk-chat-messages--mobile-floating-actions .wk-chat-messages__inner {
+  align-items: flex-start;
+  padding-top: clamp(220px, 42dvh, 340px);
+}
+
 .wk-chat-message {
   width: min(100%, 768px);
+  min-width: min(100%, 468px);
+  max-width: 768px;
   overflow-wrap: anywhere;
 }
 
@@ -3332,6 +3396,11 @@ function resolveChatAppIcon(code: string): string {
 .wk-chat-message-actions--user {
   position: relative;
   z-index: 0;
+}
+
+.wk-chat-message--user :deep(.rounded-\[24px\]) {
+  background-color: var(--wk-bg-surface-muted) !important;
+  color: var(--wk-text-primary) !important;
 }
 
 .wk-chat-message :deep(.wk-markdown) {
