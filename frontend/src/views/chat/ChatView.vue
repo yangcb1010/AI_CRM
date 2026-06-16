@@ -511,7 +511,7 @@
                           :src="att.accessUrl"
                           :preview-src-list="[att.accessUrl]"
                           fit="cover"
-                          class="rounded-xl max-h-[220px] border border-[#e5e5e5]"
+                          class="max-h-[220px] rounded-2xl border border-[#e5e5e5]"
                           :class="isMobile ? 'max-w-[200px]' : 'max-w-[300px]'"
                           lazy
                         />
@@ -564,7 +564,7 @@
                           :src="att.accessUrl"
                           :preview-src-list="[att.accessUrl]"
                           fit="cover"
-                          class="rounded-xl max-h-[220px] border border-[#e5e5e5]"
+                          class="max-h-[220px] rounded-2xl border border-[#e5e5e5]"
                           :class="isMobile ? 'max-w-[200px]' : 'max-w-[300px]'"
                           lazy
                         />

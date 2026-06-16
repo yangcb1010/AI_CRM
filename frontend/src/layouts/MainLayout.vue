@@ -4550,8 +4550,7 @@ async function handleDeleteSession(sessionId: string) {
 }
 
 async function handlePinChatSession(session: ChatSession) {
-  const currentPinned = Boolean(session.pinned)
-  const nextPinned = !currentPinned
+  const nextPinned = !session.pinned
   try {
     await chatStore.setSessionPinned(session.sessionId, nextPinned)
     ElMessage.success(nextPinned ? '已置顶' : '已取消置顶')
