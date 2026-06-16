@@ -55,20 +55,7 @@
     />
 
     <!-- Internal Sidebar: Chat History -->
-    <aside
-      v-if="!isMobile || mobilePanel === 'sessions'"
-      :class="isMobile ? 'flex-1 flex flex-col bg-slate-50/50' : 'w-72 border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0'"
-    >
-      <div class="p-6 pb-2">
-        <button
-          class="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 transition-all"
-          @click="handleNewSession"
-        >
-          <span class="material-symbols-outlined wk-plus-button-icon">add</span>
-          开启新对话
-        </button>
-      </div>
-
+    <aside v-if="isMobile && mobilePanel === 'sessions'" class="flex flex-1 flex-col bg-slate-50/50">
       <!-- System Notifications Menu Item -->
       <!-- <div class="px-3 py-4">
         <button
@@ -87,11 +74,8 @@
         </button>
       </div> -->
 
-      <!-- Divider -->
-      <div class="mx-6 h-px bg-slate-100 mb-4"></div>
-
       <!-- Session List -->
-      <div class="flex-1 overflow-y-auto px-3 space-y-1">
+      <div class="flex-1 overflow-y-auto px-3 pt-4 space-y-1">
         <p class="px-3 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">最近对话</p>
 
         <div v-if="chatStore.sessionsLoading && chatStore.sessions.length === 0" class="flex justify-center py-8">
@@ -121,15 +105,6 @@
                   :class="isSessionActive(session.sessionId) ? 'text-primary' : 'text-slate-700'"
                   :title="session.title || '新对话'"
                 >{{ session.title || '新对话' }}</span>
-                <span
-                  class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none transition-all"
-                  :class="session.pinned
-                    ? 'text-primary opacity-100'
-                    : isSessionActive(session.sessionId)
-                      ? 'text-slate-400 opacity-100 hover:text-primary'
-                      : 'pointer-events-none text-slate-300 opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 hover:text-primary'"
-                  @click.stop="handleToggleSessionPin(session)"
-                >push_pin</span>
                 <span
                   class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none text-slate-300 transition-all"
                   :class="isSessionActive(session.sessionId)
@@ -161,15 +136,6 @@
                   :title="session.title || '新对话'"
                 >{{ session.title || '新对话' }}</span>
                 <span
-                  class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none transition-all"
-                  :class="session.pinned
-                    ? 'text-primary opacity-100'
-                    : isSessionActive(session.sessionId)
-                      ? 'text-slate-400 opacity-100 hover:text-primary'
-                      : 'pointer-events-none text-slate-300 opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 hover:text-primary'"
-                  @click.stop="handleToggleSessionPin(session)"
-                >push_pin</span>
-                <span
                   class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none text-slate-300 transition-all"
                   :class="isSessionActive(session.sessionId)
                     ? 'pointer-events-auto opacity-100'
@@ -200,15 +166,6 @@
                   :title="session.title || '新对话'"
                 >{{ session.title || '新对话' }}</span>
                 <span
-                  class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none transition-all"
-                  :class="session.pinned
-                    ? 'text-primary opacity-100'
-                    : isSessionActive(session.sessionId)
-                      ? 'text-slate-400 opacity-100 hover:text-primary'
-                      : 'pointer-events-none text-slate-300 opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 hover:text-primary'"
-                  @click.stop="handleToggleSessionPin(session)"
-                >push_pin</span>
-                <span
                   class="material-symbols-outlined inline-flex w-5 shrink-0 items-center justify-center text-[14px] leading-none text-slate-300 transition-all"
                   :class="isSessionActive(session.sessionId)
                     ? 'pointer-events-auto opacity-100'
@@ -222,44 +179,12 @@
         </template>
       </div>
 
-      <!-- AI Service Status -->
-      <div class="p-4 border-t border-slate-100">
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
-          <div
-            class="flex items-center justify-between gap-3 mb-3"
-          >
-            <p class="text-xs font-bold uppercase tracking-widest text-slate-400">AI 服务</p>
-            <span
-              class="inline-flex rounded-full px-2 py-1 text-[11px] font-bold"
-              :class="aiStatusBadgeClass"
-            >
-              {{ aiStatusBadgeText }}
-            </span>
-          </div>
-
-          <div class="flex gap-2">
-            <button
-              class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50"
-              @click="goToAiSettings"
-            >
-              AI 设置
-            </button>
-            <button
-              class="flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!canManageAiConfig"
-              @click="openApiKeySetup"
-            >
-              配置 AI 服务
-            </button>
-          </div>
-        </div>
-      </div>
     </aside>
 
     <!-- Main Area -->
     <div
       v-if="!isMobile || mobilePanel === 'chat'"
-      class="flex-1 flex flex-col relative bg-white overflow-hidden"
+      class="flex-1 min-w-0 flex flex-col relative bg-white overflow-hidden"
     >
       <!-- Chat View -->
       <template v-if="currentView === 'chat'">
@@ -1491,7 +1416,6 @@ const modelOptionGroups = computed(() => {
   ].filter(group => group.options.length > 0)
 })
 
-const aiReady = computed(() => Boolean(aiConfig.value?.ready))
 const canManageAiConfig = computed(() => userStore.hasPermission('config:ai'))
 const composerModelLabel = computed(() => {
   if (chatStore.modelOptionsLoading) return '加载模型...'
@@ -1519,14 +1443,6 @@ const sendActionTitle = computed(() => {
   if (isRecording.value) return '点击结束录音'
   if (!hasComposerSendPayload.value) return '使用语音输入'
   return '发送'
-})
-const aiStatusBadgeText = computed(() => {
-  return aiReady.value ? '模型已就绪' : '待配置'
-})
-const aiStatusBadgeClass = computed(() => {
-  return aiReady.value
-    ? 'bg-blue-50 text-blue-600'
-    : 'bg-slate-100 text-slate-500'
 })
 const showUserAvatarImage = computed(() => Boolean(userStore.avatar) && !userAvatarLoadFailed.value)
 const userAvatarFallback = computed(() => (userStore.realname || userStore.username || 'U').charAt(0).toUpperCase())
@@ -2179,10 +2095,6 @@ async function handleSaveApiKey(payload: AiConfigUpdateBO) {
   } finally {
     savingApiKey.value = false
   }
-}
-
-function goToAiSettings() {
-  router.push('/settings/system/api')
 }
 
 function openApiKeySetup() {
@@ -3073,17 +2985,6 @@ async function handleDeleteSession(sessionId: string) {
     ElMessage.success('对话已删除')
   } catch {
     // User cancelled
-  }
-}
-
-async function handleToggleSessionPin(session: ChatSession) {
-  try {
-    await chatStore.setSessionPinned(session.sessionId, session.pinned !== true)
-  } catch (error: unknown) {
-    console.error('Toggle chat session pin failed:', error)
-    if (!isRequestErrorHandled(error)) {
-      ElMessage.error('操作失败，请稍后重试')
-    }
   }
 }
 
