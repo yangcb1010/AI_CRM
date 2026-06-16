@@ -36,6 +36,17 @@
             >
               <span class="material-symbols-outlined text-[20px] leading-none">edit_square</span>
             </button>
+            <span v-if="showMobileNewSessionAction && showMobileObjectDetailAction" class="wk-mobile-chat-actions__divider" aria-hidden="true"></span>
+            <button
+              v-if="showMobileObjectDetailAction"
+              type="button"
+              class="wk-mobile-chat-actions__btn"
+              :aria-label="mobileObjectDetailTitle"
+              :title="mobileObjectDetailTitle"
+              @click="openMobileObjectDetail"
+            >
+              <span class="material-symbols-outlined text-[24px] leading-none">more_horiz</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1703,8 +1714,11 @@ const showMobileTopViewportShield = computed(() => showMobileTopChrome.value)
 const showMobileNewSessionAction = computed(() =>
   showMobileFloatingBar.value && Boolean(chatStore.currentSessionId) && !chatStore.isNewSessionPending
 )
+const showMobileObjectDetailAction = computed(() =>
+  showMobileFloatingBar.value && isObjectContextChat.value && currentView.value === 'chat' && mobilePanel.value === 'chat'
+)
 const mobileChatFloatingActionCount = computed(() =>
-  showMobileNewSessionAction.value ? 1 : 0
+  (showMobileNewSessionAction.value ? 1 : 0) + (showMobileObjectDetailAction.value ? 1 : 0)
 )
 const showMobileChatFloatingActions = computed(() => mobileChatFloatingActionCount.value > 0)
 const effectiveMobileKeyboardInset = computed(() => Math.max(
@@ -3825,6 +3839,12 @@ function resolveChatAppIcon(code: string): string {
 
 .wk-mobile-chat-actions__btn:hover {
   background: rgb(13 13 13 / 0.05);
+}
+
+.wk-mobile-chat-actions__divider {
+  width: 1px;
+  height: 22px;
+  background: rgb(13 13 13 / 0.08);
 }
 
 .wk-mobile-object-detail {
