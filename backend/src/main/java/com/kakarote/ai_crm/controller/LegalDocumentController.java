@@ -36,7 +36,8 @@ public class LegalDocumentController {
 
     @GetMapping(value = "/{type}", produces = "text/plain;charset=UTF-8")
     public ResponseEntity<String> getLegalDocument(@PathVariable String type) {
-        HttpRequest request = HttpRequest.newBuilder(resolveDocumentUri(type))
+        URI documentUri = resolveDocumentUri(type);
+        HttpRequest request = HttpRequest.newBuilder(documentUri)
                 .timeout(REQUEST_TIMEOUT)
                 .GET()
                 .build();
@@ -44,17 +45,18 @@ public class LegalDocumentController {
         try {
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Legal document loading failed");
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "法律文档加载失败");
             }
+
             return ResponseEntity.ok()
                     .contentType(UTF8_TEXT)
                     .cacheControl(CacheControl.maxAge(30, TimeUnit.MINUTES).cachePublic())
                     .body(new String(response.body(), StandardCharsets.UTF_8));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Legal document loading interrupted", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "法律文档加载被中断", e);
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Legal document loading failed", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "法律文档加载失败", e);
         }
     }
 
@@ -63,7 +65,7 @@ public class LegalDocumentController {
         return switch (normalizedType) {
             case "agreement" -> URI.create(AGREEMENT_URL);
             case "privacy" -> URI.create(PRIVACY_URL);
-            default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Legal document not found");
+            default -> throw new ResponseStatusException(HttpStatus.NOT_FOUND, "法律文档不存在");
         };
     }
 }
