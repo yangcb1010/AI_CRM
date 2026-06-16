@@ -922,6 +922,87 @@
       </div>
     </aside>
 
+    <Teleport to="body">
+      <Transition name="wk-mobile-object-detail">
+        <div
+          v-if="mobileObjectDetailOpen && isMobile"
+          class="wk-mobile-object-detail"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wk-mobile-object-detail-title"
+        >
+          <button
+            type="button"
+            class="wk-mobile-object-detail__backdrop"
+            aria-label="关闭详情"
+            @click="closeMobileObjectDetail"
+          ></button>
+          <section class="wk-mobile-object-detail__sheet">
+            <header class="wk-mobile-object-detail__header">
+              <span class="wk-mobile-object-detail__handle" aria-hidden="true"></span>
+              <div class="wk-mobile-object-detail__title-row">
+                <p id="wk-mobile-object-detail-title" class="wk-mobile-object-detail__title">
+                  {{ mobileObjectDetailTitle }}
+                </p>
+                <button
+                  type="button"
+                  class="wk-mobile-object-detail__close"
+                  aria-label="关闭详情"
+                  @click="closeMobileObjectDetail"
+                >
+                  <span class="material-symbols-outlined text-[24px] leading-none">close</span>
+                </button>
+              </div>
+            </header>
+            <div class="wk-mobile-object-detail__body">
+              <div v-if="mobileObjectPanelLoading" class="flex h-full items-center justify-center text-slate-300">
+                <span class="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
+              </div>
+              <div v-else-if="objectPanelError" class="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
+                {{ objectPanelError }}
+              </div>
+              <CustomerChatInfoPanel
+                v-else-if="chatObjectKind === 'customer' && currentObjectId"
+                :customer-id="currentObjectId"
+              />
+              <EmployeeChatInfoPanel
+                v-else-if="chatObjectKind === 'employee' && employeeDetail"
+                :employee="employeeDetail"
+                @add-task="handleMobileObjectAddTask"
+                @add-schedule="handleMobileObjectAddSchedule"
+                @add-attachment="handleMobileObjectAddAttachment"
+                @view-task="handleMobileObjectViewTask"
+                @view-schedule="handleMobileObjectViewSchedule"
+                @view-attachment="handleMobileObjectViewAttachment"
+              />
+              <RelationChatInfoPanel
+                v-else-if="chatObjectKind === 'relation' && relationDetail"
+                :detail="relationDetail"
+                @add-task="handleMobileObjectAddTask"
+                @add-schedule="handleMobileObjectAddSchedule"
+                @add-attachment="handleMobileObjectAddAttachment"
+                @view-task="handleMobileObjectViewTask"
+                @view-schedule="handleMobileObjectViewSchedule"
+                @view-attachment="handleMobileObjectViewAttachment"
+              />
+              <ProductChatInfoPanel
+                v-else-if="chatObjectKind === 'product' && productDetail"
+                :product="productDetail"
+                @edit="handleMobileObjectEditProduct"
+              />
+              <div v-else class="flex h-full flex-col items-center justify-center px-6 text-center">
+                <div class="mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#f5f5f5] text-slate-400">
+                  <span class="material-symbols-outlined text-[24px] leading-none">info</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-700">暂无详情</p>
+                <p class="mt-1 text-xs leading-relaxed text-slate-400">资料加载后会在这里展示。</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </Transition>
+    </Teleport>
+
     <ApiKeySetupModal
       :model-value="isApiKeyModalOpen"
       :loading="savingApiKey"
@@ -1057,6 +1138,7 @@ const relationDetail = ref<RelationDetailVO | null>(null)
 const productDetail = ref<ProductVO | null>(null)
 const objectPanelLoading = ref(false)
 const objectPanelError = ref('')
+const mobileObjectDetailOpen = ref(false)
 let objectDetailRequestId = 0
 let mediaRecorder: MediaRecorder | null = null
 let mediaStream: MediaStream | null = null
@@ -1298,6 +1380,16 @@ const mobileChatHeaderAvatarUrl = computed(() => {
   if (chatObjectKind.value === 'product') return productDetail.value?.mainImageUrl || session?.productImageUrl || ''
   return ''
 })
+const mobileObjectPanelLoading = computed(() =>
+  chatObjectKind.value !== 'customer' && objectPanelLoading.value
+)
+const mobileObjectDetailTitle = computed(() => {
+  if (chatObjectKind.value === 'customer') return '客户详情'
+  if (chatObjectKind.value === 'employee') return '通讯录详情'
+  if (chatObjectKind.value === 'relation') return '关系详情'
+  if (chatObjectKind.value === 'product') return '产品详情'
+  return '对象详情'
+})
 
 onMounted(async () => {
   registerMobileKeyboardInsetListeners()
@@ -1426,6 +1518,15 @@ watch(
     void loadObjectPanelDetail()
   },
   { immediate: true }
+)
+
+watch(
+  () => [isMobile.value, chatObjectKind.value, currentObjectId.value] as const,
+  ([mobile, kind, id]) => {
+    if (!mobile || !kind || !id) {
+      closeMobileObjectDetail()
+    }
+  }
 )
 
 watch(
@@ -2552,20 +2653,50 @@ function openMobileObjectDetail() {
   const id = currentObjectId.value
   if (!id) return
 
-  if (chatObjectKind.value === 'customer') {
-    void router.push(`/customer/${id}`)
-    return
-  }
-  if (chatObjectKind.value === 'relation') {
-    void router.push({ path: '/relation', query: { openRelationId: id } })
-    return
-  }
-  if (chatObjectKind.value === 'product') {
-    void router.push({ path: '/product', query: { openProductId: id } })
-    return
-  }
+  mobileObjectDetailOpen.value = true
 
-  void router.push('/address-book')
+  if (chatObjectKind.value !== 'customer' && !objectPanelLoading.value) {
+    void loadObjectPanelDetail()
+  }
+}
+
+function closeMobileObjectDetail() {
+  mobileObjectDetailOpen.value = false
+}
+
+function handleMobileObjectAddTask() {
+  closeMobileObjectDetail()
+  handleObjectAddTask()
+}
+
+function handleMobileObjectAddSchedule() {
+  closeMobileObjectDetail()
+  handleObjectAddSchedule()
+}
+
+function handleMobileObjectAddAttachment() {
+  closeMobileObjectDetail()
+  handleObjectAddAttachment()
+}
+
+function handleMobileObjectViewTask(task: Task) {
+  closeMobileObjectDetail()
+  handleObjectViewTask(task)
+}
+
+function handleMobileObjectViewSchedule(schedule: ScheduleVO) {
+  closeMobileObjectDetail()
+  handleObjectViewSchedule(schedule)
+}
+
+function handleMobileObjectViewAttachment(attachment: Knowledge) {
+  closeMobileObjectDetail()
+  handleObjectViewAttachment(attachment)
+}
+
+function handleMobileObjectEditProduct(product: ProductVO) {
+  closeMobileObjectDetail()
+  handleObjectEditProduct(product)
 }
 
 function handleObjectAddTask() {
@@ -2852,6 +2983,120 @@ function resolveChatAppIcon(code: string): string {
 
 .wk-mobile-chat-actions__btn:hover {
   background: rgb(13 13 13 / 0.05);
+}
+
+.wk-mobile-object-detail {
+  position: fixed;
+  inset: 0;
+  z-index: 3400;
+  pointer-events: auto;
+}
+
+.wk-mobile-object-detail__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgb(0 0 0 / 0.18);
+  backdrop-filter: blur(1px);
+}
+
+.wk-mobile-object-detail__sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: min(84dvh, calc(100dvh - max(16px, var(--safe-area-inset-top))));
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 28px 28px 0 0;
+  background: var(--wk-bg-surface, #fff);
+  box-shadow: 0 -18px 55px rgb(15 23 42 / 0.18);
+}
+
+.wk-mobile-object-detail__header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--wk-border-subtle, #ececec);
+  background: color-mix(in srgb, var(--wk-bg-surface, #fff) 96%, transparent);
+  padding: 12px 16px 14px;
+}
+
+.wk-mobile-object-detail__handle {
+  display: block;
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 10px;
+  border-radius: 9999px;
+  background: #d1d5db;
+}
+
+.wk-mobile-object-detail__title-row {
+  display: flex;
+  min-height: 44px;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.wk-mobile-object-detail__title {
+  min-width: 0;
+  flex: 1;
+  color: var(--wk-text-primary, #0d0d0d);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.wk-mobile-object-detail__close {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #f1f1f1;
+  color: #0d0d0d;
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+.wk-mobile-object-detail__close:active {
+  transform: scale(0.94);
+}
+
+.wk-mobile-object-detail__body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding-bottom: max(20px, var(--safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.wk-mobile-object-detail__body :deep(aside) {
+  width: 100% !important;
+  border-left: 0;
+}
+
+.wk-mobile-object-detail-enter-active,
+.wk-mobile-object-detail-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.wk-mobile-object-detail-enter-from,
+.wk-mobile-object-detail-leave-to {
+  opacity: 0;
+}
+
+.wk-mobile-object-detail-enter-active .wk-mobile-object-detail__sheet,
+.wk-mobile-object-detail-leave-active .wk-mobile-object-detail__sheet {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wk-mobile-object-detail-enter-from .wk-mobile-object-detail__sheet,
+.wk-mobile-object-detail-leave-to .wk-mobile-object-detail__sheet {
+  transform: translateY(100%);
 }
 
 .wk-scroll-to-bottom-button {
