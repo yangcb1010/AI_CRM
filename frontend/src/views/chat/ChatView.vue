@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full" :class="{ 'flex-col': isMobile }">
+  <div ref="chatViewRef" class="relative flex h-full" :class="{ 'flex-col': isMobile }">
     <Teleport to="body">
       <div
         v-if="showMobileTopViewportShield"
@@ -182,6 +182,7 @@
     <!-- Main Area -->
     <div
       v-if="!isMobile || mobilePanel === 'chat'"
+      ref="chatMainAreaRef"
       class="wk-chat-shell flex-1 min-w-0 flex flex-col relative overflow-hidden"
     >
       <!-- Chat View -->
@@ -194,7 +195,7 @@
             v-if="showDesktopCustomerHeader"
             class="wk-chat-customer-header relative z-20 shrink-0 border-b border-[#ececec] bg-white py-2 pl-4 pr-4 md:pl-8"
           >
-            <div class="flex h-9 w-full items-center justify-between gap-3">
+            <div class="flex h-9 w-full items-center justify-between gap-3 pr-10">
               <div class="flex min-w-0 flex-1 items-center gap-2">
                 <div class="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                   <img
@@ -342,13 +343,29 @@
                 </span>
               </div>
             </div>
+            <button
+              v-if="showObjectPanelShell && customerPanelVisible"
+              type="button"
+              class="group/sb-toggle absolute right-4 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#efefef]"
+              aria-label="收起对象侧栏"
+              title="收起对象侧栏"
+              @click="customerPanelVisible = false"
+            >
+              <WkIcon name="fold" :size="18" class="shrink-0" />
+              <span
+                class="pointer-events-none absolute right-full top-1/2 z-[200] mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black px-3 py-1.5 text-[13px] font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover/sb-toggle:opacity-100"
+                role="tooltip"
+              >
+                收起对象侧栏
+              </span>
+            </button>
           </div>
 
           <div
             v-else-if="showDesktopObjectHeader"
             class="wk-chat-customer-header relative z-20 shrink-0 border-b border-[#ececec] bg-white py-2 pl-4 pr-4 md:pl-8"
           >
-            <div class="flex h-9 w-full items-center justify-between gap-3">
+            <div class="flex h-9 w-full items-center justify-between gap-3 pr-10">
               <div class="flex min-w-0 flex-1 items-center gap-2">
                 <div class="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                   <img
@@ -381,6 +398,22 @@
                 </span>
               </div>
             </div>
+            <button
+              v-if="showObjectPanelShell && customerPanelVisible"
+              type="button"
+              class="group/sb-toggle absolute right-4 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#efefef]"
+              aria-label="收起对象侧栏"
+              title="收起对象侧栏"
+              @click="customerPanelVisible = false"
+            >
+              <WkIcon name="fold" :size="18" class="shrink-0" />
+              <span
+                class="pointer-events-none absolute right-full top-1/2 z-[200] mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black px-3 py-1.5 text-[13px] font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover/sb-toggle:opacity-100"
+                role="tooltip"
+              >
+                收起对象侧栏
+              </span>
+            </button>
           </div>
 
           <!-- Messages Area -->
@@ -575,7 +608,7 @@
             class="shrink-0 p-4 md:p-8 bg-gradient-to-t from-white via-white to-transparent"
             :style="chatComposerWrapStyle"
           >
-            <div class="max-w-4xl mx-auto space-y-4">
+            <div class="max-w-4xl mx-auto space-y-4" :style="chatComposerShellStyle">
               <div v-if="chatStore.appOptions.length > 0" class="flex flex-wrap gap-2 justify-center">
                 <button
                   v-for="app in chatStore.appOptions"
@@ -1097,10 +1130,37 @@
       </template>
     </div>
 
-    <aside
-      v-if="showDesktopObjectPanel"
-      class="hidden w-[360px] shrink-0 border-l border-slate-100 bg-white lg:flex lg:flex-col"
+    <button
+      v-if="showObjectPanelShell && !customerPanelVisible"
+      type="button"
+      class="group/sb-toggle absolute right-3 top-3 z-30 flex size-8 items-center justify-center rounded-lg text-[#8f8f8f] transition-colors hover:bg-[#efefef]"
+      aria-label="展开对象侧栏"
+      title="展开对象侧栏"
+      @click="customerPanelVisible = true"
     >
+      <WkIcon name="fold" :size="18" class="shrink-0" />
+      <span
+        class="pointer-events-none absolute right-full top-1/2 z-[200] mr-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black px-3 py-1.5 text-[13px] font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover/sb-toggle:opacity-100"
+        role="tooltip"
+      >
+        展开对象侧栏
+      </span>
+    </button>
+
+    <aside
+      v-if="showObjectPanelShell && customerPanelVisible"
+      class="wk-chat-customer-panel relative flex shrink-0 flex-col border-l"
+      :class="{ 'select-none': customerPanelResizing }"
+      :style="customerPanelStyle"
+    >
+      <div
+        class="group absolute bottom-0 left-0 top-0 z-20 w-3 cursor-col-resize transition-colors hover:bg-[#0d0d0d0d]"
+        aria-label="拖拽调整宽度"
+        title="拖拽调整宽度"
+        @mousedown="startCustomerPanelResize"
+      >
+        <span class="absolute left-0 top-1/2 h-10 w-px -translate-y-1/2 bg-transparent transition-colors group-hover:bg-[#cfcfcf]"></span>
+      </div>
       <div v-if="objectPanelLoading" class="flex flex-1 items-center justify-center text-slate-400">
         <span class="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
       </div>
@@ -1345,6 +1405,8 @@ const router = useRouter()
 const { isMobile } = useResponsive()
 
 const inputText = ref('')
+const chatViewRef = ref<HTMLElement | null>(null)
+const chatMainAreaRef = ref<HTMLElement | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
 const showScrollToBottomButton = ref(false)
 const mobileKeyboardInset = ref(0)
@@ -1401,6 +1463,9 @@ const selectedCustomerTagSubmitting = ref(false)
 const objectPanelLoading = ref(false)
 const objectPanelError = ref('')
 const mobileObjectDetailOpen = ref(false)
+const customerPanelVisible = ref(true)
+const customerPanelWidth = ref(380)
+const customerPanelResizing = ref(false)
 let objectDetailRequestId = 0
 let customerDetailRequestId = 0
 let offSelectedCustomerDetailRefresh: (() => void) | null = null
@@ -1413,6 +1478,11 @@ let transcriptionToken = 0
 let speechInputBase = ''
 let applyingChatRouteQuery = false
 let composerAttachmentScrollResizeObserver: ResizeObserver | null = null
+let customerPanelResizeObserver: ResizeObserver | null = null
+let chatMainAreaResizeObserver: ResizeObserver | null = null
+let chatMessagesResizeObserver: ResizeObserver | null = null
+let lastChatComposerNarrow: boolean | null = null
+let lastChatComposerWidth = 0
 let mobileKeyboardInsetTimer: ReturnType<typeof setTimeout> | null = null
 let removeNativeKeyboardInsetListeners: (() => void) | null = null
 
@@ -1431,6 +1501,9 @@ const DEFAULT_CHAT_AI_CONFIG: AiConfigUpdateBO = {
 const SCROLL_TO_BOTTOM_THRESHOLD_PX = 100
 const MOBILE_KEYBOARD_INSET_GAP_PX = 8
 const MOBILE_KEYBOARD_VISIBLE_THRESHOLD_PX = 24
+const CUSTOMER_PANEL_MIN_WIDTH = 380
+const CUSTOMER_PANEL_MAX_WIDTH_RATIO = 0.5
+const CHAT_COMPOSER_MIN_WIDTH_PX = 468
 const KNOWLEDGE_DOC_PROMPTS = [
   '详细总结这些文档内容',
   '用通俗易懂的话，说说这些文档讲了什么',
@@ -1590,6 +1663,14 @@ const currentObjectId = computed(() => {
 const isChatEmpty = computed(() => chatStore.messages.length === 0)
 const isObjectContextChat = computed(() => Boolean(chatObjectKind.value && currentObjectId.value))
 const isCenteredEmptyChat = computed(() => isChatEmpty.value && !isObjectContextChat.value)
+const showObjectPanelShell = computed(() =>
+  !isMobile.value && currentView.value === 'chat' && Boolean(chatObjectKind.value && currentObjectId.value)
+)
+const customerPanelStyle = computed(() => ({
+  width: `${customerPanelWidth.value}px`,
+  minWidth: `min(${CUSTOMER_PANEL_MIN_WIDTH}px, ${CUSTOMER_PANEL_MAX_WIDTH_RATIO * 100}%)`,
+  maxWidth: `${CUSTOMER_PANEL_MAX_WIDTH_RATIO * 100}%`
+}))
 const showDesktopCustomerHeader = computed(() =>
   !isMobile.value && currentView.value === 'chat' && chatObjectKind.value === 'customer' && Boolean(currentObjectId.value)
 )
@@ -1598,9 +1679,6 @@ const showDesktopObjectHeader = computed(() =>
   && currentView.value === 'chat'
   && Boolean(currentObjectId.value)
   && (chatObjectKind.value === 'employee' || chatObjectKind.value === 'relation' || chatObjectKind.value === 'product')
-)
-const showDesktopObjectPanel = computed(() =>
-  !isMobile.value && currentView.value === 'chat' && Boolean(chatObjectKind.value && currentObjectId.value)
 )
 const showMobileChatHeader = computed(() =>
   isMobile.value && mobilePanel.value === 'chat' && currentView.value === 'chat'
@@ -1630,6 +1708,9 @@ const chatComposerWrapStyle = computed(() =>
   isMobile.value && effectiveMobileKeyboardInset.value > 0
     ? { transform: `translate3d(0, -${effectiveMobileKeyboardInset.value}px, 0)` }
     : undefined
+)
+const chatComposerShellStyle = computed(() =>
+  isMobile.value ? undefined : { minWidth: `${CHAT_COMPOSER_MIN_WIDTH_PX}px` }
 )
 const mobileTopViewportShieldStyle = computed(() => ({
   '--wk-mobile-viewport-top-offset': `${mobileViewportTopOffset.value}px`
@@ -1753,12 +1834,43 @@ onMounted(async () => {
     loadAiConfig()
   ])
   await applyChatRouteQuery()
+  await nextTick()
+  updateCustomerPanelContainerWidth()
+  updateMessagesScrollbarOffset()
+  emitChatComposerNarrowState(true)
+
+  if (typeof ResizeObserver !== 'undefined') {
+    if (chatViewRef.value) {
+      customerPanelResizeObserver = new ResizeObserver(updateCustomerPanelContainerWidth)
+      customerPanelResizeObserver.observe(chatViewRef.value)
+    }
+    if (chatMainAreaRef.value) {
+      chatMainAreaResizeObserver = new ResizeObserver(() => emitChatComposerNarrowState())
+      chatMainAreaResizeObserver.observe(chatMainAreaRef.value)
+    }
+    if (messagesContainer.value) {
+      chatMessagesResizeObserver = new ResizeObserver(updateMessagesScrollbarOffset)
+      chatMessagesResizeObserver.observe(messagesContainer.value)
+    }
+  }
 })
 
 onBeforeUnmount(() => {
+  stopCustomerPanelResize()
   unregisterMobileKeyboardInsetListeners()
   offSelectedCustomerDetailRefresh?.()
   offSelectedCustomerDetailRefresh = null
+  customerPanelResizeObserver?.disconnect()
+  customerPanelResizeObserver = null
+  chatMainAreaResizeObserver?.disconnect()
+  chatMainAreaResizeObserver = null
+  chatMessagesResizeObserver?.disconnect()
+  chatMessagesResizeObserver = null
+  appEvents.emit(APP_EVENT.CHAT_COMPOSER_NARROW_CHANGE, {
+    narrow: false,
+    width: 0,
+    minWidth: CHAT_COMPOSER_MIN_WIDTH_PX
+  })
   disconnectComposerAttachmentScrollObserver()
   revokeAllSelectedFilePreviewUrls()
   abortVoiceRecording()
@@ -1771,11 +1883,19 @@ onBeforeUnmount(() => {
 watch(isMobile, (mobile) => {
   if (mobile) {
     scheduleMobileKeyboardInsetUpdate()
+    void nextTick(() => {
+      emitChatComposerNarrowState(true)
+      updateMessagesScrollbarOffset()
+    })
     return
   }
   mobileKeyboardInset.value = 0
   nativeKeyboardInset.value = 0
   mobileViewportTopOffset.value = 0
+  void nextTick(() => {
+    emitChatComposerNarrowState(true)
+    updateMessagesScrollbarOffset()
+  })
 })
 
 watch(
@@ -1794,6 +1914,90 @@ watch(
     composerAttachmentCanScrollRight.value = false
   }
 )
+
+watch(
+  () => [customerPanelVisible.value, customerPanelWidth.value, showObjectPanelShell.value] as const,
+  () => {
+    void nextTick(() => {
+      updateMessagesScrollbarOffset()
+      emitChatComposerNarrowState()
+    })
+  },
+  { flush: 'post' }
+)
+
+watch(chatMessagesAreaClass, () => {
+  void nextTick(updateMessagesScrollbarOffset)
+}, { flush: 'post' })
+
+function getCustomerPanelContainerWidth(): number {
+  const width = chatViewRef.value?.clientWidth || 0
+  return width > 0 ? width : window.innerWidth
+}
+
+function resolveCustomerPanelWidth(width: number, containerWidth = getCustomerPanelContainerWidth()): number {
+  if (containerWidth <= 0) return Math.max(CUSTOMER_PANEL_MIN_WIDTH, width)
+  const maxWidth = containerWidth * CUSTOMER_PANEL_MAX_WIDTH_RATIO
+  const minWidth = Math.min(CUSTOMER_PANEL_MIN_WIDTH, maxWidth)
+  return Math.min(maxWidth, Math.max(minWidth, width))
+}
+
+function updateCustomerPanelContainerWidth() {
+  const containerWidth = getCustomerPanelContainerWidth()
+  if (containerWidth <= 0) return
+  customerPanelWidth.value = resolveCustomerPanelWidth(customerPanelWidth.value, containerWidth)
+}
+
+function applyCustomerPanelWidth(width: number) {
+  customerPanelWidth.value = resolveCustomerPanelWidth(width)
+}
+
+function handleCustomerPanelResize(event: MouseEvent) {
+  if (!customerPanelResizing.value) return
+  const rect = chatViewRef.value?.getBoundingClientRect()
+  const rawWidth = rect ? rect.right - event.clientX : window.innerWidth - event.clientX
+  applyCustomerPanelWidth(rawWidth)
+}
+
+function stopCustomerPanelResize() {
+  if (!customerPanelResizing.value) return
+  customerPanelResizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('mousemove', handleCustomerPanelResize)
+  window.removeEventListener('mouseup', stopCustomerPanelResize)
+}
+
+function startCustomerPanelResize(event: MouseEvent) {
+  event.preventDefault()
+  customerPanelVisible.value = true
+  customerPanelResizing.value = true
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('mousemove', handleCustomerPanelResize)
+  window.addEventListener('mouseup', stopCustomerPanelResize)
+}
+
+function updateMessagesScrollbarOffset() {
+  const el = messagesContainer.value
+  if (!el) return
+  const scrollbarOffset = Math.max(0, el.offsetWidth - el.clientWidth)
+  el.style.setProperty('--wk-chat-messages-scrollbar-offset', `${scrollbarOffset}px`)
+}
+
+function emitChatComposerNarrowState(force = false) {
+  const width = chatMainAreaRef.value?.getBoundingClientRect().width || 0
+  const narrow = !isMobile.value && width > 0 && width < CHAT_COMPOSER_MIN_WIDTH_PX
+  const roundedWidth = Math.round(width)
+  if (!force && narrow === lastChatComposerNarrow && roundedWidth === lastChatComposerWidth) return
+  lastChatComposerNarrow = narrow
+  lastChatComposerWidth = roundedWidth
+  appEvents.emit(APP_EVENT.CHAT_COMPOSER_NARROW_CHANGE, {
+    narrow,
+    width,
+    minWidth: CHAT_COMPOSER_MIN_WIDTH_PX
+  })
+}
 
 // Auto scroll to bottom when new messages arrive or during streaming while the user stays near the bottom.
 let scrollTimer: ReturnType<typeof setTimeout> | null = null
@@ -1926,7 +2130,10 @@ watch(
 
 watch(
   () => [chatObjectKind.value, currentObjectId.value] as const,
-  () => {
+  ([kind, id]) => {
+    if (!isMobile.value && kind && id) {
+      customerPanelVisible.value = true
+    }
     void loadObjectPanelDetail()
   },
   { immediate: true }
@@ -3358,6 +3565,11 @@ function resolveChatAppIcon(code: string): string {
   border-color: var(--wk-border-subtle);
   background: color-mix(in srgb, var(--wk-bg-surface) 92%, transparent);
   backdrop-filter: blur(14px);
+}
+
+.wk-chat-customer-panel {
+  border-color: var(--wk-border-subtle);
+  background: var(--wk-bg-surface);
 }
 
 .wk-chat-messages__inner {
