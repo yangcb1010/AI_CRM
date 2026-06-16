@@ -3381,13 +3381,18 @@ function handlePaste(event: ClipboardEvent) {
   const files = extractClipboardFiles(event)
   if (files.length === 0) return
 
-  const result = mergeChatFiles(selectedFiles.value, files, selectedKnowledgeItems.value.length)
+  const slotsLeft = MAX_CHAT_ATTACHMENT_COUNT - selectedKnowledgeItems.value.length - selectedFiles.value.length
+  if (slotsLeft <= 0) {
+    ElMessage.warning(`最多只能上传${MAX_CHAT_ATTACHMENT_COUNT}个文件`)
+    return
+  }
+
+  const result = mergeChatFiles(selectedFiles.value, files.slice(0, slotsLeft), selectedKnowledgeItems.value.length)
   if (result.error) {
     ElMessage.warning(result.error)
     return
   }
 
-  event.preventDefault()
   selectedFiles.value = result.files
   if (result.files.length > 0) {
     showKnowledgeFollowUpChips.value = true

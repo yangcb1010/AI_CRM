@@ -754,9 +754,7 @@ function handleFileSelect(event: Event) {
 function handlePaste(event: ClipboardEvent) {
   const clipboardFiles = extractClipboardFiles(event)
   if (clipboardFiles.length === 0) return
-  if (appendSelectedFiles(clipboardFiles)) {
-    event.preventDefault()
-  }
+  appendSelectedFiles(clipboardFiles)
 }
 
 function onKnowledgePickerConfirm(items: Knowledge[]) {
