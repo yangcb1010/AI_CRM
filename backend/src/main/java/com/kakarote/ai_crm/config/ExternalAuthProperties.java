@@ -12,6 +12,8 @@ public class ExternalAuthProperties {
 
     private ProviderConfig google = new ProviderConfig();
 
+    private ProviderConfig outlook = new ProviderConfig();
+
     private ProviderConfig wechat = new ProviderConfig();
 
     private String frontendRedirectUri;
@@ -23,6 +25,7 @@ public class ExternalAuthProperties {
     public ProviderConfig getProvider(String provider) {
         return switch (StrUtil.emptyToDefault(provider, "").toLowerCase()) {
             case "google" -> google;
+            case "outlook" -> outlook;
             case "wechat" -> wechat;
             default -> null;
         };
@@ -34,6 +37,7 @@ public class ExternalAuthProperties {
         private String clientId;
         private String clientSecret;
         private String redirectUri;
+        private String tenant = "common";
 
         public boolean isUsable() {
             return Boolean.TRUE.equals(enabled)

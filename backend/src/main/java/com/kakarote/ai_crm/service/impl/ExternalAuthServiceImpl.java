@@ -48,6 +48,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -65,7 +66,7 @@ public class ExternalAuthServiceImpl extends ServiceImpl<ExternalAuthIdentityMap
     private static final String TICKET_KEY_PREFIX = "external_auth:ticket:";
     private static final String SCENE_LOGIN = "login";
     private static final String SCENE_BIND = "bind";
-    private static final List<String> SUPPORTED_PROVIDERS = List.of("google", "wechat");
+    private static final List<String> SUPPORTED_PROVIDERS = List.of("google", "outlook", "wechat");
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -383,6 +384,7 @@ public class ExternalAuthServiceImpl extends ServiceImpl<ExternalAuthIdentityMap
     private ExternalProfile fetchExternalProfile(String provider, ExternalAuthProperties.ProviderConfig config, String code, String redirectUri) {
         return switch (provider) {
             case "google" -> fetchGoogleProfile(config, code, redirectUri);
+            case "outlook" -> fetchOutlookProfile(config, code, redirectUri);
             case "wechat" -> fetchWechatProfile(config, code);
             default -> throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Unsupported external auth provider");
         };
@@ -430,6 +432,65 @@ public class ExternalAuthServiceImpl extends ServiceImpl<ExternalAuthIdentityMap
         profile.setDisplayName(userJson.getString("name"));
         profile.setAvatarUrl(userJson.getString("picture"));
         profile.setRawProfile(userJson.toJSONString());
+        return profile;
+    }
+
+    private ExternalProfile fetchOutlookProfile(ExternalAuthProperties.ProviderConfig config, String code, String redirectUri) {
+        HttpHeaders tokenHeaders = new HttpHeaders();
+        tokenHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> tokenBody = new LinkedMultiValueMap<>();
+        tokenBody.add("code", code);
+        tokenBody.add("client_id", config.getClientId());
+        tokenBody.add("client_secret", config.getClientSecret());
+        tokenBody.add("redirect_uri", redirectUri);
+        tokenBody.add("grant_type", "authorization_code");
+        tokenBody.add("scope", "openid email profile");
+
+        JSONObject tokenJson = parseJsonResponse(restTemplate.exchange(
+                outlookOAuthUrl(config, "token"),
+                HttpMethod.POST,
+                new HttpEntity<>(tokenBody, tokenHeaders),
+                String.class
+        ));
+        String accessToken = tokenJson.getString("access_token");
+        if (StrUtil.isBlank(accessToken)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "Outlook token response is missing access_token");
+        }
+
+        HttpHeaders userHeaders = new HttpHeaders();
+        userHeaders.setBearerAuth(accessToken);
+        JSONObject userJson = parseJsonResponse(restTemplate.exchange(
+                "https://graph.microsoft.com/oidc/userinfo",
+                HttpMethod.GET,
+                new HttpEntity<>(userHeaders),
+                String.class
+        ));
+        JSONObject idClaims = parseJwtPayload(tokenJson.getString("id_token"));
+
+        String email = firstNotBlank(
+                userJson.getString("email"),
+                idClaims.getString("email"),
+                idClaims.getString("preferred_username"),
+                userJson.getString("preferred_username")
+        );
+        String subject = firstNotBlank(userJson.getString("sub"), idClaims.getString("sub"), idClaims.getString("oid"));
+        if (StrUtil.isBlank(subject)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "Outlook profile is missing subject");
+        }
+
+        JSONObject rawProfile = new JSONObject();
+        rawProfile.put("userinfo", userJson);
+        if (!idClaims.isEmpty()) {
+            rawProfile.put("idTokenClaims", idClaims);
+        }
+
+        ExternalProfile profile = new ExternalProfile();
+        profile.setSubject(subject);
+        profile.setEmail(normalizeEmail(email));
+        profile.setEmailVerified(Boolean.TRUE.equals(userJson.getBoolean("email_verified")));
+        profile.setDisplayName(firstNotBlank(userJson.getString("name"), idClaims.getString("name"), email, subject));
+        profile.setAvatarUrl(userJson.getString("picture"));
+        profile.setRawProfile(rawProfile.toJSONString());
         return profile;
     }
 
@@ -499,6 +560,18 @@ public class ExternalAuthServiceImpl extends ServiceImpl<ExternalAuthIdentityMap
                     .encode()
                     .toUriString();
         }
+        if ("outlook".equals(provider)) {
+            return UriComponentsBuilder.fromHttpUrl(outlookOAuthUrl(config, "authorize"))
+                    .queryParam("client_id", config.getClientId())
+                    .queryParam("redirect_uri", redirectUri)
+                    .queryParam("response_type", "code")
+                    .queryParam("response_mode", "query")
+                    .queryParam("scope", "openid email profile")
+                    .queryParam("state", state)
+                    .build()
+                    .encode()
+                    .toUriString();
+        }
         String url = UriComponentsBuilder.fromHttpUrl("https://open.weixin.qq.com/connect/qrconnect")
                 .queryParam("appid", config.getClientId())
                 .queryParam("redirect_uri", redirectUri)
@@ -530,9 +603,48 @@ public class ExternalAuthServiceImpl extends ServiceImpl<ExternalAuthIdentityMap
     private String providerName(String provider) {
         return switch (provider) {
             case "google" -> "Google";
-            case "wechat" -> "WeChat";
+            case "outlook" -> "Microsoft";
+            case "wechat" -> "微信";
             default -> provider;
         };
+    }
+
+    private String normalizeEmail(String email) {
+        return StrUtil.isBlank(email) ? null : StrUtil.trim(email).toLowerCase(Locale.ROOT);
+    }
+
+    private String outlookOAuthUrl(ExternalAuthProperties.ProviderConfig config, String action) {
+        String tenant = StrUtil.blankToDefault(config.getTenant(), "common");
+        return "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/" + action;
+    }
+
+    private JSONObject parseJwtPayload(String jwt) {
+        if (StrUtil.isBlank(jwt)) {
+            return new JSONObject();
+        }
+        String[] parts = jwt.split("\\.");
+        if (parts.length < 2) {
+            return new JSONObject();
+        }
+        try {
+            String json = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            return JSON.parseObject(json);
+        } catch (Exception e) {
+            log.debug("Failed to parse Outlook id_token payload: {}", e.getMessage());
+            return new JSONObject();
+        }
+    }
+
+    private String firstNotBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StrUtil.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private String resolveProviderCallbackUri(String provider, ExternalAuthProperties.ProviderConfig config, HttpServletRequest request) {

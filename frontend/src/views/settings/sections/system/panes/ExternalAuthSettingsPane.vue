@@ -134,6 +134,7 @@ function bindingFor(provider: ExternalAuthProviderCode): ExternalAuthBinding | u
 
 function providerMark(provider: ExternalAuthProviderCode): string {
   if (provider === 'google') return 'G'
+  if (provider === 'outlook') return 'M'
   if (provider === 'wechat') return 'W'
   return '?'
 }
