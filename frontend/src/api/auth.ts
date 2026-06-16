@@ -46,6 +46,9 @@ export function updateProfile(data: { userId: string | number; realname?: string
   return post('/managerUser/updateUser', data)
 }
 
+/**
+ * 更新当前用户偏好
+ */
 export function updateUserPreferences(data: UserPreferenceUpdateParams): Promise<UserPreferences> {
   return post('/managerUser/preferences', data)
 }
@@ -97,9 +100,9 @@ export function updateUserInfo(data: {
   post?: string
   sex?: number
   status?: number
-  employeeStatus?: string
   password?: string
   parentId?: number | string
+  employeeStatus?: string
   roleIds?: (number | string)[]
 }): Promise<void> {
   return post('/managerUser/updateUser', data)
@@ -124,7 +127,7 @@ export function deleteUsers(userIds: (number | string)[]): Promise<void> {
 }
 
 /**
- * Get current user permissions
+ * 获取当前用户权限树
  */
 export function getUserAuth(): Promise<Record<string, any>> {
   return post<Record<string, any>>('/managerRole/auth')
