@@ -22,6 +22,7 @@ import com.kakarote.ai_crm.entity.BO.KnowledgeTargetedScriptBO;
 import com.kakarote.ai_crm.entity.PO.Customer;
 import com.kakarote.ai_crm.entity.PO.Knowledge;
 import com.kakarote.ai_crm.entity.PO.KnowledgeTag;
+import com.kakarote.ai_crm.entity.PO.Relation;
 import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
 import com.kakarote.ai_crm.entity.VO.FollowUpVO;
 import com.kakarote.ai_crm.entity.VO.KnowledgeAiAnalyzeVO;
@@ -30,10 +31,13 @@ import com.kakarote.ai_crm.entity.VO.KnowledgeVO;
 import com.kakarote.ai_crm.entity.VO.WeKnoraChunk;
 import com.kakarote.ai_crm.entity.VO.WeKnoraKnowledge;
 import com.kakarote.ai_crm.mapper.FollowUpMapper;
+import com.kakarote.ai_crm.mapper.CustomerMapper;
 import com.kakarote.ai_crm.mapper.KnowledgeMapper;
 import com.kakarote.ai_crm.mapper.KnowledgeTagMapper;
-import com.kakarote.ai_crm.mapper.CustomerMapper;
+import com.kakarote.ai_crm.mapper.ManageUserMapper;
+import com.kakarote.ai_crm.mapper.RelationMapper;
 import com.kakarote.ai_crm.service.AiAudioTranscriptionService;
+import com.kakarote.ai_crm.service.DataPermissionService;
 import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.ICustomerService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
@@ -59,7 +63,6 @@ import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -93,6 +96,12 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     private CustomerMapper customerMapper;
 
     @Autowired
+    private ManageUserMapper manageUserMapper;
+
+    @Autowired
+    private RelationMapper relationMapper;
+
+    @Autowired
     private FollowUpMapper followUpMapper;
 
     @Autowired
@@ -106,6 +115,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     @Autowired
     private AiAudioTranscriptionService aiAudioTranscriptionService;
+
+    @Autowired
+    private DataPermissionService dataPermissionService;
 
     @Autowired
     private VideoMediaExtractionService videoMediaExtractionService;
@@ -122,12 +134,14 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     private static final int DEFAULT_AI_SEARCH_LIMIT = 5;
     private static final int MAX_AI_SEARCH_LIMIT = 8;
+    private static final int MAX_AI_SEARCH_RAG_SCOPE_SIZE = 80;
     private static final int MAX_AI_SEARCH_CONTEXT_LENGTH = 1200;
     private static final int MAX_TARGETED_SCRIPT_DOC_COUNT = 4;
     private static final int MAX_TARGETED_SCRIPT_DOC_CONTENT_LENGTH = 1000;
     private static final int MAX_TARGETED_SCRIPT_FOLLOWUP_COUNT = 3;
     private static final int MAX_SEARCHABLE_CONTENT_LENGTH = 20000;
     private static final int MAX_AI_ANALYZE_SOURCE_LENGTH = 4000;
+    private static final String CHAT_ATTACHMENT_AUTO_ARCHIVE_SUMMARY_PREFIX = "聊天附件自动归档，消息ID:";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -154,7 +168,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setFilePath(relativePath);
         knowledge.setFileSize(file.getSize());
         knowledge.setMimeType(file.getContentType());
-        knowledge.setSummary(summary);
+        knowledge.setSummary(normalizeUserFacingSummary(summary));
         knowledge.setContentText(extractSearchableContent(file));
         knowledge.setUploadUserId(UserUtil.getUserId());
 
@@ -186,6 +200,8 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long uploadFile(MultipartFile file, String type, Long customerId, Long employeeId, Long relationId, String summary) {
+        validateEmployee(employeeId);
+        validateRelation(relationId);
         Long knowledgeId = uploadFile(file, type, customerId, summary);
         Knowledge knowledge = getById(knowledgeId);
         if (knowledge != null) {
@@ -223,7 +239,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setFilePath(filePath);
         knowledge.setFileSize(fileSize);
         knowledge.setMimeType(mimeType);
-        knowledge.setSummary(summary);
+        knowledge.setSummary(normalizeUserFacingSummary(summary));
         knowledge.setContentText(extractSearchableContent(filePath, mimeType, normalizedFileName));
         knowledge.setUploadUserId(UserUtil.getUserId());
 
@@ -247,6 +263,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public Long archiveExistingEmployeeFile(String fileName, String filePath, Long fileSize, String mimeType, Long employeeId, String summary) {
+        validateEmployee(employeeId);
         Long knowledgeId = archiveExistingStandaloneFile(fileName, filePath, fileSize, mimeType, null, summary);
         Knowledge knowledge = getById(knowledgeId);
         if (knowledge != null) {
@@ -259,6 +276,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public Long archiveExistingRelationFile(String fileName, String filePath, Long fileSize, String mimeType, Long relationId, String summary) {
+        validateRelation(relationId);
         Long knowledgeId = archiveExistingStandaloneFile(fileName, filePath, fileSize, mimeType, null, summary);
         Knowledge knowledge = getById(knowledgeId);
         if (knowledge != null) {
@@ -283,7 +301,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setCustomerId(customerId);
         knowledge.setFileSize(contentText == null ? 0L : (long) contentText.getBytes(StandardCharsets.UTF_8).length);
         knowledge.setMimeType("text/plain");
-        knowledge.setSummary(summary);
+        knowledge.setSummary(normalizeUserFacingSummary(summary));
         knowledge.setContentText(contentText);
         knowledge.setStatus(1);
         knowledge.setWeKnoraParseStatus("unsupported");
@@ -422,9 +440,25 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         String type = searchBO == null ? null : StrUtil.trimToNull(searchBO.getType());
         int limit = normalizeAiSearchLimit(searchBO == null ? null : searchBO.getLimit());
 
-        List<KnowledgeAiSearchVO.ReferenceItem> references = buildSemanticReferences(keyword, type, limit);
+        String answer = null;
+        List<KnowledgeAiSearchVO.ReferenceItem> references = List.of();
+
+        WeKnoraClient.WeKnoraChatResult ragResult = askKnowledgeBaseQuestion(keyword, type);
+        if (ragResult != null) {
+            if (!isUnavailableRagAnswer(ragResult.getAnswer())) {
+                answer = KnowledgeAnswerLocalizationUtil.localizeToChinese(ragResult.getAnswer());
+            }
+            references = buildReferencesFromChunks(ragResult.getReferences(), type, limit);
+        }
+
+        if (references.isEmpty()) {
+            references = buildSemanticReferences(keyword, type, limit);
+        }
         if (references.isEmpty()) {
             references = buildLocalReferences(keyword, type, limit);
+        }
+        if (StrUtil.isBlank(answer)) {
+            answer = buildAiSearchAnswer(keyword, references);
         }
 
         KnowledgeAiSearchVO result = new KnowledgeAiSearchVO();
@@ -432,7 +466,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         result.setReferences(references);
         result.setTotalHits(references.size());
         result.setMatchPercent(calculateOverallMatchPercent(references));
-        result.setAnswer(buildAiSearchAnswer(keyword, references));
+        result.setAnswer(answer);
         result.setTookMs(System.currentTimeMillis() - startedAt);
         return result;
     }
@@ -618,6 +652,116 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return references;
     }
 
+    private WeKnoraClient.WeKnoraChatResult askKnowledgeBaseQuestion(String keyword, String type) {
+        if (!weKnoraClient.isEnabled()) {
+            return null;
+        }
+
+        List<String> scopedKnowledgeIds = resolveAiSearchScopedKnowledgeIds(type);
+        if (StrUtil.isNotBlank(type) && scopedKnowledgeIds == null) {
+            return null;
+        }
+
+        try {
+            return weKnoraClient.askKnowledgeQuestion(0L, keyword,
+                    scopedKnowledgeIds == null ? List.of() : scopedKnowledgeIds);
+        } catch (Exception e) {
+            log.warn("知识库 AI 检索直接问答失败，回退到检索摘要: keyword={}, type={}, error={}",
+                    keyword, type, e.getMessage());
+            return null;
+        }
+    }
+
+    private List<String> resolveAiSearchScopedKnowledgeIds(String type) {
+        if (StrUtil.isBlank(type)) {
+            return List.of();
+        }
+
+        List<String> scopedKnowledgeIds = list(new LambdaQueryWrapper<Knowledge>()
+                .select(Knowledge::getWeKnoraKnowledgeId)
+                .eq(Knowledge::getType, type)
+                .ne(Knowledge::getStatus, 2)
+                .isNotNull(Knowledge::getWeKnoraKnowledgeId))
+                .stream()
+                .map(Knowledge::getWeKnoraKnowledgeId)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .toList();
+
+        if (scopedKnowledgeIds.isEmpty()) {
+            return null;
+        }
+        if (scopedKnowledgeIds.size() > MAX_AI_SEARCH_RAG_SCOPE_SIZE) {
+            log.info("知识库 AI 检索跳过类型限定问答，范围过大: type={}, count={}",
+                    type, scopedKnowledgeIds.size());
+            return null;
+        }
+        return scopedKnowledgeIds;
+    }
+
+    private List<KnowledgeAiSearchVO.ReferenceItem> buildReferencesFromChunks(List<WeKnoraChunk> chunks,
+                                                                              String type,
+                                                                              int limit) {
+        if (chunks == null || chunks.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> weKnoraIds = new LinkedHashSet<>();
+        for (WeKnoraChunk chunk : chunks) {
+            if (chunk != null && StrUtil.isNotBlank(chunk.getKnowledgeId())) {
+                weKnoraIds.add(chunk.getKnowledgeId());
+            }
+        }
+        if (weKnoraIds.isEmpty()) {
+            return List.of();
+        }
+
+        LambdaQueryWrapper<Knowledge> wrapper = new LambdaQueryWrapper<Knowledge>()
+                .in(Knowledge::getWeKnoraKnowledgeId, weKnoraIds)
+                .ne(Knowledge::getStatus, 2);
+        if (StrUtil.isNotBlank(type)) {
+            wrapper.eq(Knowledge::getType, type);
+        }
+
+        List<Knowledge> knowledges = list(wrapper);
+        if (knowledges.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Knowledge> knowledgeByWeKnoraId = new LinkedHashMap<>();
+        for (Knowledge knowledge : knowledges) {
+            if (StrUtil.isNotBlank(knowledge.getWeKnoraKnowledgeId())) {
+                knowledgeByWeKnoraId.put(knowledge.getWeKnoraKnowledgeId(), knowledge);
+            }
+        }
+
+        Map<Long, String> customerNames = loadCustomerNameMap(knowledges);
+        LinkedHashMap<Long, KnowledgeAiSearchVO.ReferenceItem> references = new LinkedHashMap<>();
+        for (WeKnoraChunk chunk : chunks) {
+            if (chunk == null) {
+                continue;
+            }
+            Knowledge knowledge = knowledgeByWeKnoraId.get(chunk.getKnowledgeId());
+            if (knowledge == null) {
+                continue;
+            }
+
+            KnowledgeAiSearchVO.ReferenceItem reference = references.computeIfAbsent(
+                    knowledge.getKnowledgeId(),
+                    ignored -> toReferenceItem(knowledge, customerNames.get(knowledge.getCustomerId()))
+            );
+            int currentMatchPercent = reference.getMatchPercent() == null ? 0 : reference.getMatchPercent();
+            reference.setMatchPercent(Math.max(currentMatchPercent, toMatchPercent(chunk.getScore())));
+            if (StrUtil.isNotBlank(chunk.getContent())) {
+                reference.setExcerpt(abbreviate(chunk.getContent(), 360));
+            }
+            if (references.size() >= limit) {
+                break;
+            }
+        }
+        return new ArrayList<>(references.values());
+    }
+
     private Map<Long, String> loadCustomerNameMap(List<Knowledge> knowledges) {
         Set<Long> customerIds = new LinkedHashSet<>();
         for (Knowledge knowledge : knowledges) {
@@ -643,7 +787,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         reference.setName(knowledge.getName());
         reference.setType(knowledge.getType());
         reference.setCustomerName(customerName);
-        reference.setSummary(StrUtil.trimToNull(knowledge.getSummary()));
+        reference.setSummary(normalizeUserFacingSummary(knowledge.getSummary()));
         reference.setFileSize(knowledge.getFileSize());
         reference.setCreateTime(knowledge.getCreateTime());
         return reference;
@@ -653,8 +797,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         if (references.isEmpty()) {
             return "未找到与「" + keyword + "」相关的知识库内容。请尝试更换关键词，或先上传并解析相关文档。";
         }
+        String fallback = buildFallbackAiAnswer(keyword, references);
         if (!chatClientProvider.isApiKeyConfigured()) {
-            return buildFallbackAiSearchAnswer(keyword, references);
+            return fallback;
         }
 
         StringBuilder prompt = new StringBuilder();
@@ -687,25 +832,39 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         } catch (Exception e) {
             log.warn("Knowledge AI search answer generation failed: {}", e.getMessage());
         }
-        return buildFallbackAiSearchAnswer(keyword, references);
+        return fallback;
     }
 
     private String buildFallbackAiSearchAnswer(String keyword, List<KnowledgeAiSearchVO.ReferenceItem> references) {
+        return buildFallbackAiAnswer(keyword, references);
+    }
+
+    private boolean isUnavailableRagAnswer(String answer) {
+        return StrUtil.isBlank(answer) || answer.contains("NO_MATCH");
+    }
+
+    private String buildFallbackAiAnswer(String keyword, List<KnowledgeAiSearchVO.ReferenceItem> references) {
         StringBuilder answer = new StringBuilder();
-        answer.append("已找到 ").append(references.size()).append(" 份与「").append(keyword).append("」相关的知识资料。\n\n");
-        for (KnowledgeAiSearchVO.ReferenceItem reference : references) {
+        answer.append("### “").append(keyword).append("”相关知识解答\n\n");
+        KnowledgeAiSearchVO.ReferenceItem top = references.get(0);
+        if (StrUtil.isNotBlank(top.getSummary())) {
+            answer.append(top.getSummary()).append("\n\n");
+        } else if (StrUtil.isNotBlank(top.getExcerpt())) {
+            answer.append(top.getExcerpt()).append("\n\n");
+        } else {
+            answer.append("已找到与该主题相关的知识资料，建议优先查看下方参考文档。\n\n");
+        }
+
+        answer.append("#### 关键信息\n");
+        for (KnowledgeAiSearchVO.ReferenceItem reference : references.stream().limit(3).toList()) {
             answer.append("- **").append(StrUtil.blankToDefault(reference.getName(), "未命名文档")).append("**");
-            if (reference.getMatchPercent() != null) {
-                answer.append("，匹配度 ").append(reference.getMatchPercent()).append("%");
-            }
             String detail = StrUtil.firstNonBlank(reference.getSummary(), reference.getExcerpt());
             if (StrUtil.isNotBlank(detail)) {
-                answer.append("：").append(abbreviate(detail, 160));
+                answer.append("：").append(abbreviate(detail, 180));
             }
-            answer.append("\n");
+            answer.append('\n');
         }
-        answer.append("\n配置自建 AI Key 后，可以获得更完整的归纳和建议。");
-        return answer.toString();
+        return answer.toString().trim();
     }
 
     private String buildTargetedScriptPrompt(CustomerDetailVO customerDetail,
@@ -911,7 +1070,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         if (text == null) {
             return null;
         }
-        String normalized = text
+        String normalized = removeUnsupportedTextCharacters(text)
                 .replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", "")
                 .replaceAll("\\s+", " ")
                 .trim();
@@ -926,6 +1085,10 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return normalized.substring(0, Math.max(0, maxLength - 3)) + "...";
     }
 
+    private String limitAnalyzeSourceText(String text) {
+        return StrUtil.blankToDefault(abbreviate(text, MAX_AI_ANALYZE_SOURCE_LENGTH), "");
+    }
+
     private String resolveAnalyzeContentText(Knowledge knowledge) {
         String contentText = normalizeSearchableContent(knowledge.getContentText());
         if (StrUtil.isBlank(contentText) && StrUtil.isNotBlank(knowledge.getFilePath())) {
@@ -934,10 +1097,11 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 persistKnowledgeContentText(knowledge, contentText);
             }
         }
-        if (StrUtil.isBlank(contentText)) {
+        String limitedContent = limitAnalyzeSourceText(contentText);
+        if (StrUtil.isBlank(limitedContent)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "文档内容为空或无法提取，请重新上传可解析的文件");
         }
-        return contentText;
+        return limitedContent;
     }
 
     private String transcribeStoredMedia(Knowledge knowledge) {
@@ -960,6 +1124,19 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             log.warn("Failed to read stored audio media: knowledgeId={}, fileName={}",
                     knowledge.getKnowledgeId(), knowledge.getName(), ex);
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "媒体文件读取失败，请重新上传后重试");
+        }
+    }
+
+    private Media buildStoredImageMedia(Knowledge knowledge) {
+        try {
+            String mimeType = resolveImageMimeType(knowledge.getMimeType(), knowledge.getName());
+            return AiMediaUtil.buildMedia(fileStorageService, knowledge.getFilePath(), MimeType.valueOf(mimeType));
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Failed to build stored image media: knowledgeId={}, fileName={}",
+                    knowledge.getKnowledgeId(), knowledge.getName(), ex);
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "图片文件读取失败，请重新上传后重试");
         }
     }
 
@@ -1009,6 +1186,87 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             }
         }
         return builder.toString().trim();
+    }
+
+    private String extractAnalyzeJson(String response) {
+        String json = StrUtil.trim(response);
+        if (StrUtil.isBlank(json)) {
+            return null;
+        }
+
+        int fenceStart = json.indexOf("```");
+        if (fenceStart >= 0) {
+            String fenced = json.substring(fenceStart + 3).trim();
+            if (fenced.toLowerCase(Locale.ROOT).startsWith("json")) {
+                fenced = fenced.substring(4).trim();
+            }
+            int fenceEnd = fenced.indexOf("```");
+            if (fenceEnd >= 0) {
+                json = fenced.substring(0, fenceEnd).trim();
+            } else {
+                json = fenced;
+            }
+        }
+
+        int objectStart = json.indexOf('{');
+        int objectEnd = json.lastIndexOf('}');
+        if (objectStart >= 0 && objectEnd > objectStart) {
+            return json.substring(objectStart, objectEnd + 1).trim();
+        }
+        return json;
+    }
+
+    private String normalizeUserFacingSummary(String summary) {
+        String normalized = StrUtil.trim(summary);
+        if (isChatAttachmentAutoArchiveSummary(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private void validateEmployee(Long employeeId) {
+        if (employeeId == null) {
+            return;
+        }
+        dataPermissionService.assertUserDataAccessByPermission("addressBook:detail", employeeId);
+        if (ObjectUtil.isNull(manageUserMapper.getUserId(employeeId))) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "员工不存在或无权限访问");
+        }
+    }
+
+    private void validateRelation(Long relationId) {
+        if (relationId == null) {
+            return;
+        }
+        Relation relation = relationMapper.selectById(relationId);
+        if (relation == null || Integer.valueOf(0).equals(relation.getStatus())
+                || !UserUtil.getUserId().equals(relation.getCreateUserId())) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "关系人不存在或无权限访问");
+        }
+    }
+
+    private boolean isChatAttachmentAutoArchiveSummary(String summary) {
+        String normalized = StrUtil.trim(summary);
+        return StrUtil.isNotBlank(normalized)
+                && normalized.startsWith(CHAT_ATTACHMENT_AUTO_ARCHIVE_SUMMARY_PREFIX);
+    }
+
+    private String removeUnsupportedTextCharacters(String text) {
+        StringBuilder sanitized = new StringBuilder(text.length());
+        boolean modified = false;
+        for (int i = 0; i < text.length(); i++) {
+            char current = text.charAt(i);
+            if (current == '\u0000') {
+                modified = true;
+                continue;
+            }
+            if (Character.isISOControl(current) && !Character.isWhitespace(current)) {
+                modified = true;
+                continue;
+            }
+            sanitized.append(current);
+        }
+        return modified ? sanitized.toString() : text;
     }
 
     private String extractSearchableContent(MultipartFile file) {
@@ -1169,6 +1427,36 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         return "audio/mpeg";
     }
 
+    private String resolveImageMimeType(String mimeType, String fileName) {
+        String normalizedMime = normalizeMimeType(mimeType);
+        if (StrUtil.isNotBlank(normalizedMime) && normalizedMime.startsWith("image/")) {
+            return normalizedMime;
+        }
+        String lower = StrUtil.blankToDefault(fileName, "").toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (lower.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (lower.endsWith(".bmp")) {
+            return "image/bmp";
+        }
+        if (lower.endsWith(".svg")) {
+            return "image/svg+xml";
+        }
+        if (lower.endsWith(".avif")) {
+            return "image/avif";
+        }
+        throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "暂不支持该图片类型分析");
+    }
+
     private String normalizeMimeType(String mimeType) {
         if (StrUtil.isBlank(mimeType)) {
             return null;
@@ -1182,7 +1470,9 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         if (ObjectUtil.isNull(knowledge)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "知识库文件不存在");
         }
-        return BeanUtil.copyProperties(knowledge, KnowledgeVO.class);
+        KnowledgeVO vo = BeanUtil.copyProperties(knowledge, KnowledgeVO.class);
+        vo.setSummary(normalizeUserFacingSummary(vo.getSummary()));
+        return vo;
     }
 
     /**
@@ -1392,16 +1682,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
                 knowledge.getName(),
                 StrUtil.blankToDefault(knowledge.getMimeType(), "image"),
                 StrUtil.blankToDefault(knowledge.getSummary(), "无"));
-        Media media;
-        try {
-            media = AiMediaUtil.buildMedia(
-                    fileStorageService,
-                    knowledge.getFilePath(),
-                    MimeType.valueOf(StrUtil.blankToDefault(normalizeMimeType(knowledge.getMimeType()), "image/jpeg"))
-            );
-        } catch (IOException e) {
-            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "图片文件读取失败，请确认文件仍可访问");
-        }
+        Media media = buildStoredImageMedia(knowledge);
         String response = chatClientProvider.getChatClient()
                 .prompt()
                 .user(userSpec -> userSpec.text(prompt).media(media))
@@ -1552,9 +1833,10 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     }
 
     private boolean applyKnowledgeSummaryIfNeeded(Knowledge knowledge, String summary) {
-        String normalizedSummary = StrUtil.trim(summary);
+        String previousSummary = normalizeUserFacingSummary(knowledge.getSummary());
+        String normalizedSummary = normalizeUserFacingSummary(summary);
         if (StrUtil.isBlank(normalizedSummary)
-                || StrUtil.equals(normalizedSummary, StrUtil.trim(knowledge.getSummary()))) {
+                || StrUtil.equals(normalizedSummary, previousSummary)) {
             return false;
         }
         knowledge.setSummary(normalizedSummary);
@@ -1564,29 +1846,48 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
     private KnowledgeAiAnalyzeVO normalizeAnalyzeResult(KnowledgeAiAnalyzeVO source, Knowledge knowledge) {
         KnowledgeAiAnalyzeVO normalized = new KnowledgeAiAnalyzeVO();
         if (source != null) {
-            normalized.setCoreHighlights(source.getCoreHighlights());
-            normalized.setTalkingPoints(source.getTalkingPoints());
-            normalized.setRelatedEntities(source.getRelatedEntities());
+            normalized.setCoreHighlights(normalizeUserFacingSummary(source.getCoreHighlights()));
         }
         if (StrUtil.isBlank(normalized.getCoreHighlights())) {
-            normalized.setCoreHighlights(StrUtil.blankToDefault(knowledge.getSummary(), "暂无摘要"));
+            normalized.setCoreHighlights(StrUtil.blankToDefault(normalizeUserFacingSummary(knowledge.getSummary()), "暂无摘要"));
         }
-        if (normalized.getTalkingPoints() == null) {
-            normalized.setTalkingPoints(List.of());
+
+        List<String> talkingPoints = new ArrayList<>();
+        if (source != null && source.getTalkingPoints() != null) {
+            source.getTalkingPoints().forEach(point -> {
+                String normalizedPoint = StrUtil.trim(point);
+                if (StrUtil.isNotBlank(normalizedPoint)) {
+                    talkingPoints.add(normalizedPoint);
+                }
+            });
         }
-        if (normalized.getRelatedEntities() == null) {
-            normalized.setRelatedEntities(List.of());
+        normalized.setTalkingPoints(talkingPoints);
+
+        List<KnowledgeAiAnalyzeVO.RelatedEntity> entities = new ArrayList<>();
+        if (source != null && source.getRelatedEntities() != null) {
+            source.getRelatedEntities().forEach(item -> {
+                if (item == null) {
+                    return;
+                }
+                String name = StrUtil.trim(item.getName());
+                if (StrUtil.isBlank(name)) {
+                    return;
+                }
+                KnowledgeAiAnalyzeVO.RelatedEntity entity = new KnowledgeAiAnalyzeVO.RelatedEntity();
+                entity.setName(name);
+                entity.setType(StrUtil.trim(item.getType()));
+                entities.add(entity);
+            });
         }
+        normalized.setRelatedEntities(entities);
         return normalized;
     }
 
     private KnowledgeAiAnalyzeVO parseAnalyzeResponse(String response, Knowledge knowledge) {
         try {
-            // Strip markdown code block markers if present
-            String json = response.trim();
-            if (json.startsWith("```")) {
-                json = json.replaceFirst("```(?:json)?\\s*", "");
-                json = json.replaceFirst("\\s*```$", "");
+            String json = extractAnalyzeJson(response);
+            if (StrUtil.isBlank(json)) {
+                return buildFallbackAnalyzeResult(knowledge);
             }
 
             JsonNode root = objectMapper.readTree(json);
@@ -1596,7 +1897,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             if (root.has("coreHighlights") && !root.get("coreHighlights").isNull()) {
                 vo.setCoreHighlights(root.get("coreHighlights").asText());
             } else {
-                vo.setCoreHighlights(StrUtil.blankToDefault(knowledge.getSummary(), "暂无摘要"));
+                vo.setCoreHighlights(StrUtil.blankToDefault(normalizeUserFacingSummary(knowledge.getSummary()), "暂无摘要"));
             }
 
             // 推荐话术
@@ -1620,7 +1921,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             }
             vo.setRelatedEntities(entities);
 
-            return vo;
+            return normalizeAnalyzeResult(vo, knowledge);
         } catch (Exception e) {
             log.warn("AI 文档分析 JSON 解析失败: {}", e.getMessage());
             return buildFallbackAnalyzeResult(knowledge);
