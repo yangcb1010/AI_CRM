@@ -5,6 +5,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kakarote.ai_crm.ai.DynamicChatClientProvider;
 import com.kakarote.ai_crm.ai.app.ChatApplicationCodes;
 import com.kakarote.ai_crm.ai.app.ChatApplicationDefinition;
@@ -53,6 +55,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeType;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -121,8 +124,10 @@ public class ChatServiceImpl implements IChatService {
     private AiToolExecutionRecorder aiToolExecutionRecorder;
 
     private static final int MAX_EXTRACTED_TEXT_LENGTH = 3000;
+    private static final String CHAT_ERROR_MESSAGE = "抱歉，处理您的请求时发生错误。请稍后重试。";
 
     private final Tika tika = new Tika();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
         你是一个AI驱动的CRM系统助手，帮助用户管理客户关系。
@@ -627,8 +632,8 @@ public class ChatServiceImpl implements IChatService {
                 AiContextHolder.clear();
             })
             .onErrorResume(error -> {
-                log.error("AI 对话错误: {}", error.getMessage(), error);
-                String errorMsg = resolveToolFailureReply(sessionId, "抱歉，处理您的请求时发生错误。请稍后重试。");
+                logAiChatError(error);
+                String errorMsg = resolveToolFailureReply(sessionId, resolveAiChatErrorMessage(error, runtimeConfig));
                 saveMessage(sessionId, "assistant", errorMsg);
                 updateSessionTime(sessionId);
                 AiContextHolder.clear();
@@ -760,7 +765,8 @@ public class ChatServiceImpl implements IChatService {
 
             return response;
         } catch (Exception e) {
-            String errorMsg = resolveToolFailureReply(sessionId, "抱歉，处理您的请求时发生错误。请稍后重试。");
+            logAiChatError(e);
+            String errorMsg = resolveToolFailureReply(sessionId, resolveAiChatErrorMessage(e, runtimeConfig));
             saveMessage(sessionId, "assistant", errorMsg);
             return errorMsg;
         } finally {
@@ -1363,6 +1369,126 @@ public class ChatServiceImpl implements IChatService {
             return buildToolFailureReply(failure);
         }
         return modelResponse;
+    }
+
+    private void logAiChatError(Throwable error) {
+        WebClientResponseException exception = findWebClientResponseException(error);
+        if (exception != null) {
+            log.error("AI 对话错误: {}, response body: {}",
+                    error.getMessage(), exception.getResponseBodyAsString(), error);
+            return;
+        }
+        log.error("AI 对话错误: {}", error.getMessage(), error);
+    }
+
+    private String resolveAiChatErrorMessage(Throwable error,
+                                             DynamicChatClientProvider.AiRuntimeConfigSnapshot runtimeConfig) {
+        WebClientResponseException exception = findWebClientResponseException(error);
+        if (exception == null) {
+            return CHAT_ERROR_MESSAGE;
+        }
+
+        int status = exception.getStatusCode().value();
+        String providerMessage = extractProviderErrorMessage(exception.getResponseBodyAsString());
+        String modelName = runtimeConfig == null ? null : runtimeConfig.model();
+        String modelLabel = StrUtil.blankToDefault(modelName, "当前模型");
+
+        if (status == 404 || containsAny(providerMessage, "not found", "does not exist", "not exist")) {
+            return "当前 AI 模型不可用：" + modelLabel + " 不存在或当前 API Key 无权访问。请检查模型名称、服务商和 API Key 权限后重试。";
+        }
+        if (status == 401 || status == 403 || containsAny(providerMessage, "permission denied", "no permission", "unauthorized")) {
+            return "AI 服务认证失败：当前 API Key 无效或无权访问所选模型。请检查 API Key、服务商和模型权限后重试。";
+        }
+        if (status == 429 || containsAny(providerMessage, "rate limit", "too many requests", "insufficient")) {
+            return "AI 服务暂时无法处理请求：服务商账户资源不足或请求过于频繁。请稍后重试，或检查服务商账户状态。";
+        }
+        if (status == 400) {
+            return StrUtil.isNotBlank(providerMessage)
+                    ? "AI 请求参数有误：" + providerMessage + "。请检查模型名称、API 地址和高级配置后重试。"
+                    : "AI 请求参数有误，请检查模型名称、API 地址和高级配置后重试。";
+        }
+        if (status >= 500) {
+            return "AI 服务商暂时不可用，请稍后重试。";
+        }
+        if (StrUtil.isNotBlank(providerMessage)) {
+            return "AI 服务返回错误：" + providerMessage + "。请检查 AI 配置后重试。";
+        }
+        return CHAT_ERROR_MESSAGE;
+    }
+
+    private String extractProviderErrorMessage(String responseBody) {
+        if (StrUtil.isBlank(responseBody)) {
+            return null;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            String message = firstNonBlank(
+                    textAt(root, "/error/message"),
+                    textAt(root, "/message"),
+                    textAt(root, "/error")
+            );
+            return sanitizeProviderErrorMessage(message);
+        } catch (Exception ignored) {
+            return sanitizeProviderErrorMessage(responseBody);
+        }
+    }
+
+    private String textAt(JsonNode root, String pointer) {
+        if (root == null || StrUtil.isBlank(pointer)) {
+            return null;
+        }
+        JsonNode node = root.at(pointer);
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        return node.isTextual() ? node.asText() : node.toString();
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StrUtil.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String sanitizeProviderErrorMessage(String message) {
+        if (StrUtil.isBlank(message)) {
+            return null;
+        }
+        String sanitized = message
+                .replaceAll("(?i)(api[_ -]?key|authorization|bearer)\\s*[:=]?\\s*[^\\s,;，。]+", "$1=***")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return sanitized.length() > 240 ? sanitized.substring(0, 240) + "..." : sanitized;
+    }
+
+    private boolean containsAny(String value, String... needles) {
+        if (StrUtil.isBlank(value) || needles == null) {
+            return false;
+        }
+        String normalized = value.toLowerCase(Locale.ROOT);
+        for (String needle : needles) {
+            if (StrUtil.isNotBlank(needle) && normalized.contains(needle.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private WebClientResponseException findWebClientResponseException(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof WebClientResponseException exception) {
+                return exception;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private String buildToolFailureReply(AiToolExecutionRecorder.ToolExecution failure) {
