@@ -8,11 +8,15 @@ import com.kakarote.ai_crm.entity.BO.CustomerQueryBO;
 import com.kakarote.ai_crm.entity.BO.CustomerResolvedFieldFilterBO;
 import com.kakarote.ai_crm.entity.PO.Contact;
 import com.kakarote.ai_crm.entity.PO.Customer;
+import com.kakarote.ai_crm.entity.PO.CustomerTag;
+import com.kakarote.ai_crm.entity.PO.Task;
+import com.kakarote.ai_crm.entity.VO.ContactVO;
 import com.kakarote.ai_crm.entity.VO.CustomFieldVO;
 import com.kakarote.ai_crm.entity.VO.CustomerAiReportVO;
 import com.kakarote.ai_crm.entity.VO.CustomerAiSearchParseVO;
 import com.kakarote.ai_crm.entity.VO.CustomerAiSearchQueryVO;
 import com.kakarote.ai_crm.entity.VO.CustomerDetailVO;
+import com.kakarote.ai_crm.entity.VO.FollowUpVO;
 import com.kakarote.ai_crm.mapper.ContactMapper;
 import com.kakarote.ai_crm.mapper.CustomerMapper;
 import com.kakarote.ai_crm.mapper.CustomerTagMapper;
@@ -26,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +68,56 @@ class CustomerServiceImplTest {
         assertFalse(report.getAiInsight().startsWith("No AI analysis"));
         assertNotNull(report.getAiDeepInsight());
         assertNotNull(report.getAiNextStep());
+    }
+
+    @Test
+    void fallbackCustomerAiReportUsesDetailContext() {
+        CustomerServiceImpl service = new CustomerServiceImpl();
+        CustomerDetailVO detail = new CustomerDetailVO();
+        detail.setCustomerId(100L);
+        detail.setCompanyName("Acme");
+        detail.setIndustry("Manufacturing");
+        detail.setStage("proposal");
+        detail.setLevel("A");
+        detail.setQuotation(new BigDecimal("600000"));
+        detail.setRemark("needs integration plan");
+
+        ContactVO contact = new ContactVO();
+        contact.setName("Alice");
+        contact.setPosition("CTO");
+        contact.setPhone("13800000000");
+        contact.setIsPrimary(1);
+        detail.setContacts(List.of(contact));
+
+        Task task = new Task();
+        task.setTitle("Prepare proposal");
+        task.setStatus("IN_PROGRESS");
+        detail.setTasks(List.of(task));
+
+        CustomerTag tag = new CustomerTag();
+        tag.setTagName("key-account");
+        detail.setTags(List.of(tag));
+
+        FollowUpVO followUp = new FollowUpVO();
+        followUp.setContent("customer asks for a quote next week");
+        followUp.setFollowTime(new Date());
+
+        CustomerAiReportVO report = ReflectionTestUtils.invokeMethod(
+                service,
+                "buildFallbackCustomerAiReport",
+                detail,
+                List.of(followUp)
+        );
+
+        assertNotNull(report);
+        String combined = String.join("\n",
+                report.getAiStatusDetection(),
+                report.getAiInsight(),
+                report.getAiDeepInsight(),
+                report.getAiNextStep());
+        assertTrue(combined.contains("Alice"));
+        assertTrue(combined.contains("customer asks for a quote next week"));
+        assertTrue(combined.contains("Prepare proposal"));
     }
 
     @Test
@@ -108,6 +163,7 @@ class CustomerServiceImplTest {
         when(taskMapper.selectList(any())).thenReturn(List.of());
         when(customFieldService.getCustomFieldValues("customer", customerId)).thenReturn(Map.of());
         doNothing().when(service).syncContactCache(customerId);
+        doNothing().when(service).refreshCustomerActivity(customerId);
 
         CustomerFieldUpdateBO updateBO = new CustomerFieldUpdateBO();
         updateBO.setCustomerId(customerId);
@@ -122,6 +178,7 @@ class CustomerServiceImplTest {
         verify(contactMapper).updateById(contactCaptor.capture());
         assertEquals("13800000000", contactCaptor.getValue().getPhone());
         verify(service).syncContactCache(customerId);
+        verify(service).refreshCustomerActivity(customerId);
         verify(globalSearchIndexService).refreshContactIndex(contactId);
     }
 

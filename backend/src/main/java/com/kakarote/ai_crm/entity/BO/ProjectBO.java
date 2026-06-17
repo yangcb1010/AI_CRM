@@ -21,6 +21,10 @@ public class ProjectBO {
         private String status;
 
         private Boolean includeArchived;
+
+        private Long currentUserId;
+
+        private Boolean adminAccess;
     }
 
     @Data

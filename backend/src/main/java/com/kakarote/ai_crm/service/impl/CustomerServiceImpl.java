@@ -72,6 +72,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
     private TaskMapper taskMapper;
 
     @Autowired
+    private FollowUpMapper followUpMapper;
+
+    @Autowired
     private ICustomFieldService customFieldService;
 
     @Autowired
@@ -684,6 +687,7 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
         }
 
         syncContactCache(customer.getCustomerId());
+        refreshCustomerActivity(customer.getCustomerId());
         if (contact.getContactId() != null) {
             globalSearchIndexService.refreshContactIndex(contact.getContactId());
         }
@@ -2367,7 +2371,12 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "客户不存在");
         }
 
-        CustomerAiReportVO fallbackReport = buildFallbackCustomerAiReport(customer);
+        CustomerDetailVO detail = getCustomerDetail(customerId);
+        List<FollowUpVO> recentFollowUps = followUpMapper.getRecentByCustomerId(customerId, 5);
+        if ((recentFollowUps == null || recentFollowUps.isEmpty()) && detail.getRecentFollowUps() != null) {
+            recentFollowUps = detail.getRecentFollowUps();
+        }
+        CustomerAiReportVO fallbackReport = buildFallbackCustomerAiReport(detail, recentFollowUps);
         CustomerAiReportVO report = fallbackReport;
         String aiParseSnapshot = null;
 
@@ -2379,27 +2388,9 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                   "aiDeepInsight": "deeper opportunity/risk analysis",
                   "aiNextStep": "recommended next action"
                 }
-                Customer:
-                name=%s
-                industry=%s
-                stage=%s
-                level=%s
-                source=%s
-                quotation=%s
-                lastContactTime=%s
-                nextFollowTime=%s
-                remark=%s
-                """.formatted(
-                StrUtil.blankToDefault(customer.getCompanyName(), ""),
-                StrUtil.blankToDefault(customer.getIndustry(), ""),
-                StrUtil.blankToDefault(customer.getStage(), ""),
-                StrUtil.blankToDefault(customer.getLevel(), ""),
-                StrUtil.blankToDefault(customer.getSource(), ""),
-                customer.getQuotation(),
-                customer.getLastContactTime(),
-                customer.getNextFollowTime(),
-                StrUtil.blankToDefault(customer.getRemark(), "")
-        );
+                Customer context:
+                %s
+                """.formatted(buildCustomerAiReportContext(detail, recentFollowUps));
 
         try {
             String response = chatClientProvider.getChatClient()
@@ -2460,6 +2451,160 @@ public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer> i
                 """.trim());
         report.setAiNextStep("安排一次结构化跟进，确认客户需求、预算范围、关键联系人、决策时间表和下一步动作。");
         return report;
+    }
+
+    private CustomerAiReportVO buildFallbackCustomerAiReport(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
+        CustomerAiReportVO report = new CustomerAiReportVO();
+        if (detail == null) {
+            report.setAiStatusDetection("客户资料不足，暂时无法判断状态");
+            report.setAiInsight("请先补充客户基础信息、联系人和跟进记录，再生成更完整的分析。");
+            report.setAiDeepInsight("当前缺少可分析资料，无法判断商机质量、推进风险和下一步优先级。");
+            report.setAiNextStep("补齐客户行业、负责人、联系人、预计成交金额和最近跟进记录。");
+            return report;
+        }
+
+        report.setCustomerId(detail.getCustomerId());
+        ContactVO primaryContact = findPrimaryContact(detail.getContacts());
+        FollowUpVO latestFollowUp = recentFollowUps == null || recentFollowUps.isEmpty() ? null : recentFollowUps.get(0);
+        String contactSummary = primaryContact == null
+                ? "关键联系人待补齐"
+                : "关键联系人 " + StrUtil.blankToDefault(primaryContact.getName(), "未命名")
+                + (StrUtil.isNotBlank(primaryContact.getPosition()) ? " / " + primaryContact.getPosition() : "")
+                + (StrUtil.isNotBlank(primaryContact.getPhone()) ? " / " + primaryContact.getPhone() : "");
+        String followSummary = latestFollowUp == null
+                ? "近期暂无有效跟进记录"
+                : truncateText(StrUtil.blankToDefault(firstNonBlank(latestFollowUp.getSummary(), latestFollowUp.getContent()), ""), 100);
+        String taskSummary = formatCustomerTaskSummary(detail.getTasks());
+
+        report.setAiStatusDetection("当前处于" + fallbackStageLabel(detail.getStage())
+                + "阶段，客户等级" + StrUtil.blankToDefault(detail.getLevel(), "未分级")
+                + "，" + contactSummary + "。");
+        report.setAiInsight("客户行业为" + StrUtil.blankToDefault(detail.getIndustry(), "未填写")
+                + "，预计成交金额" + formatFallbackAmount(detail.getQuotation())
+                + "。最近跟进：" + followSummary
+                + "。标签：" + formatCustomerTagSummary(detail.getTags()) + "。");
+        report.setAiDeepInsight(contactSummary + "；相关任务：" + taskSummary
+                + "；备注：" + StrUtil.blankToDefault(detail.getRemark(), "无")
+                + "。建议结合最近跟进判断需求紧急度、预算确定性和关键人影响力。");
+        report.setAiNextStep("围绕" + (primaryContact == null ? "关键联系人" : StrUtil.blankToDefault(primaryContact.getName(), "关键联系人"))
+                + "安排下一次结构化跟进，确认需求范围、预算、决策链和下一步时间表。");
+        return report;
+    }
+
+    private String buildCustomerAiReportContext(CustomerDetailVO detail, List<FollowUpVO> recentFollowUps) {
+        if (detail == null) {
+            return "No customer detail available.";
+        }
+        return """
+                customerId=%s
+                companyName=%s
+                industry=%s
+                stage=%s
+                level=%s
+                owner=%s
+                quotation=%s
+                lastContactTime=%s
+                nextFollowTime=%s
+                tags=%s
+                contacts=%s
+                tasks=%s
+                recentFollowUps=%s
+                remark=%s
+                customFields=%s
+                previousAiStatus=%s
+                previousAiInsight=%s
+                """.formatted(
+                detail.getCustomerId(),
+                StrUtil.blankToDefault(detail.getCompanyName(), ""),
+                StrUtil.blankToDefault(detail.getIndustry(), ""),
+                fallbackStageLabel(detail.getStage()),
+                StrUtil.blankToDefault(detail.getLevel(), ""),
+                StrUtil.blankToDefault(detail.getOwnerName(), ""),
+                formatFallbackAmount(detail.getQuotation()),
+                formatDateTimeForReport(detail.getLastContactTime()),
+                formatDateTimeForReport(detail.getNextFollowTime()),
+                formatCustomerTagSummary(detail.getTags()),
+                formatCustomerContactSummary(detail.getContacts()),
+                formatCustomerTaskSummary(detail.getTasks()),
+                formatCustomerFollowUpSummary(recentFollowUps),
+                StrUtil.blankToDefault(detail.getRemark(), ""),
+                detail.getCustomFields() == null ? "" : detail.getCustomFields().toString(),
+                StrUtil.blankToDefault(detail.getAiStatusDetection(), ""),
+                StrUtil.blankToDefault(detail.getAiInsight(), "")
+        );
+    }
+
+    private ContactVO findPrimaryContact(List<ContactVO> contacts) {
+        if (contacts == null || contacts.isEmpty()) {
+            return null;
+        }
+        return contacts.stream()
+                .filter(contact -> Integer.valueOf(1).equals(contact.getIsPrimary()))
+                .findFirst()
+                .orElse(contacts.get(0));
+    }
+
+    private String formatCustomerContactSummary(List<ContactVO> contacts) {
+        if (contacts == null || contacts.isEmpty()) {
+            return "none";
+        }
+        return contacts.stream()
+                .limit(5)
+                .map(contact -> String.join(" / ",
+                        StrUtil.blankToDefault(contact.getName(), "unnamed"),
+                        StrUtil.blankToDefault(contact.getPosition(), ""),
+                        StrUtil.blankToDefault(contact.getPhone(), ""),
+                        StrUtil.blankToDefault(contact.getEmail(), "")))
+                .collect(Collectors.joining("; "));
+    }
+
+    private String formatCustomerTaskSummary(List<Task> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return "none";
+        }
+        return tasks.stream()
+                .limit(5)
+                .map(task -> StrUtil.blankToDefault(task.getTitle(), "untitled")
+                        + "(" + StrUtil.blankToDefault(task.getStatus(), "unknown") + ")")
+                .collect(Collectors.joining("; "));
+    }
+
+    private String formatCustomerFollowUpSummary(List<FollowUpVO> followUps) {
+        if (followUps == null || followUps.isEmpty()) {
+            return "none";
+        }
+        return followUps.stream()
+                .limit(5)
+                .map(followUp -> formatDateTimeForReport(followUp.getFollowTime())
+                        + " " + truncateText(StrUtil.blankToDefault(firstNonBlank(followUp.getSummary(), followUp.getContent()), ""), 120))
+                .collect(Collectors.joining("; "));
+    }
+
+    private String formatCustomerTagSummary(List<CustomerTag> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return "none";
+        }
+        return tags.stream()
+                .map(CustomerTag::getTagName)
+                .filter(StrUtil::isNotBlank)
+                .limit(8)
+                .collect(Collectors.joining(", "));
+    }
+
+    private String formatDateTimeForReport(Date date) {
+        return date == null ? "" : DateUtil.formatDateTime(date);
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return StrUtil.isNotBlank(first) ? first : second;
+    }
+
+    private String truncateText(String text, int maxLength) {
+        String normalized = StrUtil.trimToEmpty(text);
+        if (normalized.length() <= maxLength) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLength) + "...";
     }
 
     private String fallbackStageLabel(String stage) {

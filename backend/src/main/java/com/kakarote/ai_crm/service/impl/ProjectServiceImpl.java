@@ -38,12 +38,14 @@ import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.IProjectService;
 import com.kakarote.ai_crm.service.ISystemConfigService;
+import com.kakarote.ai_crm.service.PermissionService;
 import com.kakarote.ai_crm.utils.AiMediaUtil;
 import com.kakarote.ai_crm.utils.DocumentTextExtractor;
 import com.kakarote.ai_crm.utils.UserUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.content.Media;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -83,6 +85,7 @@ public class ProjectServiceImpl implements IProjectService {
     private static final String STATUS_COMPLETED = "COMPLETED";
     private static final String STATUS_ARCHIVED = "ARCHIVED";
     private static final String TASK_STATUS_TODO = "TODO";
+    private static final String TASK_STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final String TASK_STATUS_COMPLETED = "COMPLETED";
     private static final String PRIORITY_MEDIUM = "MEDIUM";
     private static final String PROJECT_ROLE_PERMISSION_CONFIG_KEY = "project.role.permissions";
@@ -152,6 +155,9 @@ public class ProjectServiceImpl implements IProjectService {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
+    @Autowired
+    private PermissionService permissionService;
+
     public ProjectServiceImpl(ProjectMapper projectMapper,
                               ProjectLaneMapper projectLaneMapper,
                               ProjectTaskMapper projectTaskMapper,
@@ -195,6 +201,9 @@ public class ProjectServiceImpl implements IProjectService {
         ProjectBO.Query query = queryBO == null ? new ProjectBO.Query() : queryBO;
         query.setStatus(normalizeProjectQueryStatus(query.getStatus()));
         query.setIncludeArchived(STATUS_ARCHIVED.equals(query.getStatus()));
+        Long currentUserId = UserUtil.getUserId();
+        query.setCurrentUserId(currentUserId);
+        query.setAdminAccess(isSystemAdmin());
         BasePage<ProjectVO> page = projectMapper.queryPageList(query.parse(), query);
         page.getRecords().forEach(this::fillProjectAccess);
         return page;
@@ -211,6 +220,7 @@ public class ProjectServiceImpl implements IProjectService {
         if (project == null) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_VALID, "Project does not exist");
         }
+        ensureProjectPermission(project, PERMISSION_VIEW_PROJECT);
         project.setLanes(projectLaneMapper.selectList(Wrappers.<ProjectLane>lambdaQuery()
                         .eq(ProjectLane::getProjectId, projectId)
                         .orderByAsc(ProjectLane::getSortOrder)
@@ -445,7 +455,7 @@ public class ProjectServiceImpl implements IProjectService {
         copyTaskFields(task, taskBO);
         task.setProjectId(projectId);
         task.setLaneId(lane.getLaneId());
-        task.setStatus(TASK_STATUS_TODO);
+        task.setStatus(laneToTaskStatus(lane));
         task.setPriority(normalizePriority(taskBO.getPriority()));
         task.setGeneratedByAi(Boolean.TRUE.equals(taskBO.getGeneratedByAi()));
         Long currentUserId = UserUtil.getUserId();
@@ -463,7 +473,9 @@ public class ProjectServiceImpl implements IProjectService {
         ProjectTask task = getProjectTask(projectId, taskBO.getTaskId());
         copyTaskFields(task, taskBO);
         if (taskBO.getLaneId() != null) {
-            task.setLaneId(getProjectLane(projectId, taskBO.getLaneId()).getLaneId());
+            ProjectLane lane = getProjectLane(projectId, taskBO.getLaneId());
+            task.setLaneId(lane.getLaneId());
+            task.setStatus(laneToTaskStatus(lane));
         }
         if (taskBO.getPriority() != null) {
             task.setPriority(normalizePriority(taskBO.getPriority()));
@@ -514,10 +526,9 @@ public class ProjectServiceImpl implements IProjectService {
     public ProjectVO moveTask(Long projectId, ProjectBO.TaskMove moveBO) {
         ensureProjectPermission(projectId, PERMISSION_MOVE_TASK);
         ProjectTask task = getProjectTask(projectId, moveBO.getTaskId());
-        task.setLaneId(getProjectLane(projectId, moveBO.getLaneId()).getLaneId());
-        if (isCompletedLane(task.getLaneId())) {
-            task.setStatus(TASK_STATUS_COMPLETED);
-        }
+        ProjectLane lane = getProjectLane(projectId, moveBO.getLaneId());
+        task.setLaneId(lane.getLaneId());
+        task.setStatus(laneToTaskStatus(lane));
         task.setUpdateUserId(UserUtil.getUserId());
         projectTaskMapper.updateById(task);
         return getProject(projectId);
@@ -707,9 +718,7 @@ public class ProjectServiceImpl implements IProjectService {
             ProjectLane lane = findLaneByKeyword(projectId, content);
             if (lane != null) {
                 task.setLaneId(lane.getLaneId());
-                if (isCompletedLane(lane.getLaneId())) {
-                    task.setStatus(TASK_STATUS_COMPLETED);
-                }
+                task.setStatus(laneToTaskStatus(lane));
                 task.setUpdateUserId(UserUtil.getUserId());
                 projectTaskMapper.updateById(task);
                 reply = "已将任务「" + task.getTitle() + "」移动到「" + lane.getName() + "」。";
@@ -1645,19 +1654,46 @@ public class ProjectServiceImpl implements IProjectService {
         }
     }
 
+    private void ensureProjectPermission(ProjectVO project, String permission) {
+        if (project == null || !hasProjectPermission(project.getProjectId(), project.getOwnerId(), permission)) {
+            throw new BusinessException(SystemCodeEnum.SYSTEM_NO_AUTH, "No project permission");
+        }
+    }
+
     private boolean hasProjectPermission(Project project, String permission) {
         if (project == null) {
             return false;
         }
+        return hasProjectPermission(project.getProjectId(), project.getOwnerId(), permission);
+    }
+
+    private boolean hasProjectPermission(Long projectId, Long ownerId, String permission) {
+        if (projectId == null) {
+            return false;
+        }
         Long currentUserId = UserUtil.getUserId();
-        if (Objects.equals(currentUserId, UserUtil.getSuperUserId())
-                || Objects.equals(project.getOwnerId(), currentUserId)) {
+        if (isSystemAdmin() || Objects.equals(ownerId, currentUserId)) {
             return true;
         }
-        ProjectVO.ProjectMemberVO member = findActiveMember(project.getProjectId(), currentUserId);
+        ProjectVO.ProjectMemberVO member = findActiveMember(projectId, currentUserId);
         return member != null
                 && member.getPermissions() != null
                 && member.getPermissions().contains(permission);
+    }
+
+    private boolean isSystemAdmin() {
+        try {
+            Long currentUserId = UserUtil.getUserId();
+            if (Objects.equals(currentUserId, UserUtil.getSuperUserId())) {
+                return true;
+            }
+            return permissionService != null
+                    && (permissionService.hasPermission("config")
+                    || permissionService.hasPermission("user")
+                    || permissionService.hasPermission("role"));
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private void fillProjectAccess(ProjectVO project) {
@@ -1832,6 +1868,21 @@ public class ProjectServiceImpl implements IProjectService {
 
     private boolean isCompletedLane(ProjectLane lane) {
         return lane != null && ("completed".equals(lane.getCode()) || "已完成".equals(lane.getName()));
+    }
+
+    private String laneToTaskStatus(ProjectLane lane) {
+        if (lane == null) {
+            return TASK_STATUS_TODO;
+        }
+        String code = StrUtil.blankToDefault(lane.getCode(), "").trim().toLowerCase(Locale.ROOT);
+        String name = StrUtil.blankToDefault(lane.getName(), "").trim();
+        if ("completed".equals(code) || "done".equals(code) || "已完成".equals(name)) {
+            return TASK_STATUS_COMPLETED;
+        }
+        if ("in-progress".equals(code) || "in_progress".equals(code) || "doing".equals(code) || "进行中".equals(name)) {
+            return TASK_STATUS_IN_PROGRESS;
+        }
+        return TASK_STATUS_TODO;
     }
 
     private ManagerUser resolveUser(Long userId) {

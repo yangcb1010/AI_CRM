@@ -28,6 +28,7 @@ import com.kakarote.ai_crm.mapper.ProjectTaskMapper;
 import com.kakarote.ai_crm.service.FileStorageService;
 import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.ISystemConfigService;
+import com.kakarote.ai_crm.service.PermissionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -47,6 +49,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -85,6 +88,9 @@ class ProjectServiceImplTest {
 
     @Mock
     private ISystemConfigService systemConfigService;
+
+    @Mock
+    private PermissionService permissionService;
 
     @Mock
     private DynamicChatClientProvider chatClientProvider;
@@ -148,6 +154,44 @@ class ProjectServiceImplTest {
         verify(projectMapper).queryPageList(any(), queryCaptor.capture());
         assertThat(queryCaptor.getValue().getStatus()).isEqualTo("ARCHIVED");
         assertThat(queryCaptor.getValue().getIncludeArchived()).isTrue();
+    }
+
+    @Test
+    void queryPageListSetsCurrentUserVisibilityScope() {
+        when(projectMapper.queryPageList(any(), any())).thenReturn(new BasePage<>(1, 15));
+
+        projectService.queryPageList(new ProjectBO.Query());
+
+        ArgumentCaptor<ProjectBO.Query> queryCaptor = ArgumentCaptor.forClass(ProjectBO.Query.class);
+        verify(projectMapper).queryPageList(any(), queryCaptor.capture());
+        assertThat(ReflectionTestUtils.getField(queryCaptor.getValue(), "currentUserId")).isEqualTo(1001L);
+        assertThat(ReflectionTestUtils.getField(queryCaptor.getValue(), "adminAccess")).isEqualTo(Boolean.FALSE);
+    }
+
+    @Test
+    void queryPageListTreatsSystemPermissionUserAsAdmin() {
+        ReflectionTestUtils.setField(projectService, "permissionService", permissionService);
+        when(permissionService.hasPermission("config")).thenReturn(true);
+        when(projectMapper.queryPageList(any(), any())).thenReturn(new BasePage<>(1, 15));
+
+        projectService.queryPageList(new ProjectBO.Query());
+
+        ArgumentCaptor<ProjectBO.Query> queryCaptor = ArgumentCaptor.forClass(ProjectBO.Query.class);
+        verify(projectMapper).queryPageList(any(), queryCaptor.capture());
+        assertThat(ReflectionTestUtils.getField(queryCaptor.getValue(), "adminAccess")).isEqualTo(Boolean.TRUE);
+    }
+
+    @Test
+    void getProjectRejectsUserWithoutProjectMembership() {
+        ProjectVO project = projectDetail(2001L);
+        project.setOwnerId(2002L);
+        when(projectMapper.getProjectById(2001L)).thenReturn(project);
+        when(jdbcTemplate.query(anyString(), any(org.springframework.jdbc.core.RowMapper.class), eq(2001L)))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> projectService.getProject(2001L))
+                .isInstanceOf(BusinessException.class);
+        verify(projectTaskMapper, never()).selectProjectTasks(any(), any());
     }
 
     @Test
@@ -371,7 +415,6 @@ class ProjectServiceImplTest {
         when(projectMapper.selectById(2001L)).thenReturn(project);
         when(projectTaskMapper.selectById(3001L)).thenReturn(task);
         when(projectLaneMapper.selectList(any())).thenReturn(List.of(todoLane, completedLane));
-        when(projectLaneMapper.selectById(30L)).thenReturn(completedLane);
         when(projectMapper.getProjectById(2001L)).thenReturn(projectDetail(2001L));
         when(projectTaskMapper.selectProjectTasks(2001L, null)).thenReturn(List.of(taskVO(3001L)));
         when(projectTaskAttachmentMapper.selectList(any())).thenReturn(List.of());
@@ -388,6 +431,41 @@ class ProjectServiceImplTest {
         verify(projectTaskMapper).updateById(taskCaptor.capture());
         assertThat(taskCaptor.getValue().getLaneId()).isEqualTo(30L);
         assertThat(taskCaptor.getValue().getStatus()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void moveTaskSetsStatusFromDestinationLane() {
+        Project project = new Project();
+        project.setProjectId(2001L);
+        project.setOwnerId(1001L);
+
+        ProjectTask task = new ProjectTask();
+        task.setTaskId(3001L);
+        task.setProjectId(2001L);
+        task.setLaneId(30L);
+        task.setStatus("COMPLETED");
+
+        ProjectLane inProgressLane = lane(20L, "in-progress", "进行中", 20);
+
+        when(projectMapper.selectById(2001L)).thenReturn(project);
+        when(projectTaskMapper.selectById(3001L)).thenReturn(task);
+        when(projectLaneMapper.selectById(20L)).thenReturn(inProgressLane);
+        when(projectMapper.getProjectById(2001L)).thenReturn(projectDetail(2001L));
+        when(projectTaskMapper.selectProjectTasks(2001L, null)).thenReturn(List.of(taskVO(3001L)));
+        when(projectTaskAttachmentMapper.selectList(any())).thenReturn(List.of());
+        when(projectAttachmentMapper.selectList(any())).thenReturn(List.of());
+        when(projectScheduleMapper.selectList(any())).thenReturn(List.of());
+
+        ProjectBO.TaskMove moveBO = new ProjectBO.TaskMove();
+        moveBO.setTaskId(3001L);
+        moveBO.setLaneId(20L);
+
+        projectService.moveTask(2001L, moveBO);
+
+        ArgumentCaptor<ProjectTask> taskCaptor = ArgumentCaptor.forClass(ProjectTask.class);
+        verify(projectTaskMapper).updateById(taskCaptor.capture());
+        assertThat(taskCaptor.getValue().getLaneId()).isEqualTo(20L);
+        assertThat(taskCaptor.getValue().getStatus()).isEqualTo("IN_PROGRESS");
     }
 
     @Test

@@ -17,6 +17,18 @@
         <if test="query.status == null and query.includeArchived != true">
             AND p.status &lt;&gt; 'ARCHIVED'
         </if>
+        <if test="query.adminAccess != true">
+            AND (
+                p.owner_id = #{query.currentUserId}
+                OR EXISTS (
+                    SELECT 1
+                    FROM crm_project_member m
+                    WHERE m.project_id = p.project_id
+                      AND m.user_id = #{query.currentUserId}
+                      AND COALESCE(m.status, 'ACTIVE') = 'ACTIVE'
+                )
+            )
+        </if>
     </sql>
 
     <select id="queryPageList" resultType="com.kakarote.ai_crm.entity.VO.ProjectVO">
