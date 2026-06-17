@@ -1703,6 +1703,7 @@ const showScrollToBottomButton = ref(false)
 const mobileKeyboardInset = ref(0)
 const nativeKeyboardInset = ref(0)
 const mobileViewportTopOffset = ref(0)
+const mobileKeyboardOpeningActive = ref(false)
 const mobilePanel = ref<'sessions' | 'chat'>('chat')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const chatInputRef = ref<HTMLTextAreaElement | null>(null)
@@ -2205,15 +2206,15 @@ onMounted(async () => {
   emitChatComposerNarrowState(true)
 
   if (typeof ResizeObserver !== 'undefined') {
-    if (chatViewRef.value) {
+    if (chatViewRef.value && typeof ResizeObserver !== 'undefined') {
       customerPanelResizeObserver = new ResizeObserver(updateCustomerPanelContainerWidth)
       customerPanelResizeObserver.observe(chatViewRef.value)
     }
-    if (chatMainAreaRef.value) {
+    if (chatMainAreaRef.value && typeof ResizeObserver !== 'undefined') {
       chatMainAreaResizeObserver = new ResizeObserver(() => emitChatComposerNarrowState())
       chatMainAreaResizeObserver.observe(chatMainAreaRef.value)
     }
-    if (messagesContainer.value) {
+    if (messagesContainer.value && typeof ResizeObserver !== 'undefined') {
       chatMessagesResizeObserver = new ResizeObserver(updateMessagesScrollbarOffset)
       chatMessagesResizeObserver.observe(messagesContainer.value)
     }
@@ -3321,18 +3322,22 @@ function updateMobileKeyboardInset() {
   )
 }
 
-function scheduleMobileKeyboardInsetUpdate() {
+function scheduleMobileKeyboardInsetUpdate(event?: Event) {
+  if (event?.type === 'focusin') {
+    mobileKeyboardOpeningActive.value = true
+  }
   if (mobileKeyboardInsetTimer != null) {
     clearTimeout(mobileKeyboardInsetTimer)
   }
   mobileKeyboardInsetTimer = setTimeout(() => {
     mobileKeyboardInsetTimer = null
     updateMobileKeyboardInset()
+    mobileKeyboardOpeningActive.value = false
   }, 0)
 }
 
 function applyNativeKeyboardInset(keyboardHeight: number) {
-  if (!isChatKeyboardFloatingEnabled.value || !isMobileComposerFocused()) return
+  if (!isChatKeyboardFloatingEnabled.value || (!isMobileComposerFocused() && !mobileKeyboardOpeningActive.value)) return
   nativeKeyboardInset.value = Math.max(0, Math.round(keyboardHeight + MOBILE_KEYBOARD_INSET_GAP_PX))
   updateMobileViewportTopOffset()
 }

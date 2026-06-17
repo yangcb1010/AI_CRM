@@ -839,14 +839,15 @@ async function completeLoginRedirect(redirectValue: unknown) {
   min-height: 100%;
   align-items: center;
   justify-content: center;
-  padding: clamp(1rem, 2vw, 2rem);
+  padding: 2rem;
 }
 
 .auth-card {
   position: relative;
   display: flex;
-  width: min(100%, 1040px);
-  max-height: calc(100vh - clamp(2rem, 4vw, 3rem));
+  width: 100%;
+  max-width: 1040px;
+  max-height: calc(100vh - 3rem);
   margin-inline: auto;
   overflow: hidden;
   border: 1px solid rgb(241 245 249);
@@ -896,7 +897,8 @@ async function completeLoginRedirect(redirectValue: unknown) {
 }
 
 .auth-form-content {
-  width: min(100%, 456px);
+  width: 100%;
+  max-width: 456px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
   --el-input-border-radius: 16px;
@@ -1251,7 +1253,8 @@ async function completeLoginRedirect(redirectValue: unknown) {
 
 .agreement-modal__panel {
   position: relative;
-  width: min(100%, 27rem);
+  width: 100%;
+  max-width: 27rem;
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 1.5rem;
   background: #fff;
@@ -1549,7 +1552,8 @@ async function completeLoginRedirect(redirectValue: unknown) {
   }
 
   .agreement-modal__panel {
-    width: min(100%, 23.5rem);
+    width: 100%;
+    max-width: 23.5rem;
     border-radius: 1.25rem;
     padding: 1.4rem;
   }

@@ -18,6 +18,12 @@ const transpiled = ts.transpileModule(source, {
 
 globalThis.window = {}
 globalThis.androidBridge = {}
+if (!globalThis.navigator) {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: {},
+    configurable: true
+  })
+}
 
 const tempDir = path.resolve('verification/.tmp')
 await mkdir(tempDir, { recursive: true })
