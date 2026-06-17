@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kakarote.ai_crm.ai.context.AiContextHolder;
 import com.kakarote.ai_crm.common.BasePage;
 import com.kakarote.ai_crm.common.exception.BusinessException;
 import com.kakarote.ai_crm.common.result.SystemCodeEnum;
@@ -47,6 +48,7 @@ import com.kakarote.ai_crm.mapper.MailSyncCursorMapper;
 import com.kakarote.ai_crm.mapper.MailSyncLogMapper;
 import com.kakarote.ai_crm.mapper.MailTemplateMapper;
 import com.kakarote.ai_crm.service.FileStorageService;
+import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.IMailService;
 import com.kakarote.ai_crm.service.support.SyncTaskExecutor;
 import com.kakarote.ai_crm.utils.MailMimeParser;
@@ -189,6 +191,9 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
 
     @Autowired
     private FileStorageService fileStorageService;
+
+    @Autowired
+    private IKnowledgeService knowledgeService;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -1302,6 +1307,10 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
         mailMessageMapper.insert(message);
 
         saveAttachments(account, message, syncedMail.attachments());
+        String knowledgeText = buildKnowledgeText(message);
+        if (StrUtil.isNotBlank(knowledgeText)) {
+            archiveMailKnowledgeAsync(account, message, knowledgeText);
+        }
         return true;
     }
 
@@ -1350,6 +1359,36 @@ public class MailServiceImpl extends ServiceImpl<MailAccountMapper, MailAccount>
         return "index=" + processedCount + "/" + totalCount
                 + ", providerMessageId=" + syncedMail.providerMessageId()
                 + ", subject=" + StrUtil.maxLength(StrUtil.blankToDefault(syncedMail.subject(), ""), 120);
+    }
+
+    private void archiveMailKnowledgeAsync(MailAccount account, MailMessage message, String knowledgeText) {
+        Long accountId = account == null ? null : account.getAccountId();
+        Long userId = account == null ? null : account.getUserId();
+        Long messageId = message.getMessageId();
+        String fileName = buildKnowledgeFileName(message);
+        String subject = StrUtil.maxLength(message.getSubject(), 500);
+        Long customerId = message.getCustomerId();
+        syncTaskExecutor.submit("mail-knowledge-archive-" + messageId, () -> {
+            if (userId != null) {
+                AiContextHolder.bindThreadContext(messageId, userId);
+            }
+            try {
+                log.info("mail knowledge archive start: accountId={}, messageId={}, subject={}",
+                        accountId, messageId, subject);
+                Long knowledgeId = knowledgeService.archiveText(fileName, knowledgeText, "email", customerId, subject);
+                MailMessage update = new MailMessage();
+                update.setMessageId(messageId);
+                update.setKnowledgeId(knowledgeId);
+                mailMessageMapper.updateById(update);
+                log.info("mail knowledge archive finished: accountId={}, messageId={}, knowledgeId={}",
+                        accountId, messageId, knowledgeId);
+            } catch (Exception e) {
+                log.warn("mail knowledge archive failed: accountId={}, messageId={}, error={}",
+                        accountId, messageId, e.getMessage(), e);
+            } finally {
+                AiContextHolder.clearThreadContext();
+            }
+        });
     }
 
     private void saveAttachments(MailAccount account, MailMessage message, List<SyncedAttachment> attachments) {
