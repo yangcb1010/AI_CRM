@@ -182,7 +182,12 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
             .bodyToMono(String.class)
             .block();
 
-        return extractDashscopeTranscript(response);
+        TranscriptionResult result = parseDashscopeTranscriptionResult(response);
+        if (result.totalTokens() != null || result.seconds() != null) {
+            log.info("AI audio transcription usage: provider=dashscope, model={}, file={}, seconds={}, promptTokens={}, completionTokens={}, totalTokens={}",
+                DASHSCOPE_TRANSCRIPTION_MODEL, filename, result.seconds(), result.promptTokens(), result.completionTokens(), result.totalTokens());
+        }
+        return result.transcript();
     }
 
     private void ensureDashscopeAudioWithinDuration(byte[] audioBytes, String filename) {
@@ -303,31 +308,120 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
         }
     }
 
-    private String extractDashscopeTranscript(String responseBody) {
+    private TranscriptionResult parseDashscopeTranscriptionResult(String responseBody) {
         try {
-            JsonNode contentNode = objectMapper.readTree(responseBody)
-                .path("choices")
-                .path(0)
-                .path("message")
-                .path("content");
-            if (contentNode.isTextual()) {
-                return contentNode.asText("").trim();
+            JsonNode root = objectMapper.readTree(responseBody);
+            String transcript = extractDashscopeTranscript(root);
+            JsonNode usageNode = root.path("usage");
+            Integer promptTokens = readPositiveJsonInt(usageNode.get("prompt_tokens"));
+            Integer completionTokens = firstPositive(
+                readPositiveJsonInt(usageNode.get("completion_tokens")),
+                readPositiveJsonInt(usageNode.path("completion_tokens_details").get("text_tokens"))
+            );
+            if (promptTokens == null) {
+                promptTokens = sumPositive(
+                    readPositiveJsonInt(usageNode.path("prompt_tokens_details").get("audio_tokens")),
+                    readPositiveJsonInt(usageNode.path("prompt_tokens_details").get("text_tokens"))
+                );
             }
-            if (contentNode.isArray()) {
-                StringBuilder builder = new StringBuilder();
-                for (JsonNode item : contentNode) {
-                    if (item.isTextual()) {
-                        builder.append(item.asText());
-                    } else if (item.hasNonNull("text")) {
-                        builder.append(item.get("text").asText());
-                    }
-                }
-                return builder.toString().trim();
+            Integer totalTokens = readPositiveJsonInt(usageNode.get("total_tokens"));
+            if (totalTokens == null && promptTokens != null && completionTokens != null) {
+                totalTokens = promptTokens + completionTokens;
             }
+            Long seconds = readPositiveJsonLong(usageNode.get("seconds"));
+            return new TranscriptionResult(transcript, promptTokens, completionTokens, totalTokens, seconds);
+        } catch (BusinessException ex) {
+            throw ex;
         } catch (Exception ex) {
             log.warn("Failed to parse DashScope transcription response: {}", ex.getMessage());
+            throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "语音识别结果为空，请重试");
         }
-        throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "音频转写结果为空");
+    }
+
+    private String extractDashscopeTranscript(JsonNode root) {
+        JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
+        if (contentNode.isTextual()) {
+            String transcript = contentNode.asText("").trim();
+            if (StrUtil.isNotBlank(transcript)) {
+                return transcript;
+            }
+        }
+        if (contentNode.isArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (JsonNode item : contentNode) {
+                if (item.isTextual()) {
+                    builder.append(item.asText());
+                } else if (item.hasNonNull("text")) {
+                    builder.append(item.get("text").asText());
+                }
+            }
+            String transcript = builder.toString().trim();
+            if (StrUtil.isNotBlank(transcript)) {
+                return transcript;
+            }
+        }
+        throw new BusinessException(SystemCodeEnum.SYSTEM_ERROR, "语音识别结果为空，请重试");
+    }
+
+    private Integer firstPositive(Integer... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Integer value : values) {
+            if (value != null && value > 0) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Integer sumPositive(Integer... values) {
+        if (values == null) {
+            return null;
+        }
+        int total = 0;
+        for (Integer value : values) {
+            if (value != null && value > 0) {
+                total += value;
+            }
+        }
+        return total > 0 ? total : null;
+    }
+
+    private Integer readPositiveJsonInt(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        if (node.isNumber()) {
+            int value = node.asInt();
+            return value > 0 ? value : null;
+        }
+        if (node.isTextual()) {
+            try {
+                int value = Integer.parseInt(node.asText().trim());
+                return value > 0 ? value : null;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private Long readPositiveJsonLong(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        if (node.isNumber()) {
+            long value = node.asLong();
+            return value > 0 ? value : null;
+        }
+        if (node.isTextual()) {
+            try {
+                long value = Long.parseLong(node.asText().trim());
+                return value > 0 ? value : null;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
     }
 
     private BusinessException toBusinessException(String responseBody) {
@@ -362,5 +456,14 @@ public class AiAudioTranscriptionServiceImpl implements AiAudioTranscriptionServ
             log.warn("Failed to parse provider error response: {}", ex.getMessage());
         }
         return "音频转写失败";
+    }
+
+    private record TranscriptionResult(
+        String transcript,
+        Integer promptTokens,
+        Integer completionTokens,
+        Integer totalTokens,
+        Long seconds
+    ) {
     }
 }
