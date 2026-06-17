@@ -55,7 +55,17 @@ public class DataPermissionServiceImpl implements DataPermissionService {
 
     @Override
     public DataPermissionContext createContext(String module) {
-        DataPermissionContext cached = DataPermissionHolder.get(module);
+        return createContextInternal(module, false);
+    }
+
+    @Override
+    public DataPermissionContext createContextByPermission(String permission) {
+        String key = "permission:" + (permission == null ? "" : permission);
+        return createContextInternal(key, true);
+    }
+
+    private DataPermissionContext createContextInternal(String scopeKey, boolean exactPermission) {
+        DataPermissionContext cached = DataPermissionHolder.get(scopeKey);
         if (cached != null) {
             return cached;
         }
@@ -63,18 +73,23 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         Long currentUserId = UserUtil.getUserId();
         if (currentUserId == null) {
             DataPermissionContext context = DataPermissionContext.none();
-            DataPermissionHolder.put(module, context);
+            DataPermissionHolder.put(scopeKey, context);
             return context;
         }
         if (isSuperAdmin(currentUserId)) {
             DataPermissionContext context = DataPermissionContext.all();
-            DataPermissionHolder.put(module, context);
+            DataPermissionHolder.put(scopeKey, context);
             return context;
         }
 
-        List<Integer> dataScopes = managerRoleMenuMapper.queryDataScopesByUserIdAndModule(currentUserId, module);
+        String permission = exactPermission && scopeKey.startsWith("permission:")
+                ? scopeKey.substring("permission:".length())
+                : scopeKey;
+        List<Integer> dataScopes = exactPermission
+                ? managerRoleMenuMapper.queryDataScopesByUserIdAndPermission(currentUserId, permission)
+                : managerRoleMenuMapper.queryDataScopesByUserIdAndModule(currentUserId, scopeKey);
         DataPermissionContext context = buildContextByScopes(currentUserId, dataScopes);
-        DataPermissionHolder.put(module, context);
+        DataPermissionHolder.put(scopeKey, context);
         return context;
     }
 
@@ -85,32 +100,6 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         }
         DataPermissionContext context = createContext(module);
         return context.isAllData() || (context.getUserIds() != null && context.getUserIds().contains(targetUserId));
-    }
-
-    @Override
-    public DataPermissionContext createContextByPermission(String permission) {
-        String key = "permission:" + (permission == null ? "" : permission);
-        DataPermissionContext cached = DataPermissionHolder.get(key);
-        if (cached != null) {
-            return cached;
-        }
-
-        Long currentUserId = UserUtil.getUserId();
-        if (currentUserId == null) {
-            DataPermissionContext context = DataPermissionContext.none();
-            DataPermissionHolder.put(key, context);
-            return context;
-        }
-        if (isSuperAdmin(currentUserId)) {
-            DataPermissionContext context = DataPermissionContext.all();
-            DataPermissionHolder.put(key, context);
-            return context;
-        }
-
-        List<Integer> dataScopes = managerRoleMenuMapper.queryDataScopesByUserIdAndPermission(currentUserId, permission);
-        DataPermissionContext context = buildContextByScopes(currentUserId, dataScopes);
-        DataPermissionHolder.put(key, context);
-        return context;
     }
 
     @Override
@@ -134,14 +123,6 @@ public class DataPermissionServiceImpl implements DataPermissionService {
         if (!hasUserDataAccessByPermission(permission, targetUserId)) {
             throw new BusinessException(SystemCodeEnum.SYSTEM_NO_AUTH);
         }
-    }
-
-    private String resolveModule(String permission) {
-        if (permission == null || permission.isBlank()) {
-            return "";
-        }
-        int separator = permission.indexOf(':');
-        return separator > 0 ? permission.substring(0, separator) : permission;
     }
 
     private DataPermissionContext buildContextByScopes(Long currentUserId, List<Integer> dataScopes) {
