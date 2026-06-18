@@ -608,11 +608,14 @@
 
           <!-- Input Area -->
           <div
-            class="wk-chat-composer-wrap relative z-[80] shrink-0 p-4 md:z-[120] md:p-8 bg-gradient-to-t from-white via-white to-transparent"
-            :class="{ 'wk-chat-composer-wrap--keyboard-open': isMobileKeyboardVisible }"
+            class="wk-chat-composer-wrap relative z-[80] shrink-0 px-2 pb-2 md:z-[120] md:pb-2"
+            :class="[
+              isCenteredEmptyChat ? 'bg-transparent pt-0' : '',
+              isMobileKeyboardVisible ? 'wk-chat-composer-wrap--keyboard-open' : ''
+            ]"
             :style="chatComposerWrapStyle"
           >
-            <div class="max-w-4xl mx-auto space-y-4" :style="chatComposerShellStyle">
+            <div class="mx-auto w-[calc(100%-20px)] max-w-4xl space-y-4 md:w-full" :style="chatComposerShellStyle">
               <div v-if="chatStore.appOptions.length > 0" class="flex flex-wrap gap-2 justify-center">
                 <button
                   v-for="app in chatStore.appOptions"
@@ -1091,7 +1094,7 @@
                     <template #reference>
                       <button
                         type="button"
-                        class="wk-mobile-composer-icon-button"
+                        class="wk-chat-upload-trigger wk-mobile-composer-icon-button"
                         :disabled="isUploading"
                         aria-label="添加附件"
                         title="添加附件"
@@ -1423,10 +1426,14 @@
       <div v-else-if="objectPanelError" class="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-400">
         {{ objectPanelError }}
       </div>
-      <CustomerChatInfoPanel
-        v-else-if="chatObjectKind === 'customer' && currentObjectId"
-        :customer-id="currentObjectId"
-      />
+      <div v-else-if="chatObjectKind === 'customer' && currentObjectId" class="h-full pr-0">
+        <CustomerDetailView
+          embedded
+          force-mobile
+          hide-embedded-follow-up-action
+          :customer-id="currentObjectId"
+        />
+      </div>
       <EmployeeChatInfoPanel
         v-else-if="chatObjectKind === 'employee' && employeeDetail"
         :employee="employeeDetail"
@@ -1501,8 +1508,11 @@
               <div v-else-if="objectPanelError" class="flex h-full items-center justify-center px-6 text-center text-sm text-slate-400">
                 {{ objectPanelError }}
               </div>
-              <CustomerChatInfoPanel
+              <CustomerDetailView
                 v-else-if="chatObjectKind === 'customer' && currentObjectId"
+                embedded
+                force-mobile
+                hide-embedded-follow-up-action
                 :customer-id="currentObjectId"
               />
               <EmployeeChatInfoPanel
@@ -1623,9 +1633,9 @@ import { getProductDetail } from '@/api/product'
 import ApiKeySetupModal from '@/components/common/ApiKeySetupModal.vue'
 import ChatKnowledgePickerModal from '@/components/chat/ChatKnowledgePickerModal.vue'
 import CustomerBasicInfoDrawer from '@/views/customer/components/CustomerBasicInfoDrawer.vue'
+import CustomerDetailView from '@/views/customer/CustomerDetailView.vue'
 import ScheduleFormDialog from '@/views/calendar/components/ScheduleFormDialog.vue'
 import TaskEditDialog from '@/views/task/components/TaskEditDialog.vue'
-import CustomerChatInfoPanel from './components/CustomerChatInfoPanel.vue'
 import EmployeeChatInfoPanel from './components/EmployeeChatInfoPanel.vue'
 import MobileChatTopHeader from './components/MobileChatTopHeader.vue'
 import ProductChatInfoPanel from './components/ProductChatInfoPanel.vue'
@@ -1883,10 +1893,10 @@ const groupedSessions = computed(() => {
 })
 
 const quickActions = [
-  { label: '创建新客户', text: '帮我创建一个新客户' },
-  { label: '查询客户状态', text: '帮我查询客户列表' },
-  { label: '生成跟进任务', text: '帮我生成跟进任务' },
-  { label: '分析本月销售目标', text: '分析本月销售目标的缺口' }
+  { label: '把今天新增但还没跟进的客户列出来', text: '把今天新增但还没跟进的客户列出来' },
+  { label: '找出快丢单的客户', text: '帮我找出快丢单的客户' },
+  { label: '筛选出高意向客户', text: '帮我筛选出高意向客户' },
+  { label: '总结本周的销售情况', text: '总结本周的销售情况，并生成销售报告' }
 ]
 
 const activeQuickActions = computed(() => {
@@ -4837,6 +4847,10 @@ function resolveChatAppIcon(code: string): string {
 
 .wk-mobile-composer-icon-button:hover {
   background: var(--wk-bg-surface-hover);
+}
+
+:global(html.dark .wk-chat-upload-trigger.wk-mobile-composer-icon-button) {
+  color: #fff;
 }
 
 .wk-mobile-composer-icon-button:active {
