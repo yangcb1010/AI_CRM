@@ -122,7 +122,7 @@ export interface ExternalAiRegisterAndSaveResult {
   apiKeyConfigured: boolean
 }
 
-export type ExternalAiPaymentChannel = 'wechat' | 'alipay'
+export type ExternalAiPaymentChannel = string
 
 export type ExternalAiPurchaseOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CLOSED' | 'EXPIRED'
 

@@ -96,11 +96,11 @@
 
         <div
           v-if="isWukongExternalProvider"
-          class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          class="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
         >
           <div class="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-4 md:flex-row md:items-center md:justify-between">
             <div class="flex min-w-0 items-center gap-3">
-              <span class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+              <span class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100">
                 <img src="/logo.png" alt="" class="size-full object-cover" />
               </span>
               <div class="min-w-0">
@@ -113,9 +113,13 @@
             <div class="flex shrink-0 flex-wrap gap-2">
               <el-tag type="primary" effect="plain">系统托管</el-tag>
               <el-tag type="success" effect="plain">无需 API Key</el-tag>
-              <el-button size="small" type="primary" plain :loading="externalAiUsageLoading" @click="openExternalAiPurchaseDialog">
+              <button
+                type="button"
+                class="inline-flex h-8 items-center rounded-md border border-blue-300 bg-white px-3 text-xs font-semibold text-blue-700 transition hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                @click="openExternalAiPurchaseDialog"
+              >
                 购买额度
-              </el-button>
+              </button>
             </div>
           </div>
 
@@ -135,7 +139,7 @@
           </div>
 
           <div v-if="isWukongMobileCompleted" class="p-5">
-            <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm md:flex-row md:items-center md:justify-between">
+            <div class="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white px-5 py-5 shadow-sm md:flex-row md:items-center md:justify-between">
               <div class="flex items-start gap-3">
                 <span class="material-symbols-outlined mt-0.5 rounded-full bg-emerald-50 p-2 text-xl text-emerald-700 ring-1 ring-emerald-100">
                   check
