@@ -3,8 +3,8 @@
 
 [![License](https://img.shields.io/badge/License-Noncommercial%20Use-blue.svg)](LICENSE)
 [![Commercial Use](https://img.shields.io/badge/Commercial%20Use-Authorization%20Required-orange.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/WuKongOpenSource/AI_CRM)](https://github.com/WuKongOpenSource/AI_CRM/stargazers)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/WuKongOpenSource/AI_CRM/pulls)
+[![GitHub Stars](https://img.shields.io/github/stars/WuKongOpenSource/Wukong-AICRM)](https://github.com/WuKongOpenSource/Wukong-AICRM/stargazers)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/WuKongOpenSource/Wukong-AICRM/pulls)
 
 **快速导航** | **Quick Nav:** [🇨🇳 中文](#-中文版--chinese) | [🇺🇸 English](docs/i18n/README.en-US.md)
 
@@ -141,8 +141,8 @@ wk_ai_crm/
 - Docker Compose
 
 ```bash
-git clone https://github.com/WuKongOpenSource/AI_CRM.git
-cd AI_CRM/docker
+git clone https://github.com/WuKongOpenSource/Wukong-AICRM.git
+cd Wukong-AICRM/docker
 docker-compose up -d
 # 访问 http://localhost 即可
 ```
@@ -160,8 +160,8 @@ docker-compose up -d
 1. 克隆项目
 
 ```bash
-git clone https://github.com/WuKongOpenSource/AI_CRM.git
-cd AI_CRM
+git clone https://github.com/WuKongOpenSource/Wukong-AICRM.git
+cd Wukong-AICRM
 ```
 
 2. 后端启动
@@ -265,7 +265,7 @@ http://localhost:8088/doc.html
 
 ### 🤝 欢迎贡献
 Wukong AICRM 正处于快速成长阶段，我们热烈欢迎任何形式的贡献！
-- 🐛 **报告问题**：使用 [GitHub Issues](https://github.com/WuKongOpenSource/AI_CRM/issues) 提交Bug或新功能建议。
+- 🐛 **报告问题**：使用 [GitHub Issues](https://github.com/WuKongOpenSource/Wukong-AICRM/issues) 提交Bug或新功能建议。
 - 🔧 **提交代码**：请阅读我们的贡献指南（待创建），了解开发流程和代码规范。
 - 📖 **完善文档**：帮助改进文档、翻译，让项目更易懂。
 - 💡 **分享想法**：在[社区论坛](https://bbs.72crm.com)分享你的使用场景或优化建议。
