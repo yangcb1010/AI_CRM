@@ -19,7 +19,7 @@ spring:
     redis:
       host: 127.0.0.1
       port: 6379
-      password: 123456
+      password: redis123!@#
       database: 7
   servlet:
     multipart:
@@ -31,11 +31,11 @@ spring:
         speech: none
         transcription: none
     openai:
-      api-key: ""
+      api-key: ${OPENAI_API_KEY:""}
       base-url: ${OPENAI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       chat:
         options:
-          model: qwen-max
+          model: ${OPENAI_MODEL:qwen-max}
           temperature: 0.7
           max-tokens: 4096
   flyway:
@@ -114,13 +114,13 @@ weknora:
   knowledge-base-id: ${WEKNORA_KNOWLEDGE_BASE_ID:}
   init-models:
     chat:
-      name: qwen-max
+      name: ${WEKNORA_CHAT_MODEL_NAME:qwen-max}
       source: remote
       provider: aliyun
       api-key: ${WEKNORA_CHAT_MODEL_API_KEY:}
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
     embedding:
-      name: text-embedding-v3
+      name: ${WEKNORA_EMBEDDING_MODEL_NAME:text-embedding-v3}
       source: remote
       provider: aliyun
       api-key: ${WEKNORA_EMBEDDING_MODEL_API_KEY:}
