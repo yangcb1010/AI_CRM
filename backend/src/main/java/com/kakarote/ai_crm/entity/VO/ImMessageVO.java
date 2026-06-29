@@ -17,4 +17,10 @@ public class ImMessageVO {
     private String attachmentMime;
     private String status;
     private Date createTime;
+    private String senderName;
+    private java.util.List<ImReactionVO> reactions;
+    private java.util.List<String> mentionedUserIds;
+    private Boolean mentionAll;
+    private String parentId;     // root message id if this is a thread reply
+    private Integer replyCount;  // for root messages
 }

@@ -3,6 +3,8 @@ package com.kakarote.ai_crm.controller;
 import cn.hutool.core.util.StrUtil;
 import com.kakarote.ai_crm.common.auth.RequirePermission;
 import com.kakarote.ai_crm.common.result.Result;
+import com.kakarote.ai_crm.entity.BO.ImChannelMembersBO;
+import com.kakarote.ai_crm.entity.BO.ImCreateChannelBO;
 import com.kakarote.ai_crm.entity.BO.ImSendMessageBO;
 import com.kakarote.ai_crm.entity.BO.UserQueryBO;
 import com.kakarote.ai_crm.entity.PO.ImConversation;
@@ -41,6 +43,9 @@ public class ImController {
     @Autowired
     private ImPresenceService presenceService;
 
+    @Autowired
+    private com.kakarote.ai_crm.service.ImReactionService reactionService;
+
     @PostMapping("/conversations/direct")
     @Operation(summary = "查找或创建与某用户的私聊会话")
     @RequirePermission("im")
@@ -57,7 +62,7 @@ public class ImController {
                                              @RequestParam(value = "beforeId", required = false) Long beforeId,
                                              @RequestParam(value = "limit", defaultValue = "30") int limit) {
         conversationService.assertMember(conversationId, UserUtil.getUserId());
-        return Result.ok(messageService.history(conversationId, beforeId, limit));
+        return Result.ok(messageService.history(conversationId, UserUtil.getUserId(), beforeId, limit));
     }
 
     @PostMapping("/messages")
@@ -112,6 +117,81 @@ public class ImController {
             list.add(vo);
         }
         return Result.ok(list);
+    }
+
+    @PostMapping("/channels")
+    @Operation(summary = "创建频道")
+    @RequirePermission("im")
+    public Result<java.util.Map<String, String>> createChannel(@RequestBody ImCreateChannelBO bo) {
+        var conv = conversationService.createChannel(
+                UserUtil.getUserId(), bo.getName(), bo.getDescription(), bo.getVisibility(), bo.getMemberIds());
+        return Result.ok(java.util.Map.of("conversationId", String.valueOf(conv.getId())));
+    }
+
+    @GetMapping("/channels/public")
+    @Operation(summary = "浏览可加入的公开频道")
+    @RequirePermission("im")
+    public Result<List<ImConversationVO>> publicChannels(@RequestParam(value = "keyword", required = false) String keyword) {
+        return Result.ok(conversationService.browsePublicChannels(UserUtil.getUserId(), keyword));
+    }
+
+    @PostMapping("/channels/{id}/join")
+    @Operation(summary = "加入公开频道")
+    @RequirePermission("im")
+    public Result<String> joinChannel(@PathVariable("id") Long id) {
+        conversationService.joinChannel(UserUtil.getUserId(), id);
+        return Result.ok("ok");
+    }
+
+    @PostMapping("/channels/{id}/leave")
+    @Operation(summary = "退出频道")
+    @RequirePermission("im")
+    public Result<String> leaveChannel(@PathVariable("id") Long id) {
+        conversationService.leaveChannel(UserUtil.getUserId(), id);
+        return Result.ok("ok");
+    }
+
+    @PostMapping("/channels/{id}/members")
+    @Operation(summary = "添加频道成员")
+    @RequirePermission("im")
+    public Result<String> addChannelMembers(@PathVariable("id") Long id, @RequestBody ImChannelMembersBO bo) {
+        conversationService.addMembers(UserUtil.getUserId(), id, bo.getUserIds());
+        return Result.ok("ok");
+    }
+
+    @GetMapping("/channels/{id}/members")
+    @Operation(summary = "频道成员列表")
+    @RequirePermission("im")
+    public Result<List<ImContactVO>> channelMembers(@PathVariable("id") Long id) {
+        Long me = UserUtil.getUserId();
+        conversationService.assertMember(id, me);
+        List<ImContactVO> out = new ArrayList<>();
+        for (Long uid : conversationService.memberUserIds(id)) {
+            com.kakarote.ai_crm.entity.PO.ManagerUser pu = manageUserService.getById(uid);
+            if (pu == null) continue;
+            ImContactVO vo = new ImContactVO();
+            vo.setUserId(String.valueOf(uid));
+            vo.setName(StrUtil.blankToDefault(pu.getRealname(), pu.getUsername()));
+            vo.setOnline(presenceService.isOnline(String.valueOf(uid)));
+            out.add(vo);
+        }
+        return Result.ok(out);
+    }
+
+    @PostMapping("/messages/{id}/reactions")
+    @Operation(summary = "切换消息表情回应")
+    @RequirePermission("im")
+    public Result<java.util.List<com.kakarote.ai_crm.entity.VO.ImReactionVO>> toggleReaction(
+            @PathVariable("id") Long messageId,
+            @RequestBody com.kakarote.ai_crm.entity.BO.ImReactionBO bo) {
+        return Result.ok(reactionService.toggle(UserUtil.getUserId(), messageId, bo.getEmoji()));
+    }
+
+    @GetMapping("/messages/{id}/thread")
+    @Operation(summary = "获取话题（根消息+回复）")
+    @RequirePermission("im")
+    public Result<List<ImMessageVO>> thread(@PathVariable("id") Long rootId) {
+        return Result.ok(messageService.getThread(rootId, UserUtil.getUserId()));
     }
 
     private Long parseLong(Object o) {

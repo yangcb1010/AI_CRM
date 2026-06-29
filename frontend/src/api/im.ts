@@ -1,5 +1,11 @@
 import { get, post } from '@/utils/request'
 
+export interface ImReaction {
+  emoji: string
+  count: number
+  mine: boolean
+}
+
 export interface ImMessage {
   id: string
   conversationId: string
@@ -12,10 +18,20 @@ export interface ImMessage {
   attachmentMime?: string | null
   status: 'normal' | 'recalled'
   createTime: string
+  senderName?: string | null
+  reactions?: ImReaction[]
+  mentionedUserIds?: string[]
+  mentionAll?: boolean
+  parentId?: string | null
+  replyCount?: number
 }
 
 export interface ImConversation {
   id: string
+  type?: 'direct' | 'channel'
+  name?: string | null
+  visibility?: 'public' | 'private' | null
+  memberCount?: number | null
   peerUserId: string
   peerName: string
   peerAvatarUrl?: string | null
@@ -40,6 +56,9 @@ export interface ImSendPayload {
   attachmentPath?: string
   attachmentSize?: number
   attachmentMime?: string
+  mentionedUserIds?: string[]
+  mentionAll?: boolean
+  parentId?: string
 }
 
 export const listConversations = () => get<ImConversation[]>('/im/conversations')
@@ -54,3 +73,23 @@ export const fetchHistory = (conversationId: string, beforeId?: string, limit = 
 export const sendMessage = (payload: ImSendPayload) => post<ImMessage>('/im/messages', payload)
 export const recallMessage = (id: string) => post<ImMessage>(`/im/messages/${id}/recall`)
 export const markRead = (conversationId: string) => post<string>(`/im/conversations/${conversationId}/read`)
+
+export interface ImCreateChannelPayload {
+  name: string
+  description?: string
+  visibility: 'public' | 'private'
+  memberIds?: string[]
+}
+
+export const createChannel = (payload: ImCreateChannelPayload) =>
+  post<{ conversationId: string }>('/im/channels', payload)
+export const browsePublicChannels = (keyword?: string) =>
+  get<ImConversation[]>('/im/channels/public', { params: keyword ? { keyword } : {} })
+export const joinChannel = (id: string) => post<string>(`/im/channels/${id}/join`)
+export const leaveChannel = (id: string) => post<string>(`/im/channels/${id}/leave`)
+export const addChannelMembers = (id: string, userIds: string[]) =>
+  post<string>(`/im/channels/${id}/members`, { userIds })
+export const listChannelMembers = (id: string) => get<ImContact[]>(`/im/channels/${id}/members`)
+export const toggleReaction = (messageId: string, emoji: string) =>
+  post<ImReaction[]>(`/im/messages/${messageId}/reactions`, { emoji })
+export const fetchThread = (rootId: string) => get<ImMessage[]>(`/im/messages/${rootId}/thread`)
