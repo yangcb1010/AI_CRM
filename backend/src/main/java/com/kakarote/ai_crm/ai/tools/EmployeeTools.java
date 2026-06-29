@@ -37,7 +37,8 @@ import java.util.stream.Collectors;
 @Component
 public class EmployeeTools {
 
-    private static final String DEFAULT_PASSWORD = "123456";
+    // 新建员工初始密码的随机字符集（去掉易混字符 0/O/1/l/I）
+    private static final String INITIAL_PASSWORD_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
 
     @Autowired
     private ManageUserService manageUserService;
@@ -164,6 +165,7 @@ public class EmployeeTools {
         int updated = 0;
         int skipped = 0;
         List<String> skipReasons = new ArrayList<>();
+        List<String> createdCredentials = new ArrayList<>();
 
         for (EmployeeImportRow row : pending.rows()) {
             UserAddBO u = row.getUser();
@@ -186,11 +188,17 @@ public class EmployeeTools {
                     manageUserService.updateUser(update);
                     updated++;
                 } else {
+                    String tempPwd = null;
                     if (StrUtil.isBlank(u.getPassword())) {
-                        u.setPassword(DEFAULT_PASSWORD);
+                        // 每个新员工独立随机初始密码，避免共享弱口令（如 123456）被批量利用
+                        tempPwd = cn.hutool.core.util.RandomUtil.randomString(INITIAL_PASSWORD_CHARS, 10);
+                        u.setPassword(tempPwd);
                     }
                     manageUserService.addUser(u);
                     created++;
+                    if (tempPwd != null) {
+                        createdCredentials.add(StrUtil.blankToDefault(u.getUsername(), "(无用户名)") + " / " + tempPwd);
+                    }
                 }
             } catch (Exception e) {
                 skipped++;
@@ -204,7 +212,10 @@ public class EmployeeTools {
         sb.append("导入完成：新建 ").append(created).append(" 人，更新 ").append(updated)
           .append(" 人，跳过 ").append(skipped).append(" 行。");
         if (created > 0) {
-            sb.append("\n新建员工的默认登录密码为 123456，请提醒他们首次登录后修改。");
+            sb.append("\n已为每位新建员工生成独立的随机初始密码，请尽快私下通知本人，并要求首次登录后立即修改：");
+            for (String cred : createdCredentials) {
+                sb.append("\n  ").append(cred);
+            }
         }
         if (!skipReasons.isEmpty()) {
             sb.append("\n跳过明细：\n").append(String.join("\n", skipReasons));
