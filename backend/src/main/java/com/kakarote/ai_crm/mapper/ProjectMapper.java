@@ -15,4 +15,7 @@ public interface ProjectMapper extends BaseMapper<Project> {
     BasePage<ProjectVO> queryPageList(IPage<ProjectVO> page, @Param("query") ProjectBO.Query query);
 
     ProjectVO getProjectById(@Param("projectId") Long projectId);
+
+    /** 当前用户有权访问（负责人或项目成员）的项目ID集合，用于行级数据隔离。 */
+    java.util.List<Long> selectAccessibleProjectIds(@Param("userId") Long userId);
 }

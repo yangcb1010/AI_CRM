@@ -15,6 +15,7 @@ import com.kakarote.ai_crm.entity.BO.TaskQueryBO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kakarote.ai_crm.entity.PO.ManagerDept;
 import com.kakarote.ai_crm.entity.PO.ProjectTask;
+import com.kakarote.ai_crm.mapper.ProjectMapper;
 import com.kakarote.ai_crm.mapper.ProjectTaskMapper;
 import com.kakarote.ai_crm.entity.VO.AddressBookDetailVO;
 import com.kakarote.ai_crm.entity.VO.AddressBookEmployeeVO;
@@ -31,12 +32,14 @@ import com.kakarote.ai_crm.service.IKnowledgeService;
 import com.kakarote.ai_crm.service.IScheduleService;
 import com.kakarote.ai_crm.service.ITaskService;
 import com.kakarote.ai_crm.service.PermissionService;
+import com.kakarote.ai_crm.utils.UserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -73,6 +76,9 @@ public class AddressBookServiceImpl implements IAddressBookService {
 
     @Autowired
     private ProjectTaskMapper projectTaskMapper;
+
+    @Autowired
+    private ProjectMapper projectMapper;
 
     @Override
     public BasePage<AddressBookEmployeeVO> queryPageList(AddressBookQueryBO queryBO) {
@@ -171,12 +177,21 @@ public class AddressBookServiceImpl implements IAddressBookService {
                 .eq(ProjectTask::getOwnerId, userId)
                 .or()
                 .like(ProjectTask::getParticipantUserIds, uid));
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        // SECURITY: 只展示「当前查看者」有权访问（负责人或成员）的项目下的任务，
+        // 否则查看某员工详情会泄露查看者本人无权进入的项目里的任务。
+        Set<Long> viewerProjectIds = new HashSet<>(projectMapper.selectAccessibleProjectIds(UserUtil.getUserId()));
         List<TaskVO> out = new ArrayList<>();
         for (ProjectTask pt : rows) {
             boolean isOwner = userId.equals(pt.getOwnerId());
             // 精确校验参与人（CSV 的 LIKE 可能误命中子串，按逗号拆分做精确匹配）
             boolean isParticipant = csvContains(pt.getParticipantUserIds(), uid);
             if (!isOwner && !isParticipant) {
+                continue;
+            }
+            if (pt.getProjectId() == null || !viewerProjectIds.contains(pt.getProjectId())) {
                 continue;
             }
             TaskVO vo = new TaskVO();

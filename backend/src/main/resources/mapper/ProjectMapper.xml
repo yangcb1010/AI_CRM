@@ -90,4 +90,11 @@
         WHERE p.project_id = #{projectId}
     </select>
 
+    <select id="selectAccessibleProjectIds" resultType="java.lang.Long">
+        SELECT project_id FROM crm_project WHERE owner_id = #{userId}
+        UNION
+        SELECT project_id FROM crm_project_member
+        WHERE user_id = #{userId} AND COALESCE(status, 'ACTIVE') = 'ACTIVE'
+    </select>
+
 </mapper>
