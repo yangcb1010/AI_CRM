@@ -52,6 +52,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '客户管理', icon: 'group', permission: 'customer:view' }
       },
       {
+        path: 'candidate',
+        name: 'CandidateList',
+        component: () => import('@/views/candidate/CandidateListView.vue'),
+        meta: { title: '人力', icon: 'badge', permission: 'candidate:view' }
+      },
+      {
+        path: 'candidate/:id',
+        name: 'CandidateDetail',
+        component: () => import('@/views/candidate/CandidateDetailView.vue'),
+        meta: { title: '候选人详情', hidden: true, permission: 'candidate:view' }
+      },
+      {
         path: 'address-book',
         name: 'AddressBook',
         component: () => import('@/views/addressBook/AddressBookListView.vue'),
@@ -90,6 +102,12 @@ const routes: RouteRecordRaw[] = [
         name: 'ProjectDetail',
         component: () => import('@/views/project/ProjectDetailView.vue'),
         meta: { title: '项目详情', hidden: true, permission: 'task' }
+      },
+      {
+        path: 'im',
+        name: 'Im',
+        component: () => import('@/views/im/ImView.vue'),
+        meta: { title: '消息', icon: 'chat', permission: 'im' },
       },
       {
         path: 'mail',
