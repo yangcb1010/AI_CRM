@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <img src="../assets/feature-summary/logo.png" width="104" alt="Wukong-AICRM Logo" />
+  <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/logo.png" width="104" alt="Wukong-AICRM Logo" />
   <h1>Wukong AICRM</h1>
   <p><strong>Salesforce + ChatGPT: AI-enabled CRM for sales, customer success, and business execution</strong></p>
 
@@ -19,14 +19,14 @@
     |
     <a href="https://bbs.72crm.com#/forum/detail/2069232286842191872"><strong>Community</strong></a>
     |
-    <a href="../README.md"><strong>中文</strong></a>
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/blob/main/README.md"><strong>中文</strong></a>
     |
     <strong>English</strong>
   </p>
 </div>
 
 <p align="center">
-  <img src="../assets/feature-summary/readme-hero.svg" alt="Wukong AICRM product hero" />
+  <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/readme-hero.svg" alt="Wukong AICRM product hero" />
 </p>
 
 | Quick links |
@@ -71,11 +71,11 @@ Wukong AICRM is available as a cloud demo and local install.
 
 | AI Assistant | Customer Profile |
 | :---: | :---: |
-| ![AI Assistant](../assets/feature-summary/03-ai-assistant-screen.png) | ![Customer Profile](../assets/feature-summary/07-customer-profile-screen.png) |
+| ![AI Assistant](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/03-ai-assistant-screen.png) | ![Customer Profile](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/07-customer-profile-screen.png) |
 
 | Task Management | Knowledge Base |
 | :---: | :---: |
-| ![Task Management](../assets/feature-summary/09-task-management-screen.png) | ![AI Knowledge Base](../assets/feature-summary/17-ai-knowledge-base-screen.png) |
+| ![Task Management](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/09-task-management-screen.png) | ![AI Knowledge Base](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/17-ai-knowledge-base-screen.png) |
 
 ## Demo Scenarios
 
@@ -83,31 +83,31 @@ Wukong AICRM is available as a cloud demo and local install.
 
 View daily priority customers, overdue tasks, and risk alerts at a glance. In customer details, AI summarizes records and follows history to suggest next best actions.
 
-![Sales Follow-up](../assets/feature-summary/n01-Sales%20Follow-up.png)
+![Sales Follow-up](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n01-Sales%20Follow-up.png)
 
 ### Supervisor Collaboration
 
 Managers can identify stalled opportunities and overdue tasks quickly, then coordinate pre-sales, success, or executives at key points.
 
-![Supervisor Collaboration](../assets/feature-summary/n02-Supervisor%20Collaboration.png)
+![Supervisor Collaboration](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n02-Supervisor%20Collaboration.png)
 
 ### Customer Success
 
 Customer success teams can proactively flag risk through interaction frequency and support issues, then arrange follow-ups and internal coordination before escalation.
 
-![Customer Success](../assets/feature-summary/n03-Customer%20Success.png)
+![Customer Success](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n03-Customer%20Success.png)
 
 ### Knowledge Reuse
 
 Turn high-quality responses, templates, proposals, and winning patterns into reusable company knowledge. New team members can reuse proven wording and playbooks consistently.
 
-![Knowledge Reuse](../assets/feature-summary/n04-Knowledge%20Reuse.png)
+![Knowledge Reuse](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n04-Knowledge%20Reuse.png)
 
 ### System Architecture
 
 AI Assistant connects customer management, knowledge retrieval, and task execution into one unified operating loop.
 
-![Overall Architecture](../assets/feature-summary/n05-Overall%20Architecture.png)
+![Overall Architecture](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n05-Overall%20Architecture.png)
 
 ```text
 ┌───────────────┐          ┌───────────────────┐
