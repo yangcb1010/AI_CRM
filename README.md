@@ -138,31 +138,31 @@
 
 销售打开工作台即可查看今日优先客户、逾期任务和风险提醒。进入客户详情后，AI 会基于客户资料、跟进记录和历史任务生成摘要，提示下一步应该发资料、约演示、补报价还是安排复访。
 
-![销售跟进](docs/assets/scenarios/n01-Sales-Follow-up.png)
+![销售跟进](docs/assets/feature-summary/n01-Sales Follow-up.png)
 
 ### 主管协同
 
 主管可以看到哪些重点客户长时间未跟进、哪些商机存在停滞风险、哪些销售任务逾期未处理，并在关键节点安排售前、客户成功或管理者介入。
 
-![主管协同](docs/assets/scenarios/n02-Supervisor-Collaboration.png)
+![主管协同](docs/assets/feature-summary/n02-Supervisor Collaboration.png)
 
 ### 客户成功
 
 客户成功团队可以通过客户互动频率、服务问题、任务逾期和沟通记录提前识别风险客户，及时安排回访、升级处理或内部协同。
 
-![客户成功](docs/assets/scenarios/n03-Customer-Success.png)
+![客户成功](docs/assets/feature-summary/n03-Customer Success.png)
 
 ### 知识复用
 
 系统可以将优秀销售的话术、方案、成交路径和行业经验沉淀到知识库中。新人面对客户问题时，可以通过 AI 调用企业知识生成更专业、更一致的回复。
 
-![知识复用](docs/assets/scenarios/n04-Knowledge-Reuse.png)
+![知识复用](docs/assets/feature-summary/n04-Knowledge Reuse.png)
 
 ## 整体架构
 
 Wukong AICRM 以 AI Assistant 为统一交互入口，把客户管理、知识库问答和任务执行连接在同一个工作流中。
 
-![整体架构](docs/assets/scenarios/n05-Overall-Architecture.png)
+![整体架构](docs/assets/feature-summary/n05-Overall Architecture.png)
 
 ```text
 ┌───────────────┐
