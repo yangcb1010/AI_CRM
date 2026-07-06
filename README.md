@@ -1,4 +1,4 @@
-<details id="readme-chinese" open>
+<details open>
 <summary><strong>中文</strong></summary>
 <div align="center">
   <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/logo.png" width="104" alt="Wukong AICRM Logo" />
@@ -40,7 +40,7 @@
   </tr>
 </table>
 
----
+<a id="readme-chinese"></a>
 
 ## 中文版
 
@@ -435,7 +435,7 @@ Wukong AICRM 源代码开放用于学习、研究、评估和其他非商业用�
   </p>
 </div></details>
 
-<details id="readme-english">
+<details>
 <summary><strong>English</strong></summary>
 <div align="center">
   <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/logo.png" width="104" alt="Wukong-AICRM Logo" />
@@ -458,7 +458,7 @@ Wukong AICRM 源代码开放用于学习、研究、评估和其他非商业用�
     |
     <a href="https://bbs.72crm.com#/forum/detail/2069232286842191872"><strong>Community</strong></a>
     |
-    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/blob/main/README.md"><strong>中文</strong></a>
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/blob/main/README.md#readme-chinese"><strong>中文</strong></a>
     |
     <strong>English</strong>
   </p>
@@ -473,6 +473,8 @@ Wukong AICRM 源代码开放用于学习、研究、评估和其他非商业用�
 | [Try It Now](#try-it-now) \| [Features](#features) \| [Screenshots](#screenshots) \| [Demo Scenarios](#demo-scenarios) \| [Architecture](#architecture) \| [Quick Start](#quick-start) \| [Configuration](#configuration) |
 
 ---
+
+<a id="readme-english"></a>
 
 ## English Edition
 
