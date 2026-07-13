@@ -1,137 +1,196 @@
-# Wukong AICRM
+﻿<div align="center">
+  <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/logo.png" width="104" alt="Wukong-AICRM Logo" />
+  <h1>Wukong AICRM</h1>
+  <p><strong>Salesforce + ChatGPT: AI-enabled CRM for sales, customer success, and business execution</strong></p>
 
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Noncommercial%20Use-blue.svg" alt="License" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/Commercial%20Use-Authorization%20Required-orange.svg" alt="Commercial Use" /></a>
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/stargazers"><img src="https://img.shields.io/github/stars/WuKongOpenSource/Wukong-AICRM?style=flat" alt="GitHub Stars" /></a>
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome" /></a>
+  </p>
 
-[![License](https://img.shields.io/badge/License-Noncommercial%20Use-blue.svg)](../../LICENSE)
-[![Commercial Use](https://img.shields.io/badge/Commercial%20Use-Authorization%20Required-orange.svg)](../../LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/WuKongOpenSource/AI_CRM)](https://github.com/WuKongOpenSource/AI_CRM/stargazers)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/WuKongOpenSource/AI_CRM/pulls)
+  <p>
+    <a href="https://www.72crm.ai/"><strong>Live Demo</strong></a>
+    |
+    <a href="#quick-start"><strong>Quick Start</strong></a>
+    |
+    <a href="#features"><strong>Features</strong></a>
+    |
+    <a href="https://bbs.72crm.com#/forum/detail/2069232286842191872"><strong>Community</strong></a>
+    |
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM/blob/main/README.md"><strong>中文</strong></a>
+    |
+    <strong>English</strong>
+  </p>
+</div>
 
-**Language:** [简体中文](../../README.md) | [English](README.en-US.md)
+<p align="center">
+  <img src="https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/readme-hero.svg" alt="Wukong AICRM product hero" />
+</p>
+
+| Quick links |
+| :--- |
+| [Try It Now](#try-it-now) \| [Features](#features) \| [Screenshots](#screenshots) \| [Demo Scenarios](#demo-scenarios) \| [Architecture](#architecture) \| [Quick Start](#quick-start) \| [Configuration](#configuration) |
 
 ---
 
-<a id="english-version"></a>
-## 🇺🇸 English Version
+## English Edition
 
-> The Open Source Salesforce + ChatGPT
->
-> Manage Customers.  
-> Query Knowledge.  
-> Execute Tasks.  
-> All Through Conversation.
+Wukong AICRM is a modern CRM platform that combines customer records, communication history, task scheduling, knowledge base, and AI-assisted operations into one workflow. It helps teams improve response speed, collaboration, and sales execution quality.
 
-### 🚀 Try It Now
-We strongly recommend you first experience the power of Wukong AICRM through the following methods.
+## Try It Now
 
-| Experience | Address/Account | Notes |
+Wukong AICRM is available as a cloud demo and local install.
+
+| Experience | Address / Account | Notes |
 | :--- | :--- | :--- |
-| **🌐 Live Demo** | [https://www.72crm.ai/](https://www.72crm.ai/) | Register a cloud account to try it |
-| **🔑 Trial Account** | Please register a new user on the cloud platform | For testing the online demo |
-| **💬 Help & Discussion** | [Community Forum](https://bbs.72crm.com#/forum/detail/2020712408698912768) | Report issues and share ideas |
+| **Live Demo** | [https://www.72crm.ai/](https://www.72crm.ai/) | Register a cloud account to try it |
+| **Trial Account** | Create a new account on the cloud platform | For testing and evaluation |
+| **Help & Discussion** | [Community Forum](https://bbs.72crm.com#/forum/detail/2069232286842191872) | Report issues and share ideas |
 
-> **Tip**: The live demo comes pre-loaded with sample data and customer information. You can log in directly and experience all core features.
+> **Tip:** The public demo contains sample data, so you can log in directly to try core features.
 
-### ✨ What Can It Do?
-Wukong AICRM is more than a traditional CRM; it‘s an AI partner that understands your business.
+## Features
 
-| Feature | Core Value |
+| Module | Core Value |
 | :--- | :--- |
-| **💬 AI Conversational Assistant** | **Ask about business like talking to a colleague**: “Who was the sales champion in East China last quarter?” The system can generate intelligent answers by combining structured data and knowledge base documents. |
-| **🧠 Knowledge Base RAG Enhancement** | **Give AI “memory”**: Upload company product manuals, contracts, meeting minutes. The AI assistant can provide precise Q&A and summaries based on these documents. |
-| **👥 Intelligent Customer Management** | **Unified customer view**: Centrally manage customer information, contacts, follow-up records, with AI automatically analyzing customer stages and needs. |
-| **✅ AI Task Generation** | **Automatically create work items**: After conversations or customer analysis, instruct AI to create to-do tasks with automatic priority and reminders. |
-| **🔗 Seamless Team Collaboration** | **Real-time information sync**: Customer updates, task assignments, and knowledge updates are instantly synchronized within the team for efficient collaboration. |
+| **AI Assistant** | Ask business questions, get guidance, and execute actions from a unified conversation entry. |
+| **Knowledge Base + RAG** | Upload manuals, contracts, meeting notes, and reuse documents for accurate Q&A and summaries. |
+| **Smart Customer Management** | Centralize customer information, contacts, follow-ups, and automatically surface intent signals. |
+| **AI Task Automation** | Convert conversations into structured tasks with priorities, reminders, and owners. |
+| **Team Collaboration** | Sync customer updates, task assignments, and knowledge in real time across teams. |
 
-### 🛠️ Technology Stack
-This is a full-stack open-source project with a modern and stable technology stack.
+## Technology Stack
+
 - **Backend**: Java 21 + Spring Boot 3.x + Spring AI + PostgreSQL + Redis + MinIO
 - **Frontend**: Vue 3 + TypeScript + Element Plus + Tailwind CSS
-- **Deployment**: Supports one-click deployment via Docker Compose with complete production environment configuration.
+- **Deployment**: Docker Compose with full production-ready environment setup
 
-### 🧩 Overall Architecture
+## Screenshots
 
-Wukong AICRM uses AI Assistant as the unified interaction layer, connecting customer management, knowledge retrieval, and task execution in one workflow.
+| AI Assistant | Customer Profile |
+| :---: | :---: |
+| ![AI Assistant](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/03-ai-assistant-screen.png) | ![Customer Profile](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/07-customer-profile-screen.png) |
+
+| Task Management | Knowledge Base |
+| :---: | :---: |
+| ![Task Management](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/09-task-management-screen.png) | ![AI Knowledge Base](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/17-ai-knowledge-base-screen.png) |
+
+## Demo Scenarios
+
+### Sales Follow-Up
+
+View daily priority customers, overdue tasks, and risk alerts at a glance. In customer details, AI summarizes records and follows history to suggest next best actions.
+
+![Sales Follow-up](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n01-Sales%20Follow-up.png)
+
+### Supervisor Collaboration
+
+Managers can identify stalled opportunities and overdue tasks quickly, then coordinate pre-sales, success, or executives at key points.
+
+![Supervisor Collaboration](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n02-Supervisor%20Collaboration.png)
+
+### Customer Success
+
+Customer success teams can proactively flag risk through interaction frequency and support issues, then arrange follow-ups and internal coordination before escalation.
+
+![Customer Success](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n03-Customer%20Success.png)
+
+### Knowledge Reuse
+
+Turn high-quality responses, templates, proposals, and winning patterns into reusable company knowledge. New team members can reuse proven wording and playbooks consistently.
+
+![Knowledge Reuse](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n04-Knowledge%20Reuse.png)
+
+### System Architecture
+
+AI Assistant connects customer management, knowledge retrieval, and task execution into one unified operating loop.
+
+![Overall Architecture](https://github.com/WuKongOpenSource/Wukong-AICRM/raw/main/docs/assets/feature-summary/n05-Overall%20Architecture.png)
 
 ```text
-┌───────────────┐
-│    User       │
-└──────┬────────┘
-       │
-       ▼
-┌───────────────┐
-│ AI Assistant  │
-└──────┬────────┘
-       │
- ┌─────┼─────┐
- │     │     │
- CRM  RAG  Workflow
- │     │     │
- └─────┼─────┘
-       │
-       ▼
- PostgreSQL
- Redis
- MinIO
+┌───────────────┐          ┌───────────────────┐
+│    Frontend   │◀───────▶│  Backend Service  │
+└───────────────┘          └─────────┬─────────┘
+                                     │
+         ┌───────────────┬───────────┴───────────┬───────────────┐
+         │               │                       │               │
+  ┌───────────────┐ ┌───────────────┐     ┌───────────────┐ ┌───────────────┐
+  │ PostgreSQL DB  │ │     Redis     │     │     MinIO     │ │   AI Gateway  │
+  └───────────────┘ └───────────────┘     └───────────────┘ └───────────────┘
 ```
-#### Backend Tech Stack Details
+
+## Architecture
+
+- **Backend**: Java 21, Spring Boot 3.x, Spring AI
+- **Frontend**: Vue 3, TypeScript, Element Plus, Tailwind CSS, Vite
+- **Deployment**: Docker Compose for one-click startup
+
+### Backend Tech Stack
+
 | Technology | Version | Purpose |
 | :--- | :--- | :--- |
 | Java | 21 | Programming Language |
 | Spring Boot | 3.3.12 | Application Framework |
-| Spring AI | 1.0.0 | AI/LLM Integration (OpenAI-compatible API) |
-| PostgreSQL | 17 | Primary Database |
+| Spring AI | 1.0.0 | AI/LLM Integration |
+| PostgreSQL | 17 | Main Database |
 | MyBatis-Plus | 3.5.7 | ORM Framework |
-| Redis | - | Cache & Session Management |
-| MinIO | - | Object Storage (for docs, files) |
+| Redis | - | Cache & Session |
+| MinIO | - | Object Storage |
 
-#### Frontend Tech Stack Details
+### Frontend Tech Stack
+
 | Technology | Version | Purpose |
 | :--- | :--- | :--- |
 | Vue | 3.4 | Frontend Framework |
 | TypeScript | 5.5 | Type Safety |
-| Element Plus | 2.8 | UI Component Library |
+| Element Plus | 2.8 | UI Library |
 | Pinia | 2.2 | State Management |
-| Tailwind CSS | 3.4 | Utility-first CSS Framework |
+| Tailwind CSS | 3.4 | Utility-first Styles |
 | Vite | 5.4 | Build Tool |
 
-### 📁 Project Structure
-```
+## Project Structure
+
+```text
 wk_ai_crm/
-├── backend/                 # Backend Spring Boot Project
-│   ├── src/main/java/       # Java Source Code
-│   ├── src/main/resources/  # Configuration Files
-│   └── pom.xml              # Maven Configuration
-├── frontend/                # Frontend Vue Project
-│   ├── src/                 # Frontend Source Code
-│   └── package.json         # npm Configuration
-├── docker/                  # Docker Deployment Configuration
-│   ├── docker-compose.yaml  # Orchestration File
-│   └── nginx/               # Nginx Configuration
-├── LICENSE.md               # License File
-└── README.md                # This Document
-
+  backend/                 # Spring Boot backend project
+    src/main/java/         # Java source
+    src/main/resources/    # Config files
+    pom.xml               # Maven config
+  frontend/                # Vue frontend project
+    src/                  # Frontend source
+    package.json          # npm config
+  docker/                  # Docker deployment files
+    docker-compose.yaml   # Compose entry
+  nginx/                   # Nginx config
+  docs/                    # Docs
+  LICENSE                  # License
+  README.md                # Project README
 ```
-### ⚡️ Quick Start
 
-We recommend using Docker one-click installation first. Use manual source installation only when you need local development or secondary development.
+## Quick Start
 
-#### Option 1: Docker One-Click Installation (Recommended)
+We recommend Docker one-click deployment first. Use manual source installation for development.
 
-Prerequisites:
+### Option 1: Docker One-Click Installation
+
+Requirements:
 
 - Docker
 - Docker Compose
 
 ```bash
-git clone https://github.com/WuKongOpenSource/AI_CRM.git
-cd AI_CRM/docker
+git clone https://github.com/WuKongOpenSource/Wukong-AICRM.git
+cd Wukong-AICRM/docker
 docker-compose up -d
-# Visit http://localhost
 ```
 
-#### Option 2: Manual Source Installation
+Access the system at `http://localhost`.
 
-Prerequisites:
+### Option 2: Local Source Installation
+
+Requirements:
 
 - JDK 21+
 - Node.js 18+
@@ -139,39 +198,41 @@ Prerequisites:
 - PostgreSQL 17
 - Redis 6+
 
-1. Clone the Repository
+1. Clone the repository
 
 ```bash
-git clone https://github.com/WuKongOpenSource/AI_CRM.git
-cd AI_CRM
+git clone https://github.com/WuKongOpenSource/Wukong-AICRM.git
+cd Wukong-AICRM
 ```
 
-2. Start the Backend
+2. Start backend
 
 ```bash
 cd backend
 mvn clean install
 mvn spring-boot:run
-# API service will run at http://localhost:8088
-# API documentation (Knife4j): http://localhost:8088/doc.html
 ```
 
-3. Start the Frontend
+Backend runs at: `http://localhost:8088`  
+API docs: `http://localhost:8088/doc.html`
+
+3. Start frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
-# Frontend will run at http://localhost:5173
 ```
 
-Configuration: Before first run, configure database, AI API keys (such as OpenAI or DeepSeek), and other required settings according to comments in `backend/src/main/resources/application.yml`.
+Frontend runs at: `http://localhost:5173`
+
+Then update `backend/src/main/resources/application.yml` for database, AI key, and required services.
 
 ## Configuration Guide
 
-Main configuration file: `backend/src/main/resources/application.yml`
+Primary configuration file: `backend/src/main/resources/application.yml`
 
-### Database Configuration
+### Database
 
 ```yaml
 spring:
@@ -181,7 +242,7 @@ spring:
     password: your_password
 ```
 
-## Redis Configuration
+### Redis
 
 ```yaml
 spring:
@@ -193,20 +254,20 @@ spring:
       database: 7
 ```
 
-## AI Service Configuration
+### AI Service
 
 ```yaml
 spring:
   ai:
     openai:
       api-key: your_api_key
-      base-url: https://api.openai.com/v1/  # Or other compatible API
+      base-url: https://api.openai.com/v1/
       chat:
         options:
           model: gpt-4
 ```
 
-## MinIO Object Storage Configuration
+### MinIO
 
 ```yaml
 minio:
@@ -217,7 +278,7 @@ minio:
   bucket: ai-crm
 ```
 
-## WeKnora Knowledge Base Service Configuration
+### WeKnora
 
 ```yaml
 weknora:
@@ -227,40 +288,66 @@ weknora:
   knowledge-base-id: your_kb_id
 ```
 
-## API Documentation
+## API Docs
 
-After starting the backend service, access the Knife4j API documentation at:
+After the backend starts:
 
-```
+```text
 http://localhost:8088/doc.html
 ```
 
-## Default Account
+## FAQ
 
-Please register a new user on the cloud platform for testing. Change the initialized administrator password immediately before production use and disable demo data if it is not needed.
+**Q: Which AI models are supported?**  
+A: Any OpenAI-compatible API model is supported, including OpenAI GPT, DeepSeek, Ollama and others. Configure your model provider and API key in Backend -> System Settings -> API/AI.
 
-## Model Configuration
+**Q: Is data safe for commercial use?**  
+A: The system can be fully self-hosted. Customer, task, and interaction data are all stored in your own infrastructure.
 
-After installation, you must go to "System Settings" -> "API/AI" to configure the AI large model by entering the corresponding API key. Otherwise, the conversation feature will fail.
+**Q: How to get help?**  
+A: Use our [Community Forum](https://bbs.72crm.com) or create an issue in GitHub.
 
----
+## Roadmap
 
-### 🤝 Welcome Contributions
-Wukong AICRM is in a rapid growth phase, and we warmly welcome contributions of all forms!
-- 🐛 **Report Issues**: Use [GitHub Issues](https://github.com/WuKongOpenSource/AI_CRM/issues) to submit bugs or feature suggestions.
-- 🔧 **Submit Code**: Pull Requests are welcome.
-- 📖 **Improve Documentation**: Help with docs or translations.
-- 💡 **Share Ideas**: Discuss in our [Community Forum](https://bbs.72crm.com).
+- AI assistant workflow enhancement
+- More AI task automation and prioritization
+- Automated AI email drafting
+- OAuth-based external integrations
+- Enhanced data migration tools
+- More modules and performance upgrades
 
-### 📄 License
-Wukong AICRM source code is available for learning, research, evaluation, and other noncommercial purposes. Commercial use, production deployment, hosted services, commercial derivative products, plugin / Agent marketplace cooperation, and brand use require separate commercial authorization. Please read [LICENSE](../../LICENSE), [LICENSE.en.md](../../LICENSE.en.md), [NOTICE](../../NOTICE), and [TRADEMARKS.md](../../TRADEMARKS.md).
+## Welcome Contributions
 
-### ❓ FAQ
-**Q: Which AI models are supported?**
-A: By default, it supports any model providing an OpenAI-compatible API (e.g., OpenAI GPT series, DeepSeek, Ollama local models). Configure the corresponding API Key in the backend “System Settings” -> “API/AI” section.
+- Report issues via [GitHub Issues](https://github.com/WuKongOpenSource/Wukong-AICRM/issues)
+- Submit pull requests
+- Improve docs and translations
+- Share ideas in the community
 
-**Q: Is data safe for commercial use?**
-A: The project can be fully self-hosted. All data (customers, documents, AI interactions) is stored on your own servers, ensuring data security.
+## Useful Links
 
-**Q: How to get more help?**
-A: You can visit the project’s [Community Forum](https://bbs.72crm.com) to ask questions or search for existing answers.
+- Official Website: [https://www.72crm.com/](https://www.72crm.com/)
+- Product Site: [https://www.72crm.ai/](https://www.72crm.ai/)
+- Download: [https://www.wukongcrm.com/](https://www.wukongcrm.com/)
+- Forum: [https://bbs.72crm.com/](https://bbs.72crm.com/)
+- GitHub: [https://github.com/WuKongOpenSource/Wukong-AICRM](https://github.com/WuKongOpenSource/Wukong-AICRM)
+- Gitee: [https://gitee.com/organizations/wukongcrm/projects](https://gitee.com/organizations/wukongcrm/projects)
+
+## License
+
+Wukong AICRM source code is open for learning, research, evaluation, and non-commercial use. Commercial deployment, hosted services, commercial derivative products, plugin/agent marketplace collaboration, and brand usage require separate commercial authorization.
+
+Please read [LICENSE](LICENSE), [LICENSE.en.md](LICENSE.en.md), [NOTICE](NOTICE), and [TRADEMARKS.md](TRADEMARKS.md).
+
+## Contact Us
+
+If you have suggestions or need enterprise support, you can contact us via Issue or pull request.
+
+<div align="center">
+  <h2>Love this project?</h2>
+  <p><strong>If Wukong AICRM helps you, please give us a ⭐️ Star.</strong></p>
+  <p>
+    <a href="https://github.com/WuKongOpenSource/Wukong-AICRM">GitHub</a> |
+    <a href="https://www.72crm.ai/">Website</a> |
+    <a href="https://bbs.72crm.com">Community</a>
+  </p>
+</div>
